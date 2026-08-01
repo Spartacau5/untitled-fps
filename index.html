@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07090d" />
+    <meta name="description" content="Playable browser game benchmarks." />
+    <title>Bench Portal</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="Bench Portal home">
+        <span class="brand-mark">BP</span>
+        <span>BENCH PORTAL</span>
+      </a>
+      <div class="status"><i></i><span id="game-count">LOADING BUILDS</span></div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">BROWSER PLAYGROUND / LIVE BUILDS</p>
+        <h1>Choose a<br /><em>benchmark.</em></h1>
+        <p class="intro">Playable experiments built to test game feel, rendering, animation and autonomous development.</p>
+      </section>
+
+      <section class="library" aria-labelledby="library-title">
+        <div class="section-heading">
+          <h2 id="library-title">Available games</h2>
+          <span>SELECT TO LAUNCH</span>
+        </div>
+        <div id="game-grid" class="game-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>WEBGL / DESKTOP RECOMMENDED</span>
+      <span>BENCH PORTAL © 2026</span>
+    </footer>
+
+    <script type="module" src="./src/catalog.js"></script>
+  </body>
+</html>
