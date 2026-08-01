@@ -132,8 +132,10 @@ function handleEnemyDeath(enemy, result) {
 
 function handlePlateBreak(enemy, plate) {
   const worldPosition = plate.getWorldPosition(new THREE.Vector3());
-  const shard = plate.clone();
-  shard.material = plate.material.clone();
+  // plate.userData.enemy is circular, and Object3D.clone() JSON-serializes
+  // userData, so the shard must be built as a fresh mesh instead of a clone.
+  const shard = new THREE.Mesh(plate.geometry, plate.material.clone());
+  shard.castShadow = true;
   shard.position.copy(worldPosition);
   shard.quaternion.copy(enemy.group.quaternion);
   scene.add(shard);
