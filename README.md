@@ -2,6 +2,9 @@
 
 Static catalog for playable browser-game benchmarks.
 
+- Cloudflare Pages: <https://bench-portal.pages.dev>
+- GitHub Pages: <https://alesha-pro.github.io/bench-portal/>
+
 ## Local preview
 
 ```bash
@@ -22,3 +25,6 @@ Cloudflare Pages settings:
 - Build command: `npm run build`
 - Build output directory: `dist`
 - Node.js version: `22`
+
+Cloudflare is connected to the GitHub `main` branch and deploys automatically.
+For a manual fallback deployment, run `npm run deploy:cloudflare`.
