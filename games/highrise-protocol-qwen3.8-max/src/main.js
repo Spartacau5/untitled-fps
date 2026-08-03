@@ -65,6 +65,7 @@ window.addEventListener('resize', () => {
 });
 
 // --------------------------------------------------------------- context ----
+const MAX_HP = 200; // player integrity pool (HUD normalizes against this)
 const ctx = {
   scene, camera, renderer,
   rng: new RNG(SEED),
@@ -76,7 +77,7 @@ const ctx = {
     register(m) { this.solidList.push(m); },
     unregister(m) { const i = this.solidList.indexOf(m); if (i >= 0) this.solidList.splice(i, 1); },
   },
-  hp: 100,
+  hp: MAX_HP,
   tmpMuzzle: new THREE.Vector3(),
   tmpPos: new THREE.Vector3(),
 };
@@ -234,11 +235,11 @@ function restart() {
   ctx.cameraRig.yaw = 0; ctx.cameraRig.pitch = -0.03;
   ctx.cameraRig.fovSpring.set(75); ctx.cameraRig.fovKick.set(0);
   ctx.cameraRig.landDip.set(0); ctx.cameraRig.dmgPitch.set(0); ctx.cameraRig.lean.set(0);
-  ctx.hp = 100;
+  ctx.hp = MAX_HP;
   ctx.input.dead = false;
   ctx.ai.reset();
   ctx.spawner.reset();
-  ctx.ui.hud.reset(0, 100, ctx.fire.mag, ctx.fire.reserve);
+  ctx.ui.hud.reset(0, MAX_HP, ctx.fire.mag, ctx.fire.reserve);
   ctx.ui.hud.setAmmo(ctx.fire.mag, ctx.fire.reserve);
   ctx.spawner.startFirstWave();
   // pointer lock was released by death — ask for re-entry cleanly
@@ -331,7 +332,7 @@ function update(dt) {
   ctx.ragdolls.update(dt);
 
   // audio + ui ---------------------------------------------------------------------
-  ctx.audio.ui.heartbeat(dt, ctx.hp);
+  ctx.audio.ui.heartbeat(dt, (ctx.hp / MAX_HP) * 100); // heartbeat expects 0-100
   ctx.ui.crosshair.update(dt, ctx);
   ctx.ui.hitmarker.update(dt);
   ctx.ui.hud.reloadProgress(ctx.reload.locking
@@ -354,7 +355,7 @@ ctx.loop = new Loop({
 });
 
 // initial HUD state
-ctx.ui.hud.reset(0, 100, ctx.fire.mag, ctx.fire.reserve);
+ctx.ui.hud.reset(0, MAX_HP, ctx.fire.mag, ctx.fire.reserve);
 ctx.ui.hud.setAmmo(ctx.fire.mag, ctx.fire.reserve);
 ctx.ui.hud.setWave(1);
 

@@ -109,6 +109,7 @@ export class HUD {
     this.punch = new Spring(420, 20, 0);
     this.hpSpring = new Spring(70, 15, 100);
     this.hpGhost = new Spring(16, 7, 100);   // slow drain ghost
+    this.maxHp = 100;
     this.scoreSpring = new Spring(120, 20, 0);
     this.vignetteSpring = new Spring(60, 13, 0);
     this.bannerT = -1;
@@ -226,13 +227,13 @@ export class HUD {
     this.el.ammoMag.style.transform = `scale(${sc})`;
     if (magShown > 5) this.el.ammoBox.classList.remove('low');
 
-    const hp = clamp(this.hpSpring.value, 0, 100);
-    this.el.hpFill.style.transform = `scaleX(${hp / 100})`;
-    this.el.hpGhost.style.transform = `scaleX(${clamp(this.hpGhost.value, 0, 100) / 100})`;
-    this.el.hpBox.classList.toggle('low', hp < 35);
+    const hp = clamp(this.hpSpring.value, 0, this.maxHp);
+    this.el.hpFill.style.transform = `scaleX(${hp / this.maxHp})`;
+    this.el.hpGhost.style.transform = `scaleX(${clamp(this.hpGhost.value, 0, this.maxHp) / this.maxHp})`;
+    this.el.hpBox.classList.toggle('low', hp < 0.35 * this.maxHp);
 
     this.el.score.textContent = Math.round(this.scoreSpring.value);
-    this.el.vignette.style.opacity = clamp(this.vignetteSpring.value * 0.14 + (hp < 35 && hp > 0 ? 0.22 + Math.sin(performance.now() * 0.006) * 0.08 : 0), 0, 0.85);
+    this.el.vignette.style.opacity = clamp(this.vignetteSpring.value * 0.14 + (hp < 0.35 * this.maxHp && hp > 0 ? 0.22 + Math.sin(performance.now() * 0.006) * 0.08 : 0), 0, 0.85);
 
     // banner slam: easeOutBack in, hold, fade out
     if (this.bannerT >= 0) {
@@ -292,6 +293,7 @@ export class HUD {
     this.scoreSpring.set(0);
     this.ammoSpring.set(mag);
     this._reserve = reserve;
+    this.maxHp = Math.max(hp, 1);
     this.hpSpring.set(hp); this.hpGhost.set(hp);
     this.vignetteSpring.set(0);
     this.bannerT = -1;

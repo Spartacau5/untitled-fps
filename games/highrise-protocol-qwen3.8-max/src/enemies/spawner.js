@@ -31,9 +31,10 @@ export class Spawner {
   _compose(n) {
     const rng = this.ctx.rng;
     const list = [];
-    const rushers = Math.min(2 + n, 8);
-    const gunners = Math.min(1 + Math.floor(n * 0.8), 6);
-    const heavies = n >= 3 ? Math.min(Math.floor((n - 1) / 2), 3) : 0;
+    // heavier from the very first wave: more pressure, faster escalation
+    const rushers = Math.min(4 + n, 10);
+    const gunners = Math.min(2 + Math.floor(n * 0.8), 7);
+    const heavies = Math.min(1 + Math.floor((n - 1) / 2), 4);
     for (let i = 0; i < rushers; i++) list.push('rusher');
     for (let i = 0; i < gunners; i++) list.push('gunner');
     for (let i = 0; i < heavies; i++) list.push('heavy');
