@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%A7%8A%3C/text%3E%3C/svg%3E">
 <style>
 /* ============ RESET / PAGE ============ */
+:root { --ui: 1; } /* HUD scale, driven by stage size in resizeGL() */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { min-height: 100%; }
 body {
@@ -41,7 +42,8 @@ body {
 
 /* ============ DOS WINDOW ============ */
 #win {
-  width: min(1020px, 98vw);
+  /* as wide as the viewport height allows, so the stage fits without scrolling */
+  width: min(1680px, 98vw, max(760px, calc((100vh - 290px) * 16 / 9)));
   margin: 14px auto 10px;
   background: #c0c0c0;
   padding: 6px;
@@ -79,14 +81,33 @@ body {
   border: 2px solid;
   border-color: #555 #fff #fff #555;
   overflow: hidden;
+  aspect-ratio: 16 / 9;
 }
 #hud, #overlay, #loading { line-height: normal; }
 #gl {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   image-rendering: pixelated;
   cursor: crosshair;
+}
+
+/* ============ MAXIMIZED / RECORDING MODE ============ */
+body.maxed { padding: 0; overflow: hidden; }
+body.maxed #topbar, body.maxed #footer { display: none; }
+body.maxed #win {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-width: 0;
+  box-shadow: none;
+}
+body.maxed #stage {
+  flex: 1;
+  aspect-ratio: auto;
+  min-height: 0;
 }
 
 /* ============ CRT FX ============ */
@@ -119,36 +140,42 @@ body {
   mix-blend-mode: difference;
   box-shadow: 0 0 4px #000;
 }
-#cross::before { width: 17px; height: 2px; left: -8px; top: -1px; }
-#cross::after  { width: 2px; height: 17px; left: -1px; top: -8px; }
+#cross::before {
+  width: calc(17px * var(--ui)); height: calc(2px * var(--ui));
+  left: calc(-8px * var(--ui)); top: calc(-1px * var(--ui));
+}
+#cross::after {
+  width: calc(2px * var(--ui)); height: calc(17px * var(--ui));
+  left: calc(-1px * var(--ui)); top: calc(-8px * var(--ui));
+}
 #debug {
   position: absolute; top: 8px; left: 10px;
-  font-size: 11px; line-height: 1.6;
+  font-size: calc(11px * var(--ui)); line-height: 1.6;
   color: #7dff8a; text-shadow: 0 0 6px #0f0;
   white-space: pre;
 }
 #blockName {
-  position: absolute; bottom: 86px; left: 0; right: 0;
+  position: absolute; bottom: calc(86px * var(--ui)); left: 0; right: 0;
   text-align: center;
-  font-size: 12px; font-weight: bold; letter-spacing: 3px;
+  font-size: calc(12px * var(--ui)); font-weight: bold; letter-spacing: 3px;
   color: #ff9df0; text-shadow: 0 0 8px #ff2975;
 }
 #hotbar {
-  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 5px; pointer-events: auto;
+  position: absolute; bottom: calc(10px * var(--ui)); left: 50%; transform: translateX(-50%);
+  display: flex; gap: calc(5px * var(--ui)); pointer-events: auto;
 }
 .slot {
   position: relative;
-  width: 52px; height: 52px;
+  width: calc(52px * var(--ui)); height: calc(52px * var(--ui));
   background: #23233a;
   border: 2px solid; border-color: #555 #fff #fff #555;
   display: grid; place-items: center;
   cursor: pointer;
 }
-.slot canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+.slot canvas { width: calc(36px * var(--ui)); height: calc(36px * var(--ui)); image-rendering: pixelated; }
 .slot .key {
   position: absolute; top: 1px; right: 4px;
-  font-size: 10px; font-weight: bold; color: #9ff;
+  font-size: calc(10px * var(--ui)); font-weight: bold; color: #9ff;
 }
 .slot.sel {
   background: #3c3c60;
@@ -317,6 +344,7 @@ body {
           <span class="k">1 – 8 / WHEEL</span><span>pick block</span>
           <span class="k">SHIFT</span><span>sprint</span>
           <span class="k">F</span><span>toggle fly</span>
+          <span class="k">V</span><span>maximize / fullscreen</span>
           <span class="k">M</span><span>music on/off</span>
           <span class="k">R</span><span>respawn</span>
           <span class="k">ESC</span><span>pause</span>
@@ -834,8 +862,30 @@ function initGL() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  proj = persp(1.15, 960 / 540, 0.08, 300);
+  resizeGL();
   gl.clearColor(0.02, 0.008, 0.04, 1);
+}
+
+/* ---------------- viewport sizing ----------------
+   The stage is fluid now, so the drawing buffer, the projection and the sky
+   aspect all follow the CSS box instead of a baked 960x540.                */
+let VIEW_W = 960, VIEW_H = 540, ASPECT = 960 / 540;
+const MAX_BUFFER_W = 2560; // keep the fill rate sane on 4K / hidpi screens
+
+function resizeGL() {
+  const c = $('gl');
+  const cw = c.clientWidth || 960, ch = c.clientHeight || 540;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let bw = Math.max(1, Math.round(cw * dpr));
+  let bh = Math.max(1, Math.round(ch * dpr));
+  if (bw > MAX_BUFFER_W) { bh = Math.max(1, Math.round(bh * MAX_BUFFER_W / bw)); bw = MAX_BUFFER_W; }
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  VIEW_W = bw; VIEW_H = bh; ASPECT = bw / bh;
+  proj = persp(1.15, ASPECT, 0.08, 300);
+  if (gl) gl.viewport(0, 0, bw, bh);
+  document.documentElement.style.setProperty('--ui', (clamp(cw / 960, 1, 1.75)).toFixed(3));
+  const badge = $('bRes');
+  if (badge) badge.textContent = bw + ' x ' + bh;
 }
 
 function drawParts(parts) {
@@ -1025,7 +1075,7 @@ let target = null;
 function render(t) {
   const e = eyePos();
   const view = makeView(e, player.yaw, player.pitch);
-  gl.viewport(0, 0, 960, 540);
+  gl.viewport(0, 0, VIEW_W, VIEW_H);
   gl.enable(gl.DEPTH_TEST);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -1039,7 +1089,7 @@ function render(t) {
   gl.uniform3f(S.u.right, cy, 0, fy);
   gl.uniform3f(S.u.up, cp * fy * sp, cp * cp, -cp * cy * sp);
   gl.uniform1f(S.u.tan, Math.tan(1.15 / 2));
-  gl.uniform1f(S.u.aspect, 960 / 540);
+  gl.uniform1f(S.u.aspect, ASPECT);
   gl.uniform1f(S.u.time, t * 0.001);
   gl.bindBuffer(gl.ARRAY_BUFFER, triVbo);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
@@ -1126,6 +1176,7 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   keys.add(e.code);
+  if (e.code === 'KeyV') { toggleMaxed(); return; } // works paused too, unlike the rest
   if (!playing) return;
   if (e.code === 'KeyF') {
     player.fly = !player.fly;
@@ -1255,6 +1306,44 @@ $('bY2k').addEventListener('click', () => say('THE Y2K BUG DID NOTHING. WE CHECK
 $('bConstr').addEventListener('click', () => say('FOREVER UNDER CONSTRUCTION. THAT IS THE POINT.'));
 $('bGuest').addEventListener('click', () => say('GUESTBOOK: STILL UNDER CONSTRUCTION. COME BACK NEVER.'));
 $('bWebring').addEventListener('click', () => say('FORM SUBMITTED TO THE RETRO WEBRING. (IT WAS NOT.)'));
+/* ---------------- maximize / recording mode ----------------
+   The □ button really maximizes now: the page chrome folds away, the window
+   takes the whole viewport, and we ask for real fullscreen on top of that so
+   a screen capture gets the full display.                                   */
+function isMaxed() { return document.body.classList.contains('maxed'); }
+
+function applyMaxed(on) {
+  document.body.classList.toggle('maxed', on);
+  $('tMax').textContent = on ? '❐' : '□';
+  $('tMax').title = on ? 'restore' : 'maximize';
+  resizeGL();                     // now, so the buffer never lags a frame behind
+  requestAnimationFrame(resizeGL); // and again once a fullscreen transition settles
+}
+
+function toggleMaxed() {
+  const on = !isMaxed();
+  applyMaxed(on);
+  if (on) {
+    const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    if (r && r.catch) r.catch(() => {}); // denied fullscreen still leaves us maximized
+    say('MAXIMIZED. 800x600 WAS A PHASE.');
+  } else {
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    say('BACK IN THE BOX.');
+  }
+}
+
+/* leaving fullscreen by ESC or the system UI must not strand the maxed layout */
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && isMaxed()) applyMaxed(false);
+  else requestAnimationFrame(resizeGL);
+});
+window.addEventListener('resize', resizeGL);
+/* the canvas box also changes without a window resize — browser zoom, devtools,
+   fullscreen transitions — so watch the element itself. No feedback loop: we only
+   touch the drawing buffer, never the CSS box. */
+if (window.ResizeObserver) new ResizeObserver(() => resizeGL()).observe($('gl'));
+
 $('mFile').addEventListener('click', () => say('FILE NOT FOUND. THE GRID REMEMBERS.'));
 $('mEdit').addEventListener('click', () => say('CANCEL.'));
 $('mView').addEventListener('click', () => {
@@ -1262,9 +1351,9 @@ $('mView').addEventListener('click', () => {
   say('SCANLINES ' + ($('stage').classList.contains('noscan') ? 'OFF' : 'ON'));
 });
 $('mBlocks').addEventListener('click', () => say('USE THE HOTBAR, CHIEF: [1]-[8] OR WHEEL.'));
-$('mHelp').addEventListener('click', () => say('WASD+MOUSE. L-CLICK MINE. R-CLICK BUILD. F FLY. ESC PAUSE.'));
+$('mHelp').addEventListener('click', () => say('WASD+MOUSE. L-CLICK MINE. R-CLICK BUILD. F FLY. V FULLSCREEN. ESC PAUSE.'));
 $('tMin').addEventListener('click', () => say("YOU CAN'T MINIMIZE THE TRUTH."));
-$('tMax').addEventListener('click', () => say('ALREADY MAXIMIZED. 800x600 OR NOTHING.'));
+$('tMax').addEventListener('click', toggleMaxed);
 $('tX').addEventListener('click', () => say('NICE TRY. THIS WINDOW IS LOAD-BEARING.'));
 $('sbAudio').addEventListener('click', toggleAudio);
 
