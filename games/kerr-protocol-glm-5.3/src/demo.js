@@ -102,6 +102,25 @@ const look = (k, v) => setFeat(k, v);
 const temp = (K) => setFeat('demoTmax', K);
 const spin = (a) => { setParam('spin', a); R.resetHistory(); };
 
+// ---- laboratory frames -------------------------------------------------
+// The self-test (T) renders a specific frame per check: a bare silhouette on a
+// gradient sky, the disk in vacuum, a single beacon star behind the hole. Those
+// frames are the most unsettling images this renderer produces, so the reel
+// plays them as-is, through the very hook the test uses.
+const lab = (o) => window.__applyCfg({
+  spin: 0.9, camR: 25, camInc: 81 * deg, fov: 55 * deg,
+  disk: true, jet: false, nebula: false, stars: false,
+  gradientSky: false, testStar: false, fixedTime: 0, ...o,
+});
+const labOff = () => {
+  setFeat('testActive', false);
+  setFeat('spinOverride', null);
+  setFeat('fixedTime', null);
+  reset();
+};
+// console-log styling for the captions, so they read as instrument output
+const line = (verdict, name, detail) => `${verdict}  ${name}\n      ${detail}`;
+
 const reset = () => {
   ['gl-split', 'gl-hot', 'gl-cold', 'gl-invert', 'gl-shake'].forEach((c) => canvas.classList.remove(c));
   scan.classList.remove('on');
@@ -160,8 +179,49 @@ const REEL = [
   [200, () => { spin(0.9); say('SPIN  a = 0.900', 480); }],
   [700, () => { spin(0.999); say('SPIN  a = 0.999  ·  ISCO 1.18 M', 900); blink(80); }],
 
+  // --- laboratory: the self-test's own frames ---------------------------
+  // T1 — the silhouette alone: no disk, no stars, a 10-degree lens on a
+  // gradient sky. Nothing but the hole in the image.
+  [900, () => { lab({ spin: 0, camR: 60, camInc: 90 * deg, fov: 10 * deg, disk: false, gradientSky: true });
+                say(line('MEASURE', 'T1 shadow radius', 'b = 3√3 M = 5.196 M'), 900); }],
+  [700, () => { lab({ spin: 0, camR: 42, camInc: 90 * deg, fov: 16 * deg, disk: false, gradientSky: true }); }],
+  // T2 — the same frame at a=0 and a=0.9, alternating: the shadow breathes
+  // asymmetric as frame dragging turns on and off.
+  [220, () => { lab({ spin: 0, camR: 30, camInc: 90 * deg, fov: 50 * deg, disk: false, gradientSky: true });
+                say(line('MEASURE', 'T2 frame dragging', 'mirror MAD  a=0: 0.25%   a=0.9: 8.10%'), 1800); }],
+  [220, () => lab({ spin: 0.9, camR: 30, camInc: 90 * deg, fov: 50 * deg, disk: false, gradientSky: true })],
+  [220, () => lab({ spin: 0, camR: 30, camInc: 90 * deg, fov: 50 * deg, disk: false, gradientSky: true })],
+  [220, () => lab({ spin: 0.999, camR: 30, camInc: 90 * deg, fov: 50 * deg, disk: false, gradientSky: true })],
+  [420, () => { lab({ spin: 0.999, camR: 22, camInc: 90 * deg, fov: 38 * deg, disk: false, gradientSky: true }); fx('gl-split', 200); }],
+  // T8 — one beacon star directly behind the hole, then walked off-axis:
+  // the ring closes, then breaks into a single lensed arc.
+  // The beacon needs the accumulator to build before the arc separates from
+  // the noise floor, so these beats hold longer than the rest of the reel.
+  [900, () => { lab({ camR: 25, camInc: 90 * deg, fov: 26 * deg, spin: 0.4, disk: false, stars: true, testStar: true, testStarAngle: 80 * deg });
+                say(line('MEASURE', 'T8 lensed image', 'one source behind the hole  ·  β = 80°'), 1100); }],
+  [900, () => lab({ camR: 25, camInc: 90 * deg, fov: 26 * deg, spin: 0.4, disk: false, stars: true, testStar: true, testStarAngle: 50 * deg })],
+  [1100, () => { lab({ camR: 25, camInc: 90 * deg, fov: 26 * deg, spin: 0.4, disk: false, stars: true, testStar: true, testStarAngle: 20 * deg });
+                 say(line('MEASURE', 'T8 lensed image', 'β → 0  ·  the arc closes into a ring'), 1100); }],
+  // T3 — the disk alone, in vacuum: no sky, no stars, only the flow.
+  [800, () => { lab({ spin: 0.9, camR: 20, camInc: 81 * deg, fov: 56 * deg, disk: true, fixedTime: 3.0 });
+                say(line('MEASURE', 'T3 Doppler beaming', 'approaching / receding = 11.9×'), 900); }],
+  // T4 — spin steps while only the disk is lit: the inner edge jumps inward.
+  [420, () => { lab({ spin: 0, camR: 22, camInc: 80 * deg, fov: 55 * deg, disk: true, fixedTime: 5.0 });
+                say(line('MEASURE', 'T4 ISCO tracking', 'a = 0.000   ISCO = 6.000 M'), 700); }],
+  [420, () => { lab({ spin: 0.9, camR: 22, camInc: 80 * deg, fov: 55 * deg, disk: true, fixedTime: 5.0 });
+                say(line('MEASURE', 'T4 ISCO tracking', 'a = 0.900   ISCO = 2.320 M'), 700); }],
+  [300, () => { lab({ spin: 0.999, camR: 22, camInc: 80 * deg, fov: 55 * deg, disk: true, fixedTime: 5.0 }); blink(60); }],
+  // instrument failure: the debug outputs, raw
+  [130, () => { setFeat('debugDir', 1); say('RAY DIRECTION MAP', 400); fx('gl-shake', 260); }],
+  [130, () => { setFeat('debugDir', 3); scan.classList.add('on'); }],
+  [110, () => { setFeat('debugDir', 0); fx('gl-invert', 110); blink(70); }],
+  // the sky alone, lensed, at close range — no disk to hide behind
+  [700, () => { labOff(); reset(); setFeat('diskOn', false); setFeat('jetOn', false); pose(8.5, 84, 30, 60);
+                say(line('TRACE', 'null geodesics only', 'disk off  ·  sky lensed by the metric alone'), 900); }],
+  [420, () => { pose(6.4, 86, 64, 62); fx('gl-split', 160); }],
+
   // --- breath: one clean frame, let it converge --------------------------
-  [1500, () => { reset(); spin(0.9); pose(23.5, 81, -20, 56); say('', 1); }],
+  [1500, () => { labOff(); reset(); spin(0.9); pose(23.5, 81, -20, 56); say('', 1); }],
   [1400, () => drift(21.5, 79, 26, 55)],
 
   // --- inclination whip --------------------------------------------------
