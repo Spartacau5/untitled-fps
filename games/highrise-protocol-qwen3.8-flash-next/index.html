@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HIGHRISE PROTOCOL</title>
+<link rel="icon" href="data:,">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  :root {
+    --accent: #ffb347;
+    --danger: #ff3b30;
+    --hud: #e8eef2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070a; }
+  body { font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--hud); user-select: none; -webkit-user-select: none; }
+  canvas { display: block; position: fixed; inset: 0; }
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  .hidden { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; inset: 0; }
+  #ammo { position: absolute; right: 44px; bottom: 38px; text-align: right; line-height: .9; }
+  #ammo .mag { font-size: 64px; font-weight: 800; letter-spacing: -2px; text-shadow: 0 3px 14px rgba(0,0,0,.7); font-variant-numeric: tabular-nums; display: inline-block; }
+  #ammo .reserve { font-size: 30px; font-weight: 700; opacity: .85; margin-left: 6px; }
+  #ammo .label { font-size: 11px; letter-spacing: 4px; opacity: .55; margin-top: 2px; }
+  #health { position: absolute; left: 44px; bottom: 44px; width: 300px; }
+  #health .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+  #health .fill { height: 100%; width: 100%; background: linear-gradient(90deg,#7de08a,#38b24a); border-radius: 4px; }
+  #health .hp { font-size: 12px; letter-spacing: 3px; opacity: .6; margin-bottom: 5px; }
+  #topbar { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); text-align: center; }
+  #topbar .wave { font-size: 13px; letter-spacing: 6px; opacity: .7; }
+  #topbar .wave b { font-size: 26px; letter-spacing: 1px; }
+  #topbar .score { font-size: 30px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #combo { position: absolute; top: 110px; left: 50%; transform: translateX(-50%); text-align: center; font-weight: 900; font-size: 34px; color: var(--accent); opacity: 0; text-shadow: 0 0 18px rgba(255,179,71,.7); }
+  #combo .mult { font-size: 14px; letter-spacing: 5px; display: block; opacity: .8; }
+  #killfeed { position: absolute; top: 26px; right: 36px; text-align: right; font-size: 14px; }
+  #killfeed .kf { margin-bottom: 6px; padding: 5px 10px; background: rgba(8,10,14,.55); border-right: 3px solid var(--accent); border-radius: 3px; font-weight: 600; white-space: nowrap; }
+  #killfeed .kf.hs { border-right-color: var(--danger); color: #ffb0aa; }
+  #announcer { position: absolute; top: 34%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-weight: 900; font-size: 60px; letter-spacing: 4px; color: #fff; text-shadow: 0 0 30px rgba(255,120,40,.85), 0 6px 20px rgba(0,0,0,.8); opacity: 0; white-space: nowrap; }
+  #wavebanner { position: absolute; top: 26%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-weight: 900; font-size: 46px; letter-spacing: 10px; color: var(--accent); text-shadow: 0 0 34px rgba(0,0,0,.9); opacity: 0; }
+  #wavebanner small { display: block; font-size: 14px; letter-spacing: 8px; color: #fff; opacity: .75; margin-top: 4px; }
+  #odglow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,120,30,.32) 100%); }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+  #crosshair .ch { position: absolute; background: #fff; box-shadow: 0 0 2px rgba(0,0,0,.9); opacity: .95; }
+  #crosshair .dot { left: -1.5px; top: -1.5px; width: 3px; height: 3px; border-radius: 50%; }
+  #crosshair .up { width: 2px; height: 9px; } #crosshair .dn { width: 2px; height: 9px; }
+  #crosshair .lf { width: 9px; height: 2px; } #crosshair .rt { width: 9px; height: 2px; }
+
+  #hitmarker { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
+  #hitmarker .hm { position: absolute; width: 14px; height: 3px; background: #fff; }
+  #hitmarker .hm.a { transform: translate(-13px,-13px) rotate(45deg); }
+  #hitmarker .hm.b { transform: translate(1px,-13px) rotate(-45deg); }
+  #hitmarker .hm.c { transform: translate(-13px,11px) rotate(-45deg); }
+  #hitmarker .hm.d { transform: translate(1px,11px) rotate(45deg); }
+  #hitmarker.kill .hm { background: var(--danger); }
+
+  #dmgvignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 42%, rgba(170,10,0,.55) 100%); }
+  #odglow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,120,30,.4) 100%); mix-blend-mode: screen; }
+  #dmgdirs { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+  #dmgdirs .arc { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; }
+  #prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 14px; letter-spacing: 2px; background: rgba(8,10,14,.6); padding: 7px 14px; border-radius: 6px; opacity: 0; }
+  #prompt b { color: var(--accent); }
+  #god-badge { position: absolute; left: 44px; bottom: 82px; font-size: 11px; letter-spacing: 3px; color: var(--accent); border: 1px solid rgba(255,179,71,.6); padding: 3px 8px; border-radius: 3px; opacity: .9; }
+  #scorefly { position: absolute; left: 50%; top: 50%; font-size: 22px; font-weight: 800; color: #fff; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+
+  /* ---------- Screens ---------- */
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
+  #start { background: radial-gradient(ellipse at 50% 40%, #1a2536 0%, #05070a 75%); }
+  #start h1 { font-size: 74px; font-weight: 900; letter-spacing: 8px; color: #fff; text-shadow: 0 0 40px rgba(255,140,40,.5); }
+  #start h1 span { color: var(--accent); }
+  #start .sub { margin: 10px 0 34px; letter-spacing: 6px; font-size: 13px; opacity: .6; }
+  .btn { pointer-events: auto; cursor: pointer; border: 0; border-radius: 8px; padding: 16px 54px; font-size: 18px; font-weight: 800; letter-spacing: 4px; color: #0a0c10; background: linear-gradient(180deg, #ffd08a, var(--accent)); box-shadow: 0 8px 28px rgba(255,150,50,.35); transition: transform .12s ease, box-shadow .12s ease; margin: 6px; font-family: inherit; }
+  .btn:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 34px rgba(255,150,50,.5); }
+  .btn.ghost { background: transparent; color: var(--hud); border: 1px solid rgba(255,255,255,.25); box-shadow: none; }
+  .btn.ghost.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 18px rgba(255,179,71,.35); }
+  #controls-hint { position: fixed; right: 26px; bottom: 26px; z-index: 21; width: 320px; background: rgba(8,11,16,.88); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 16px 20px; font-size: 13px; line-height: 2; }
+  #controls-hint h3 { font-size: 11px; letter-spacing: 4px; opacity: .55; margin-bottom: 6px; }
+  #controls-hint kbd { display: inline-block; min-width: 22px; text-align: center; background: rgba(255,255,255,.12); border-radius: 4px; padding: 1px 6px; font-family: inherit; font-size: 12px; margin-right: 2px; }
+  #pause { background: rgba(5,7,10,.72); backdrop-filter: blur(6px); }
+  #pause h2, #dead h2 { font-size: 46px; letter-spacing: 10px; margin-bottom: 26px; }
+  #dead { background: radial-gradient(ellipse at center, rgba(60,8,4,.6), rgba(5,7,10,.94) 70%); }
+  #dead h2 { color: var(--danger); }
+  #dead .stats, #tally .stats { font-size: 16px; line-height: 2; opacity: .8; margin-bottom: 24px; text-align: center; }
+  #tally { background: transparent; pointer-events: none; }
+  #tally .card { background: rgba(12,16,22,.82); border: 1px solid rgba(255,179,71,.3); border-radius: 14px; padding: 38px 70px; text-align: center; transform: scale(.6); opacity: 0; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
+  #tally .card h2 { font-size: 26px; letter-spacing: 8px; color: var(--accent); margin-bottom: 18px; }
+  #tally .row { display: flex; justify-content: space-between; gap: 70px; font-size: 15px; line-height: 2.4; }
+  #tally .row b { font-variant-numeric: tabular-nums; }
+  #selftest { position: fixed; left: 26px; top: 26px; z-index: 30; background: rgba(8,11,16,.92); border-radius: 8px; padding: 12px 16px; font-size: 12px; line-height: 1.8; font-family: ui-monospace, Menlo, monospace; border: 1px solid rgba(255,255,255,.12); }
+  #selftest .ok { color: #6fe08a; } #selftest .bad { color: #ff6b60; }
+  #debug { position: fixed; left: 0; top: 0; z-index: 25; background: rgba(6,8,12,.88); padding: 12px 16px; font: 12px/1.7 ui-monospace, Menlo, monospace; white-space: pre; border-bottom-right-radius: 8px; color: #9fe8c8; }
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 40; }
+</style>
+</head>
+<body>
+  <div id="ui">
+    <div id="hud" class="hidden">
+      <div id="crosshair">
+        <div class="ch dot"></div><div class="ch up"></div><div class="ch dn"></div><div class="ch lf"></div><div class="ch rt"></div>
+      </div>
+      <div id="hitmarker"><div class="hm a"></div><div class="hm b"></div><div class="hm c"></div><div class="hm d"></div></div>
+      <div id="dmgdirs"></div>
+      <div id="dmgvignette"></div>
+      <div id="odglow"></div>
+      <div id="ammo"><span class="mag">30</span><span class="reserve">∞</span><div class="label">7.62 · MK-47</div></div>
+      <div id="health"><div class="hp">VITALS</div><div class="bar"><div class="fill"></div></div></div>
+      <div id="god-badge" class="hidden">GOD MODE</div>
+      <div id="topbar"><div class="wave">WAVE <b id="wave-num">1</b></div><div class="score" id="score-num">0</div></div>
+      <div id="combo"><span class="mult">COMBO</span><span class="cnt">×0</span></div>
+      <div id="killfeed"></div>
+      <div id="wavebanner"></div>
+      <div id="announcer"></div>
+      <div id="prompt"><b>SPACE</b> MANTLE</div>
+      <div id="scorefly">+0</div>
+    </div>
+
+    <div id="start" class="screen">
+      <h1>HIGHRISE <span>PROTOCOL</span></h1>
+      <div class="sub">WAVE SURVIVAL · FLOOR 47 · SUNSET</div>
+      <div>
+        <button class="btn" id="btn-start">START</button>
+        <button class="btn ghost" id="btn-god">GOD MODE: OFF</button>
+      </div>
+      <div class="sub" style="margin-top:26px;opacity:.35">PRESS START · MOUSE LOOK · WASD</div>
+    </div>
+
+    <div id="pause" class="screen hidden">
+      <h2>PAUSED</h2>
+      <div class="sub" style="letter-spacing:4px;opacity:.5;margin-bottom:22px;font-size:13px">CLICK ANYWHERE TO RESUME · L TOGGLES QUALITY · ESC QUITS TO MENU</div>
+      <button class="btn" id="btn-resume">RESUME</button>
+      <button class="btn ghost" id="btn-quit">ABANDON RUN</button>
+    </div>
+
+    <div id="tally" class="screen hidden">
+      <div class="card" id="tally-card">
+        <h2 id="tally-title">WAVE 1 CLEARED</h2>
+        <div id="tally-rows"></div>
+      </div>
+    </div>
+
+    <div id="dead" class="screen hidden">
+      <h2>K.I.A.</h2>
+      <div class="stats" id="dead-stats"></div>
+      <button class="btn" id="btn-retry">RETURN TO MENU</button>
+    </div>
+
+    <div id="controls-hint" class="hidden">
+      <h3>FIELD MANUAL</h3>
+      <div><kbd>WASD</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Shift×2</kbd> tac-sprint</div>
+      <div><kbd>Ctrl</kbd> slide (sprinting) / crouch (hold)</div>
+      <div><kbd>Space</kbd> jump / mantle · <kbd>Q</kbd><kbd>E</kbd> lean</div>
+      <div><kbd>LMB</kbd> fire · <kbd>RMB</kbd> ADS · <kbd>R</kbd> reload · <kbd>I</kbd> inspect</div>
+      <div><kbd>T</kbd> ADS self-test · <kbd>`</kbd> debug · <kbd>L</kbd> quality</div>
+    </div>
+    <div id="selftest" class="hidden"></div>
+    <div id="debug" class="hidden"></div>
+    <div id="fade"></div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
