@@ -970,14 +970,18 @@ function physics(dt) {
   if (br) acc += vf > 0.3 ? -40 : (vf > -12 ? -9 : 0);
   acc -= 0.004 * vf * Math.abs(vf) + 0.12 * vf;
   vf += acc * dt;
-  const grip = hb ? 1.7 : 9.5;
+  const grip = hb ? 0.55 : 4.2;
   vl *= Math.exp(-grip * dt);
-  if (hb) vf *= Math.exp(-0.3 * dt);
+  if (hb) vf *= Math.exp(-0.12 * dt);
   const maxSteer = 0.62 / (1 + spd * 0.075);
   const steer = maxSteer * st;
   let w = (vf / 2.6) * Math.tan(steer) * (hb ? 1.35 : 1);
-  const maxYaw = (hb ? 1.05 : 0.72) * Math.min(2.6, 13 / Math.max(spd, 4.5));
+  const maxYaw = (hb ? 1.6 : 0.72) * Math.min(2.6, 13 / Math.max(spd, 4.5));
   w = THREE.MathUtils.clamp(w, -maxYaw, maxYaw);
+  if (hb && th && Math.abs(st) > 0 && spd > 4) {
+    const kick = st * Math.min(9, spd * 0.55);
+    if (Math.abs(vl) < Math.abs(kick)) vl += (kick - vl) * Math.min(1, dt * 10);
+  }
   slip = Math.atan2(vl, Math.max(2, Math.abs(vf)));
   w += (hb ? 0.9 : 2.6) * slip * clamp01(spd / 6);
   state.h -= w * dt;
@@ -1183,7 +1187,7 @@ function tick() {
     const sub = 2, sdt = dt / sub;
     for (let i = 0; i < sub; i++) physics(sdt);
     spd = Math.hypot(state.vx, state.vz);
-    drifting = Math.abs(slip) > 0.22 && spd > 7;
+    drifting = Math.abs(slip) > 0.16 && spd > 5;
     trafficTick(dt);
     updateSmoke(dt);
 
