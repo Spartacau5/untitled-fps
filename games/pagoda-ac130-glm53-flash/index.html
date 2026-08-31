@@ -2254,7 +2254,99 @@ function initArsenal() {
     if (AR_pMesh.instanceColor) AR_pMesh.instanceColor.needsUpdate = true;
   }
 
+  // ---- procedural weapon audio (WebAudio; starts after first user gesture) ----
+  let AR_audio = null;
+  let AR_master = null;
+  let AR_audioSeed = 0xAC130;
+
+  function AR_randAudio() {
+    AR_audioSeed = (Math.imul(1664525, AR_audioSeed) + 1013904223) >>> 0;
+    return AR_audioSeed / 4294967296;
+  }
+
+  function AR_audioInit() {
+    if (!AR_audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      AR_audio = new AC();
+      const comp = AR_audio.createDynamicsCompressor();
+      comp.threshold.value = -10; comp.knee.value = 12; comp.ratio.value = 8;
+      comp.attack.value = 0.002; comp.release.value = 0.22;
+      AR_master = AR_audio.createGain();
+      AR_master.gain.value = 0.72;
+      AR_master.connect(comp).connect(AR_audio.destination);
+    }
+    if (AR_audio.state === 'suspended') AR_audio.resume();
+    return AR_audio;
+  }
+
+  function AR_tone(f0, f1, dur, vol, type = 'sine', delay = 0) {
+    const ac = AR_audioInit(); if (!ac) return;
+    const now = ac.currentTime + delay;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(Math.max(1, f0), now);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), now + dur);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(vol, now + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o.connect(g).connect(AR_master); o.start(now); o.stop(now + dur + 0.02);
+  }
+
+  function AR_noise(dur, vol, cutoff, delay = 0, highpass = 0) {
+    const ac = AR_audioInit(); if (!ac) return;
+    const now = ac.currentTime + delay;
+    const n = Math.max(64, Math.ceil(ac.sampleRate * dur));
+    const buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (AR_randAudio() * 2 - 1) * (1 - i / n * 0.35);
+    const src = ac.createBufferSource(), lp = ac.createBiquadFilter();
+    const hp = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; lp.type = 'lowpass'; lp.frequency.value = cutoff;
+    hp.type = 'highpass'; hp.frequency.value = highpass;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(vol, now + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    src.connect(lp).connect(hp).connect(g).connect(AR_master);
+    src.start(now); src.stop(now + dur + 0.02);
+  }
+
+  function AR_audioShot(w) {
+    const n = w.name;
+    if (n.indexOf('25MM') >= 0) {
+      AR_noise(0.055, 0.18, 7500, 0, 900); AR_tone(135, 62, 0.095, 0.24, 'square');
+      AR_tone(920, 410, 0.035, 0.045, 'sawtooth', 0.012);
+    } else if (n.indexOf('40MM') >= 0) {
+      AR_noise(0.22, 0.34, 2600, 0, 70); AR_tone(92, 34, 0.34, 0.52, 'sine');
+      AR_tone(210, 72, 0.12, 0.18, 'triangle', 0.015);
+    } else if (n.indexOf('70MM') >= 0) {
+      AR_noise(0.55, 0.25, 4200, 0, 180); AR_tone(78, 42, 0.65, 0.35, 'sawtooth');
+      AR_tone(420, 125, 0.32, 0.08, 'triangle', 0.04);
+    } else if (n.indexOf('NUKE') >= 0) {
+      AR_noise(0.9, 0.30, 1800, 0, 40); AR_tone(54, 24, 1.1, 0.62, 'sawtooth');
+      AR_tone(180, 48, 0.55, 0.18, 'triangle', 0.06);
+    }
+  }
+
+  function AR_audioImpact(w) {
+    const n = w.name;
+    if (n.indexOf('25MM') >= 0) {
+      AR_noise(0.035, 0.07, 9000, 0, 1800); AR_tone(260, 120, 0.045, 0.05, 'square');
+    } else if (n.indexOf('40MM') >= 0) {
+      AR_noise(0.38, 0.30, 1900, 0, 35); AR_tone(76, 27, 0.48, 0.48, 'sine');
+      AR_noise(0.15, 0.12, 6000, 0.02, 800);
+    } else if (n.indexOf('70MM') >= 0) {
+      AR_noise(0.85, 0.45, 2200, 0, 25); AR_tone(68, 19, 1.05, 0.65, 'sine');
+      AR_tone(135, 34, 0.42, 0.22, 'sawtooth', 0.025);
+    } else if (n.indexOf('NUKE') >= 0) {
+      AR_noise(2.8, 0.72, 1700, 0, 12); AR_noise(0.09, 0.52, 11000, 0, 700);
+      AR_tone(48, 14, 3.2, 0.90, 'sine'); AR_tone(82, 19, 1.5, 0.52, 'sawtooth', 0.08);
+      AR_tone(61, 16, 1.8, 0.42, 'sine', 0.28); AR_noise(1.35, 0.32, 850, 0.42, 8);
+      AR_tone(39, 12, 2.4, 0.55, 'triangle', 0.58);
+    }
+  }
+
   function AR_explode(p, w) {
+    AR_audioImpact(w);
     if (state.destruction) state.destruction.hit(p, w.blast, w.dmg, w.power, w.name);
   }
 
@@ -2262,6 +2354,7 @@ function initArsenal() {
     if (!point || typeof point.x !== 'number') return;
     if (AR_reloading[AR_sel] || AR_ammo[AR_sel] <= 0) return;
     AR_ammo[AR_sel]--;
+    AR_audioShot(AR_WEAPONS[AR_sel]);
     AR_muz.set(-4.5, -2.2, 1.8).applyQuaternion(AR_gs.group.quaternion).add(AR_gs.pos);
     AR_spawnProj(AR_muz, point);
     if (AR_ammo[AR_sel] <= 0) {
