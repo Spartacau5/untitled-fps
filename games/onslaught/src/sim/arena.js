@@ -24,6 +24,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { mulberry32 } from "../core/rng.js";
 import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { NOISE_GLSL } from "../render/shaders/noise.glsl.js";
+import { applySurfaceGrime } from "../render/shaders/surface.js";
 import { theme } from "../theme/theme.js";
 
 export class BoxCollider {
@@ -62,63 +63,85 @@ export class Arena {
   }
   _materials() {
     const t = this.timeUniform;
+    const a = theme.arena;
     this.mats = {
       wall: new MeshStandardMaterial({
-        color: 4607322,
+        color: a.concrete,
         roughness: 0.65,
         metalness: 0.2,
       }),
       dark: new MeshStandardMaterial({
-        color: 3488580,
+        color: a.dark,
         roughness: 0.75,
         metalness: 0.1,
       }),
       pillar: new MeshStandardMaterial({
-        color: 4080976,
+        color: a.pillar,
         roughness: 0.6,
         metalness: 0.25,
       }),
       crate: new MeshStandardMaterial({
-        color: 4475733,
+        color: a.crate,
         roughness: 0.7,
         metalness: 0.2,
       }),
       barrier: new MeshStandardMaterial({
-        color: 4870491,
+        color: a.barrier,
         roughness: 0.6,
         metalness: 0.25,
       }),
+      // emissive material names are historical; colors come from theme
       emCyan: new MeshStandardMaterial({
         color: 0,
-        emissive: 4644095,
-        emissiveIntensity: 1.5,
+        emissive: a.accentHot,
+        emissiveIntensity: 1.4,
         roughness: 1,
         metalness: 0,
       }),
       emCyanDim: new MeshStandardMaterial({
         color: 0,
-        emissive: 2792640,
+        emissive: a.accentDim,
         emissiveIntensity: 0.8,
         roughness: 1,
         metalness: 0,
       }),
       emOrange: new MeshStandardMaterial({
         color: 0,
-        emissive: 16738842,
+        emissive: a.hazard,
         emissiveIntensity: 1.6,
         roughness: 1,
         metalness: 0,
       }),
       emWhite: new MeshStandardMaterial({
         color: 0,
-        emissive: 16773853,
+        emissive: a.white,
         emissiveIntensity: 1.2,
         roughness: 1,
         metalness: 0,
       }),
     };
+    applySurfaceGrime(this.mats.wall, {
+      scale: 0.3,
+      streaks: 1.0,
+      key: "grimeWall",
+    });
+    applySurfaceGrime(this.mats.dark, {
+      scale: 0.3,
+      streaks: 0.8,
+      key: "grimeDark",
+    });
+    applySurfaceGrime(this.mats.pillar, {
+      scale: 0.45,
+      streaks: 1.0,
+      key: "grimePillar",
+    });
+    applySurfaceGrime(this.mats.barrier, {
+      scale: 0.6,
+      streaks: 0.4,
+      key: "grimeBarrier",
+    });
     const e = new MeshStandardMaterial({
-      color: 3818064,
+      color: a.floor,
       roughness: 0.5,
       metalness: 0.3,
     });
@@ -158,7 +181,7 @@ ${NOISE_GLSL}`,
           vec2 cellId = floor(tile);
           float cellVar = hash21(cellId) * 0.25;
           diffuseColor.rgb *= (0.8 + 0.4 * wear + cellVar) * (1.0 - 0.35 * sub) * (1.0 - 0.45 * grime);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.018, 0.025), gap);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.05, 0.045), gap);
           float ring = smoothstep(0.12, 0.0, abs(fr - (ARENA_RADIUS - 0.9)));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02), ring);
         `.replace("ARENA_RADIUS", ARENA_RADIUS.toFixed(1)),
@@ -177,8 +200,8 @@ ${NOISE_GLSL}`,
           float pulse = 0.5 + 0.5 * sin(fr * 0.55 - uTime * 2.2);
           pulse = pulse * pulse * pulse;
           float ripple = smoothstep(0.9, 1.0, 1.0 - abs(fract(fr * 0.08 - uTime * 0.07) - 0.5) * 2.0);
-          totalEmissiveRadiance += vec3(0.15, 0.75, 1.0) * gap * (0.05 + 0.25 * pulse + 0.3 * ripple);
-          totalEmissiveRadiance += vec3(0.2, 0.8, 1.0) * ring * 1.0;
+          totalEmissiveRadiance += ${theme.arena.accentHotVec} * 0.35 * gap * (0.05 + 0.25 * pulse + 0.3 * ripple);
+          totalEmissiveRadiance += ${theme.arena.accentHotVec} * ring * 0.6;
           totalEmissiveRadiance += vec3(1.0, 0.45, 0.15) * smoothstep(0.985, 1.0, hash21(cellId + 0.5)) * (1.0 - gap) * (0.5 + 0.5 * sin(uTime * 3.0 + hash21(cellId) * 20.0)) * 0.35;
         `,
           )));
@@ -486,8 +509,8 @@ ${NOISE_GLSL}`,
           float edge = smoothstep(0.07, 0.0, 0.5 - hexDist(hc.xy));
           float wave = pow(0.5 + 0.5 * sin(rr * 1.4 - uTime * 2.5), 3.0);
           float flick = smoothstep(0.75, 1.0, noise2(hc.zw * 0.35 + uTime * 0.5));
-          vec3 col = vec3(0.2, 0.85, 1.0) * (edge * (0.1 + wave * 0.4) + flick * 0.15);
-          col += vec3(0.6, 0.95, 1.0) * smoothstep(0.35, 0.0, rr) * (0.4 + 0.3 * sin(uTime * 2.0));
+          vec3 col = ${theme.arena.accentHotVec} * (edge * (0.1 + wave * 0.4) + flick * 0.15);
+          col += ${theme.arena.hazardVec} * smoothstep(0.35, 0.0, rr) * (0.4 + 0.3 * sin(uTime * 2.0));
           float a = clamp(edge * 0.9 + flick * 0.5, 0.0, 1.0) * smoothstep(7.0, 6.2, rr);
           gl_FragColor = vec4(col * a, a);
         }
@@ -640,6 +663,8 @@ ${NOISE_GLSL}`,
       ((n.activity = Math.max(0, n.activity - e * 1.2)),
         (n.mat.uniforms.uActivity.value = n.activity),
         (n.light.intensity =
-          40 + n.activity * 120 + Math.sin(t * 7 + n.angle) * 6));
+          theme.lights.gate.intensity +
+          n.activity * 120 +
+          Math.sin(t * 7 + n.angle) * 6));
   }
 }
