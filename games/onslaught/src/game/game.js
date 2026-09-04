@@ -102,12 +102,26 @@ export class Game {
         },
       )),
       (this.postfx = new PostFX(n)));
-    const r = new DirectionalLight(12571903, 1.8);
+    const r = new DirectionalLight(
+      theme.lights.weaponKey.color,
+      theme.lights.weaponKey.intensity,
+    );
     (r.position.copy(SUN_DIR).multiplyScalar(10),
       this.weaponScene.add(r),
       this.weaponScene.add(r.target),
-      this.weaponScene.add(new HemisphereLight(2768230, 723208, 1.1)));
-    const a = new PointLight(6222591, 1.2, 4, 2);
+      this.weaponScene.add(
+        new HemisphereLight(
+          theme.lights.weaponHemi.sky,
+          theme.lights.weaponHemi.ground,
+          theme.lights.weaponHemi.intensity,
+        ),
+      ));
+    const a = new PointLight(
+      theme.lights.weaponFill.color,
+      theme.lights.weaponFill.intensity,
+      4,
+      2,
+    );
     (a.position.set(-0.6, -0.3, -0.6),
       this.weaponCamera.add(a),
       (this.muzzleLight = new PointLight(16752704, 0, 20, 2)),
@@ -169,12 +183,14 @@ export class Game {
     e.add(new Mesh(this.sky.mesh.geometry, this.sky.mesh.material));
     const n = new Mesh(
       new PlaneGeometry(600, 600),
-      new MeshBasicMaterial({ color: 461069 }),
+      new MeshBasicMaterial({ color: theme.arena.floor }),
     );
     ((n.rotation.x = -Math.PI / 2), (n.position.y = -0.5), e.add(n));
     const s = new Mesh(
       new TorusGeometry(38, 1.2, 8, 64),
-      new MeshBasicMaterial({ color: new Color(0.3, 1.2, 1.6) }),
+      new MeshBasicMaterial({
+        color: new Color(theme.arena.accentHot).multiplyScalar(1.4),
+      }),
     );
     ((s.rotation.x = Math.PI / 2), (s.position.y = 3.4), e.add(s));
     for (const a of this.arena.gates) {
@@ -187,8 +203,9 @@ export class Game {
     const r = t.fromScene(e, 0.04, 0.1, 1500);
     ((this.scene.environment = r.texture),
       (this.weaponScene.environment = r.texture),
-      (this.scene.environmentIntensity = 0.8),
-      (this.weaponScene.environmentIntensity = 0.9),
+      (this.scene.environmentIntensity = theme.lights.envIntensity.world),
+      (this.weaponScene.environmentIntensity =
+        theme.lights.envIntensity.weapon),
       t.dispose());
   }
   _buildPickupProto() {

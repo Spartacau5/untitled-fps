@@ -24,6 +24,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { mulberry32 } from "../core/rng.js";
 import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { NOISE_GLSL } from "../render/shaders/noise.glsl.js";
+import { theme } from "../theme/theme.js";
 
 export class BoxCollider {
   constructor(t, e, n, s, r, a, l) {
@@ -255,7 +256,12 @@ ${NOISE_GLSL}`,
           (nt.rotation.y = q),
           t.add(nt));
         const _t = new Vector3(-Math.cos(U), 0, -Math.sin(U)),
-          Lt = new PointLight(16738850, 40, 26, 2);
+          Lt = new PointLight(
+            theme.lights.gate.color,
+            theme.lights.gate.intensity,
+            26,
+            2,
+          );
         (Lt.position.set(
           Math.cos(U) * (ARENA_RADIUS - 2.2),
           3.2,
@@ -325,7 +331,12 @@ ${NOISE_GLSL}`,
     v(p, e.pillar);
     for (let z = 0; z < 4; z++) {
       const U = (z / 4) * Math.PI * 2 + Math.PI / 4,
-        H = new PointLight(10475775, 28, 40, 2);
+        H = new PointLight(
+          theme.lights.perimeter.color,
+          theme.lights.perimeter.intensity,
+          40,
+          2,
+        );
       (H.position.set(Math.cos(U) * 27, 6.5, Math.sin(U) * 27), t.add(H));
     }
     v(f, e.emCyan, !1);
@@ -388,7 +399,10 @@ ${NOISE_GLSL}`,
         A++);
     }
     (v(_, e.crate), v(L, (this.rng() > 0.5, e.emCyanDim), !1));
-    const S = new DirectionalLight(13622527, 3.6);
+    const S = new DirectionalLight(
+      theme.lights.sun.color,
+      theme.lights.sun.intensity,
+    );
     (S.position.copy(SUN_DIR).multiplyScalar(90),
       (S.castShadow = !0),
       S.shadow.mapSize.set(2048, 2048),
@@ -404,13 +418,13 @@ ${NOISE_GLSL}`,
       t.add(S),
       t.add(S.target),
       (this.sun = S));
-    const y = new HemisphereLight(5927072, 3025448, 1.9);
+    const y = new HemisphereLight(
+      theme.lights.hemi.sky,
+      theme.lights.hemi.ground,
+      theme.lights.hemi.intensity,
+    );
     t.add(y);
-    const P = new PointLight(6222591, 30, 30, 2);
-    (P.position.set(0, 5, 0),
-      t.add(P),
-      (this.centerLight = P),
-      (t.fog = new FogExp2(1055276, 0.008)));
+    t.fog = new FogExp2(theme.lights.fog.color, theme.lights.fog.density);
   }
   _place(t, e, n, s) {
     const r = new Matrix4().makeRotationY(s).setPosition(e, 0, n);
@@ -627,6 +641,5 @@ ${NOISE_GLSL}`,
         (n.mat.uniforms.uActivity.value = n.activity),
         (n.light.intensity =
           40 + n.activity * 120 + Math.sin(t * 7 + n.angle) * 6));
-    this.centerLight.intensity = 26 + Math.sin(t * 2) * 6;
   }
 }
