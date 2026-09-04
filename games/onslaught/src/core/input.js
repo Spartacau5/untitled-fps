@@ -14,6 +14,12 @@ export class Input {
       (this.onLockChange = null),
       (this.onKeyDown = null),
       window.addEventListener("keydown", (e) => {
+        const typing =
+          e.target &&
+          (e.target.tagName === "INPUT" ||
+            e.target.tagName === "TEXTAREA" ||
+            e.target.isContentEditable);
+        if (typing) return;
         e.repeat ||
           (this.keys.add(e.code),
           this.pressed.add(e.code),
