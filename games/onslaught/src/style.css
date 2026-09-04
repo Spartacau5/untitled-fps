@@ -1,11 +1,12 @@
 :root {
-  --ui: #eef4ff;
-  --dim: rgba(238, 244, 255, 0.55);
-  --accent: #5ef2ff;
-  --warn: #ff9d3c;
-  --danger: #ff3b3b;
-  --font-ui: "Rajdhani", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
-  --font-title: "Orbitron", "Impact", "Arial Black", sans-serif;
+  --ui: #141210;
+  --paper: rgba(245, 238, 225, 0.86);
+  --dim: rgba(20, 18, 16, 0.6);
+  --accent: #ff5a1f;
+  --warn: #d9771b;
+  --danger: #b8231c;
+  --font-ui: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-title: "Big Shoulders Stencil Text", "Impact", "Arial Black", sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -17,7 +18,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #05070c;
+  background: #d8cbb3;
 }
 body {
   font-family: var(--font-ui);
@@ -42,6 +43,8 @@ canvas#game {
   pointer-events: none;
   overflow: hidden;
 }
+
+/* ---- crosshair / hitmarker: ink with a thin paper outline so it reads on both sky and shadow ---- */
 .crosshair {
   position: absolute;
   left: 50%;
@@ -52,10 +55,8 @@ canvas#game {
 }
 .ch-line {
   position: absolute;
-  background: #fff;
-  box-shadow:
-    0 0 4px #000000e6,
-    0 0 1px #000;
+  background: #141210;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
   border-radius: 1px;
 }
 .ch-t,
@@ -88,9 +89,9 @@ canvas#game {
   top: -1.5px;
   width: 3px;
   height: 3px;
-  background: #fff;
+  background: #141210;
   border-radius: 50%;
-  box-shadow: 0 0 3px #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
 }
 .hitmarker {
   position: absolute;
@@ -104,17 +105,17 @@ canvas#game {
   position: absolute;
   width: 2.5px;
   height: 11px;
-  background: #fff;
-  box-shadow: 0 0 4px #000000e6;
+  background: #141210;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
   border-radius: 1px;
 }
 .hitmarker.kill .hm {
-  background: #ff4a3a;
-  box-shadow: 0 0 6px #ff4a3ae6;
+  background: var(--accent);
+  box-shadow: none;
 }
 .hitmarker.head .hm {
-  background: #ffc857;
-  box-shadow: 0 0 6px #ffc857e6;
+  background: var(--warn);
+  box-shadow: none;
 }
 .hm-1 {
   transform: translate(-9px, -16px) rotate(-45deg);
@@ -143,10 +144,11 @@ canvas#game {
   height: 120px;
   border-radius: 50%;
   border: 6px solid transparent;
-  border-top-color: #ff2828f2;
+  border-top-color: #b8231cf2;
   opacity: 0.95;
-  filter: drop-shadow(0 0 6px rgba(255, 0, 0, 0.8));
 }
+
+/* ---- HUD panels: paper cards with an accent rule ---- */
 .hud-bl {
   position: absolute;
   left: 34px;
@@ -154,6 +156,9 @@ canvas#game {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: var(--paper);
+  padding: 14px 18px;
+  border-left: 4px solid var(--accent);
 }
 .hp-label {
   font-size: 12px;
@@ -165,23 +170,20 @@ canvas#game {
 .hp-bar {
   width: 260px;
   height: 7px;
-  background: #ffffff1f;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  transform: skew(-18deg);
+  background: rgba(20, 18, 16, 0.12);
+  border: 1px solid rgba(20, 18, 16, 0.4);
   overflow: hidden;
 }
 .hp-fill {
   height: 100%;
   width: 100%;
-  background: linear-gradient(90deg, #7ef7ff, #e6fbff);
-  box-shadow: 0 0 10px #5ef2ffb3;
+  background: var(--ui);
   transition:
     width 0.12s linear,
     background 0.3s;
 }
 .hp-fill.low {
-  background: linear-gradient(90deg, #ff2b2b, #ff8a5c);
-  box-shadow: 0 0 12px #ff2b2bcc;
+  background: var(--danger);
 }
 .stat-row {
   display: flex;
@@ -202,13 +204,15 @@ canvas#game {
   font-size: 24px;
   font-weight: 800;
   line-height: 1;
-  text-shadow: 0 0 12px rgba(94, 242, 255, 0.35);
 }
 .hud-br {
   position: absolute;
   right: 36px;
   bottom: 30px;
   text-align: right;
+  background: var(--paper);
+  padding: 14px 18px;
+  border-right: 4px solid var(--accent);
 }
 .wpn-name {
   font-size: 14px;
@@ -228,7 +232,6 @@ canvas#game {
   font-weight: 900;
   line-height: 1;
   letter-spacing: -1px;
-  text-shadow: 0 0 18px rgba(94, 242, 255, 0.35);
   transition: color 0.2s;
 }
 .ammo-mag.low {
@@ -248,7 +251,7 @@ canvas#game {
   font-family: var(--font-title);
   font-size: 26px;
   font-weight: 700;
-  color: #eef4ffcc;
+  color: var(--dim);
 }
 .wpn-slots {
   display: flex;
@@ -259,7 +262,7 @@ canvas#game {
 .slot {
   width: 22px;
   height: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(20, 18, 16, 0.35);
   font-size: 13px;
   font-weight: 700;
   display: flex;
@@ -270,7 +273,7 @@ canvas#game {
 .slot.active {
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: 0 0 8px #5ef2ff80;
+  background: rgba(255, 90, 31, 0.12);
 }
 .fire-mode {
   font-size: 11px;
@@ -288,13 +291,15 @@ canvas#game {
   right: 36px;
   top: 26px;
   text-align: right;
+  background: var(--paper);
+  padding: 14px 18px;
+  border-right: 4px solid var(--accent);
 }
 .score {
   font-family: var(--font-title);
   font-size: 30px;
   font-weight: 800;
   letter-spacing: 1px;
-  text-shadow: 0 0 14px rgba(94, 242, 255, 0.4);
 }
 .feed {
   display: flex;
@@ -307,18 +312,17 @@ canvas#game {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 1px;
-  background: #00000059;
+  background: var(--paper);
+  color: var(--ui);
   padding: 2px 10px;
   border-right: 3px solid var(--accent);
   animation: feedin 0.25s ease-out;
 }
 .feed-item.head {
-  border-right-color: #ffc857;
-  color: #ffe1a0;
+  border-right-color: var(--warn);
 }
 .feed-item.wave {
-  border-right-color: var(--warn);
-  color: #ffd7b0;
+  border-right-color: var(--danger);
 }
 @keyframes feedin {
   0% {
@@ -330,6 +334,8 @@ canvas#game {
     transform: none;
   }
 }
+
+/* ---- banners / hints / popups ---- */
 .banner {
   position: absolute;
   left: 0;
@@ -351,34 +357,34 @@ canvas#game {
   font-size: 64px;
   font-weight: 900;
   letter-spacing: 8px;
-  text-shadow:
-    0 0 30px rgba(94, 242, 255, 0.5),
-    0 2px 0 #000;
+  color: #141210;
+  background: var(--paper);
+  display: inline-block;
+  padding: 6px 28px;
 }
 .banner-main.danger {
-  color: #ff5d3a;
-  text-shadow:
-    0 0 30px rgba(255, 93, 58, 0.6),
-    0 2px 0 #000;
+  color: var(--danger);
 }
 .banner-sub {
   font-size: 20px;
   letter-spacing: 6px;
-  color: var(--dim);
+  color: #141210;
   font-weight: 600;
   margin-top: 4px;
 }
 .hint {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 50%;
   bottom: 20%;
+  transform: translateX(-50%);
   text-align: center;
   font-size: 17px;
   letter-spacing: 4px;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 0 10px #000;
+  color: #141210;
+  background: var(--paper);
+  display: inline-block;
+  padding: 4px 16px;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -386,7 +392,7 @@ canvas#game {
   opacity: 1;
 }
 .hint.warn {
-  color: var(--warn);
+  color: var(--danger);
 }
 .popups {
   position: absolute;
@@ -401,16 +407,15 @@ canvas#game {
   font-family: var(--font-title);
   font-weight: 800;
   font-size: 18px;
-  color: #fff;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+  color: #141210;
   animation: popup 0.9s ease-out forwards;
   transform: translate(-50%);
 }
 .popup.head {
-  color: #ffc857;
+  color: var(--warn);
 }
 .popup.kill {
-  color: #ff6a52;
+  color: var(--accent);
 }
 .popup.bonus {
   color: var(--accent);
@@ -437,23 +442,28 @@ canvas#game {
   opacity: 0;
   background: radial-gradient(ellipse at center, #0000 50%, #8c00008c);
 }
+
+/* ---- menu: paper card, hard ink shadow, no glow ---- */
 .menu {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at 50% 40%, #0a101e73, #03050aeb);
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(234, 223, 203, 0.55),
+    rgba(216, 203, 179, 0.92)
+  );
   z-index: 10;
   cursor: default;
 }
 .menu-inner {
   text-align: center;
   padding: 40px 60px;
-  border: 1px solid rgba(94, 242, 255, 0.18);
-  background: #0408108c;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 0 80px #0009;
+  border: 2px solid #141210;
+  background: var(--paper);
+  box-shadow: 12px 12px 0 #141210;
 }
 .title-kicker {
   font-size: 13px;
@@ -468,11 +478,7 @@ canvas#game {
   letter-spacing: 14px;
   margin: 6px 0 0;
   line-height: 1;
-  background: linear-gradient(180deg, #fff 30%, #7fe8ff);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 22px rgba(94, 242, 255, 0.35));
+  color: #141210;
 }
 .subtitle {
   font-size: 18px;
@@ -487,20 +493,19 @@ canvas#game {
   font-size: 24px;
   font-weight: 800;
   letter-spacing: 8px;
-  color: #06111a;
-  background: linear-gradient(180deg, #9cf6ff, #46d6ea);
+  color: #f5eee1;
+  background: #141210;
   border: 0;
   padding: 16px 64px;
   cursor: pointer;
-  clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);
-  box-shadow: 0 0 30px #5ef2ff59;
+  box-shadow: 6px 6px 0 var(--accent);
   transition:
     transform 0.12s,
     box-shadow 0.12s;
 }
 .btn-start:hover {
-  transform: scale(1.04);
-  box-shadow: 0 0 50px #5ef2ff99;
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--accent);
 }
 .controls {
   font-size: 15px;
@@ -509,7 +514,7 @@ canvas#game {
   line-height: 1.9;
 }
 .controls b {
-  color: #fff;
+  color: #141210;
   font-weight: 700;
 }
 .menu-stats {
@@ -517,12 +522,12 @@ canvas#game {
   font-family: var(--font-title);
   font-size: 16px;
   letter-spacing: 3px;
-  color: #ffd7b0;
+  color: var(--accent);
   line-height: 1.8;
 }
 .menu-foot {
   margin-top: 26px;
   font-size: 11px;
   letter-spacing: 3px;
-  color: #eef4ff4d;
+  color: var(--dim);
 }

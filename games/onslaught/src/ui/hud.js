@@ -1,3 +1,5 @@
+import { theme } from "../theme/theme.js";
+
 export class HUD {
   constructor() {
     const t = (e) => document.getElementById(e);
@@ -48,10 +50,10 @@ export class HUD {
   }
   showMenu(
     t,
-    e = "ONSLAUGHT",
-    n = "DEPLOY",
+    e = theme.strings.title,
+    n = theme.strings.deploy,
     s = null,
-    r = "HOLD THE LINE AGAINST THE SWARM",
+    r = theme.strings.subtitle,
   ) {
     (this.el.menu.classList.toggle("hidden", !t),
       t &&

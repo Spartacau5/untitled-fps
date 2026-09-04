@@ -26,6 +26,7 @@ import { Audio } from "../audio/audio.js";
 import { Input } from "../core/input.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { SUN_DIR } from "../data/tuning.js";
+import { theme } from "../theme/theme.js";
 import { Decals } from "../render/fx/decals.js";
 import { ParticleSystem } from "../render/fx/particles.js";
 import { Shells } from "../render/fx/shells.js";
@@ -221,7 +222,7 @@ export class Game {
       this.hud.show(!0),
       this.debug || this.input.lock(),
       (this.last = performance.now()),
-      this.hud.banner("DEPLOYING", "HOLD THE ARENA", 2.5),
+      this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       (this.breakT = 4),
       (this.waveActive = !1),

@@ -1,4 +1,8 @@
 import { Game } from "./game/game.js";
+import { applyThemeCss, applyThemeStrings } from "./theme/theme.js";
+
+applyThemeCss();
+applyThemeStrings();
 
 const canvas = document.getElementById("game");
 try {
