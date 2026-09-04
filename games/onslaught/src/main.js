@@ -7,6 +7,8 @@ applyThemeStrings();
 const canvas = document.getElementById("game");
 try {
   new Game(canvas);
+  if (new URLSearchParams(location.search).has("debug"))
+    import("./debug/panel.js").then((m) => m.mountDebugPanel(window.game));
 } catch (err) {
   console.error(err);
   const box = document.createElement("div");

@@ -46,6 +46,8 @@ export class Game {
     ((this.debug = e.has("debug")),
       (this.noSpawn = e.has("nospawn")),
       (this.god = e.has("god")));
+    // Mutable copy so the debug panel can tune the grade live.
+    this.grade = { ...theme.grade };
     const n = new WebGLRenderer({
       canvas: t,
       antialias: !1,
@@ -599,7 +601,7 @@ export class Game {
         this.enemies.update(t, this.player, this.time),
         (this.postfx.u.uDamage.value = 0),
         (this.postfx.u.uRadial.value = 0),
-        (this.postfx.u.uCA.value = 0.004),
+        (this.postfx.u.uCA.value = this.grade.chromatic),
         (this.postfx.u.uFlash.value = 0));
     }
   }
@@ -694,10 +696,13 @@ export class Game {
       c = n.hp / n.maxHp;
     ((o.uDamage.value = Math.pow(1 - c, 1.7) * 0.85 + this.hurtFx * 0.4),
       (o.uCA.value =
-        0.0035 + this.hurtFx * 0.02 + r * 0.012 + n.trauma * n.trauma * 0.03),
+        this.grade.chromatic +
+        this.hurtFx * 0.02 +
+        r * 0.012 +
+        n.trauma * n.trauma * 0.03),
       (o.uRadial.value = n.slideBlend * 0.5 + n.sprintBlend * 0.12),
       (o.uFlash.value = r * 0.03),
-      (o.uExposure.value = 1.45 + this.weapons.adsSmooth * 0.06),
+      (o.uExposure.value = this.grade.exposure + this.weapons.adsSmooth * 0.06),
       (o.uDesat.value = n.dead ? Math.min(1, this.deadT / 2.5) : 0));
   }
   render() {

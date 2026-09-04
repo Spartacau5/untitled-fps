@@ -7,6 +7,7 @@ import {
   PlaneGeometry,
   ShaderMaterial,
 } from "three";
+import { theme } from "../../theme/theme.js";
 
 export class Tracers {
   constructor(t, e = 160) {
@@ -78,7 +79,7 @@ export class Tracers {
       (this.mesh.renderOrder = 21),
       t.add(this.mesh));
   }
-  fire(t, e, n, s = 320, r = 0.035, a = 4, l = [1, 0.8, 0.45]) {
+  fire(t, e, n, s = 320, r = 0.035, a = 4, l = theme.fx.tracer) {
     const o = this.head;
     ((this.head = (o + 1) % this.n), (this.dirty = !0));
     const c = t.distanceTo(e);

@@ -1,3 +1,5 @@
+import { theme } from "../theme/theme.js";
+
 export const ENEMIES = {
   runner: {
     key: "runner",
@@ -13,8 +15,8 @@ export const ENEMIES = {
     score: 100,
     radius: 0.36,
     mass: 1,
-    glow: [1, 0.36, 0.08],
-    bodyColor: 1709079,
+    glow: theme.enemies.runner.glow,
+    bodyColor: theme.enemies.runner.body,
     ranged: !1,
     big: !1,
     slam: !1,
@@ -47,8 +49,8 @@ export const ENEMIES = {
     score: 400,
     radius: 0.64,
     mass: 6,
-    glow: [1, 0.16, 0.04],
-    bodyColor: 1511695,
+    glow: theme.enemies.brute.glow,
+    bodyColor: theme.enemies.brute.body,
     ranged: !1,
     big: !0,
     slam: !0,
@@ -82,8 +84,8 @@ export const ENEMIES = {
     score: 200,
     radius: 0.38,
     mass: 1.5,
-    glow: [0.3, 1, 0.35],
-    bodyColor: 1251861,
+    glow: theme.enemies.spitter.glow,
+    bodyColor: theme.enemies.spitter.body,
     ranged: !0,
     big: !1,
     slam: !1,

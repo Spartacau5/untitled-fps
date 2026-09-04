@@ -57,9 +57,9 @@ export const theme = {
     dustAlpha: 0.35,
   },
   grade: {
-    exposure: 1.15,
-    saturation: 0.95,
-    contrast: 1.14,
+    exposure: 1.05,
+    saturation: 0.96,
+    contrast: 1.16,
     vignette: 0.18,
     grain: 0.02,
     chromatic: 0.002,
@@ -76,7 +76,8 @@ export const theme = {
     warn: "#d9771b",
     danger: "#b8231c",
     fontUi: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif',
-    fontTitle: '"Big Shoulders Stencil Text", "Impact", "Arial Black", sans-serif',
+    fontTitle:
+      '"Big Shoulders Stencil Text", "Impact", "Arial Black", sans-serif',
   },
 };
 

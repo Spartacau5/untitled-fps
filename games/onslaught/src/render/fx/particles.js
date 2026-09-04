@@ -11,6 +11,7 @@ import {
 } from "three";
 import { rand } from "../../core/mathx.js";
 import { NOISE_GLSL } from "../shaders/noise.glsl.js";
+import { theme } from "../../theme/theme.js";
 
 export const PARTICLE_VERT = `
 attribute vec3 aPos; attribute vec3 aVel; attribute vec2 aTime; attribute vec2 aSize; attribute vec4 aColor; attribute vec4 aMisc;
@@ -249,10 +250,10 @@ export class ParticleSystem {
         rand(5, 9),
         rand(0.02, 0.05),
         rand(0.02, 0.05),
-        o ? 0.4 : 1,
-        o ? 0.9 : 0.5,
-        o ? 1 : 0.15,
-        0.9,
+        theme.fx.dust[0],
+        theme.fx.dust[1],
+        theme.fx.dust[2],
+        theme.fx.dustAlpha,
         -0.02,
         0.6,
         2,
@@ -285,9 +286,9 @@ export class ParticleSystem {
         rand(0.2, 0.6),
         rand(0.015, 0.03),
         0.005,
-        1,
-        c ? 0.85 : 0.6,
-        c ? 0.5 : 0.2,
+        theme.fx.sparks[0],
+        theme.fx.sparks[1] * (c ? 1 : 0.75),
+        theme.fx.sparks[2] * (c ? 1 : 0.4),
         rand(3, 6),
         14,
         rand(1.5, 3),
@@ -749,9 +750,9 @@ export class ParticleSystem {
         rand(0.5, 1),
         0.05,
         0.01,
-        0.4,
-        0.95,
-        1,
+        theme.fx.pickup[0],
+        theme.fx.pickup[1],
+        theme.fx.pickup[2],
         5,
         8,
         1.5,

@@ -11,8 +11,10 @@ import {
   Scene,
   ShaderMaterial,
   Vector2,
+  Vector3,
   WebGLRenderTarget,
 } from "three";
+import { theme } from "../theme/theme.js";
 
 export const BLOOM_DOWN_FRAG = `
 uniform sampler2D tSrc; uniform vec2 uTexel; uniform float uThreshold; uniform float uKnee; uniform float uPrefilter;
@@ -47,6 +49,7 @@ export const COMPOSITE_FRAG = `
 uniform sampler2D tScene; uniform sampler2D tBloom; uniform vec2 uRes; uniform float uTime;
 uniform float uBloom; uniform float uExposure; uniform float uCA; uniform float uVignette; uniform float uGrain;
 uniform float uDamage; uniform float uFlash; uniform float uSat; uniform float uContrast; uniform float uRadial; uniform float uDesat;
+uniform vec3 uShadowTint;
 varying vec2 vUv;
 vec3 aces(vec3 x){ const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14; return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0); }
 vec3 srgb(vec3 c){ return mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
@@ -76,7 +79,7 @@ void main(){
   float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
   col = mix(vec3(l), col, uSat * (1.0 - uDesat));
   col = (col - 0.5) * uContrast + 0.5;
-  col = mix(col, col * vec3(0.93, 1.0, 1.1), (1.0 - l) * 0.35);
+  col = mix(col, col * uShadowTint, (1.0 - l) * 0.35);
   col *= 1.0 - uVignette * smoothstep(0.12, 0.95, r2 * 2.6);
   col += (hash(uv * uRes + fract(uTime) * 100.0) - 0.5) * uGrain;
   col += uFlash;
@@ -127,8 +130,8 @@ export class PostFX {
         uniforms: {
           tSrc: { value: null },
           uTexel: { value: new Vector2() },
-          uThreshold: { value: 1.3 },
-          uKnee: { value: 0.6 },
+          uThreshold: { value: theme.grade.bloomThreshold },
+          uKnee: { value: theme.grade.bloomKnee },
           uPrefilter: { value: 0 },
         },
         vertexShader: FULLSCREEN_VERT,
@@ -156,15 +159,16 @@ export class PostFX {
         tBloom: { value: null },
         uRes: { value: new Vector2(this.w, this.h) },
         uTime: { value: 0 },
-        uBloom: { value: 0.14 },
-        uExposure: { value: 1.45 },
-        uCA: { value: 0.004 },
-        uVignette: { value: 0.28 },
-        uGrain: { value: 0.035 },
+        uBloom: { value: theme.grade.bloom },
+        uExposure: { value: theme.grade.exposure },
+        uCA: { value: theme.grade.chromatic },
+        uVignette: { value: theme.grade.vignette },
+        uGrain: { value: theme.grade.grain },
         uDamage: { value: 0 },
         uFlash: { value: 0 },
-        uSat: { value: 1.12 },
-        uContrast: { value: 1.08 },
+        uSat: { value: theme.grade.saturation },
+        uContrast: { value: theme.grade.contrast },
+        uShadowTint: { value: new Vector3(...theme.grade.shadowTint) },
         uRadial: { value: 0 },
         uDesat: { value: 0 },
       }),
