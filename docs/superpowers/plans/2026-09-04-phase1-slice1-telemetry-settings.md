@@ -1,6 +1,8 @@
 # Phase 1 slice 1 — Run Telemetry + Persisted Settings Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Resume status (2026-09-04):** Tasks 1–3 are implemented and committed (`4d335f7`, `66c3eb8`, `a25c93f`). **Start at Task 4.** Full context: `docs/superpowers/handoffs/2026-09-04-fable51-resume.md`. Do not redo Tasks 1–3.
 
 **Goal:** Record every run's statistics in the sim, show them on the death screen with JSON export, and persist sensitivity/FOV/volume/shake settings behind a menu panel.
 
@@ -19,7 +21,7 @@
 
 ---
 
-### Task 1: Settings store
+### Task 1: Settings store — DONE (`4d335f7`)
 
 **Files:**
 - Create: `games/onslaught/src/core/settings.js`
@@ -132,7 +134,7 @@ export class Settings {
 
 ---
 
-### Task 2: RunStats in the sim
+### Task 2: RunStats in the sim — DONE (`66c3eb8`)
 
 **Files:**
 - Create: `games/onslaught/src/sim/stats.js`
@@ -286,7 +288,7 @@ export class RunStats {
 
 ---
 
-### Task 3: FOV and shake move to presentation; settings wired to input, audio, camera
+### Task 3: FOV and shake move to presentation; settings wired to input, audio, camera — DONE (`a25c93f`)
 
 **Files:**
 - Modify: `games/onslaught/src/sim/player.js` (remove `fov`, remove `H/k/G` shake from `_euler`), `games/onslaught/src/game/game.js`, `games/onslaught/src/audio/audio.js` (`setVolumes`), `games/onslaught/src/core/input.js` (no change to API; sensitivity assigned by Game)
