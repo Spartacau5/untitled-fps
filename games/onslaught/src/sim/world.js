@@ -234,7 +234,8 @@ export class World {
       (this.slowmoRequest = Math.max(this.slowmoRequest, 1.3)));
     for (const e of this.weapons.weapons)
       e.reserve = Math.min(e.def.reserve * 2, e.reserve + e.def.magSize * 2);
-    (this.weapons._ammo(this), this.emit(EV_WAVE_CLEAR, { wave: this.wave, bonus: t }));
+    (this.weapons._ammo(this),
+      this.emit(EV_WAVE_CLEAR, { wave: this.wave, bonus: t }));
   }
   spawnPickup(t) {
     const n = this.arena.groundHeight(t.x, t.z);

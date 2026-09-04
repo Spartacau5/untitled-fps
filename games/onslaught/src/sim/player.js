@@ -42,7 +42,6 @@ export class Player {
       (this.ads = 0),
       (this.adsFov = 60),
       (this.moveMult = 1),
-      (this.fov = 80),
       (this.events = []),
       (this.camPos = new Vector3()),
       (this.camQuat = new Quaternion()),
@@ -296,15 +295,13 @@ export class Player {
       (this.recoilYV += (-this.recoilY * 110 - this.recoilYV * 17) * t),
       (this.recoilY += this.recoilYV * t),
       (this.trauma = Math.max(0, this.trauma - t * 1.5)));
-    const z = this.trauma * this.trauma,
-      U = n * 30,
-      H = z * 0.045 * (Math.sin(U * 1.1) * 0.6 + Math.sin(U * 2.3 + 1) * 0.4),
-      k = z * 0.045 * (Math.sin(U * 0.9 + 2) * 0.6 + Math.sin(U * 2.7) * 0.4),
-      G = z * 0.03 * Math.sin(U * 1.7 + 0.5),
-      q =
-        -this.moveInput.x * 0.012 * (1 - this.ads * 0.6) -
-        this.localVel.x * 0.0025 +
-        (this.sliding ? 0.07 : 0);
+    // Trauma shake and camera FOV are presentation: Game.presentGame derives
+    // them from `trauma`, `ads`, `sprintBlend` and `slideBlend`. Keeping the
+    // shake out of camQuat also keeps the fire ray steady under fire.
+    const q =
+      -this.moveInput.x * 0.012 * (1 - this.ads * 0.6) -
+      this.localVel.x * 0.0025 +
+      (this.sliding ? 0.07 : 0);
     ((this.roll = damp4(this.roll, q, 9, t)),
       (this.sprintBlend = damp4(
         this.sprintBlend,
@@ -319,16 +316,13 @@ export class Player {
         this.pos.z + u * y,
       ),
       this._euler.set(
-        this.pitch + this.recoilP + this.landDip * 0.9 + H,
-        this.yaw + this.recoilY + k,
-        this.roll + G,
+        this.pitch + this.recoilP + this.landDip * 0.9,
+        this.yaw + this.recoilY,
+        this.roll,
         "YXZ",
       ),
       this.camQuat.setFromEuler(this._euler),
       this.forward.set(0, 0, -1).applyQuaternion(this.camQuat),
       this.right.set(1, 0, 0).applyQuaternion(this.camQuat));
-    const O = 80 + this.sprintBlend * 6 + this.slideBlend * 9,
-      et = MathUtils.lerp(O, this.adsFov, this.ads);
-    this.fov = damp4(this.fov, et, 18, t);
   }
 }

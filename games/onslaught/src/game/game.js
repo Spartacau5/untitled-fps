@@ -27,6 +27,7 @@ import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
+import { Settings } from "../core/settings.js";
 import { SUN_DIR } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
 import { ArenaView } from "../render/arena-view.js";
@@ -139,6 +140,7 @@ export class Game {
       (this._v2 = new Vector3()),
       (this._q = new Quaternion()),
       (this._e = new Euler()),
+      this._bindSettings(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       (this.input.onLockChange = (l) => {
         !l && this.state === "playing" && !this.debug && this.pause();
@@ -158,6 +160,19 @@ export class Game {
         (requestAnimationFrame(this._raf), this.loop(l));
       }),
       requestAnimationFrame(this._raf));
+  }
+  // Persisted preferences. Every consumer is presentation-side; FOV and shake
+  // are read each frame in presentGame, the rest are pushed on change.
+  _bindSettings() {
+    this.settings = new Settings();
+    this.camFov = this.settings.get("fov");
+    const apply = (k, v) => {
+      (k === "sensitivity" && (this.input.sensitivity = v),
+        (k === "master" || k === "music" || k === "sfx") &&
+          this.audio.setVolumes({ [k]: v }));
+    };
+    for (const k in this.settings.all()) apply(k, this.settings.get(k));
+    this.settings.onChange(apply);
   }
   // Compatibility accessors for the debug panel and console poking.
   get player() {
@@ -263,18 +278,14 @@ export class Game {
     (t === "KeyM" &&
       ((this.audio.musicOn = !this.audio.musicOn),
       this.hud.hint(this.audio.musicOn ? "MUSIC ON" : "MUSIC OFF")),
-      t === "BracketLeft" &&
-        ((this.input.sensitivity = Math.max(
-          0.2,
-          +(this.input.sensitivity - 0.1).toFixed(2),
+      (t === "BracketLeft" || t === "BracketRight") &&
+        (this.settings.set(
+          "sensitivity",
+          this.settings.get("sensitivity") + (t === "BracketLeft" ? -0.1 : 0.1),
+        ),
+        this.hud.hint(
+          "SENSITIVITY " + this.settings.get("sensitivity").toFixed(1),
         )),
-        this.hud.hint("SENSITIVITY " + this.input.sensitivity.toFixed(1))),
-      t === "BracketRight" &&
-        ((this.input.sensitivity = Math.min(
-          3,
-          +(this.input.sensitivity + 0.1).toFixed(2),
-        )),
-        this.hud.hint("SENSITIVITY " + this.input.sensitivity.toFixed(1))),
       t === "Escape" && this.debug && this.state === "playing" && this.pause());
   }
   resize() {
@@ -513,14 +524,17 @@ export class Game {
     for (const p of live) {
       let mesh = m.get(p.id);
       (mesh ||
-        ((mesh = this.pickupProto.clone()), this.scene.add(mesh), m.set(p.id, mesh)),
+        ((mesh = this.pickupProto.clone()),
+        this.scene.add(mesh),
+        m.set(p.id, mesh)),
         mesh.position.copy(p.pos),
         (mesh.rotation.y = p.t * 1.2),
         (mesh.visible = p.visible));
     }
     if (m.size !== live.length)
       for (const [id, mesh] of m)
-        live.some((p) => p.id === id) || (this.scene.remove(mesh), m.delete(id));
+        live.some((p) => p.id === id) ||
+          (this.scene.remove(mesh), m.delete(id));
   }
   loop(t) {
     let frameDt = Math.min(0.05, (t - this.last) / 1e3);
@@ -572,10 +586,7 @@ export class Game {
         [n.forward.x, 0, n.forward.z],
         [n.right.x, 0, n.right.z],
       ),
-      this.audio.update(
-        frameDt,
-        this.state === "playing" ? n.hp / n.maxHp : 1,
-      ),
+      this.audio.update(frameDt, this.state === "playing" ? n.hp / n.maxHp : 1),
       this.render(),
       this.input.endFrame());
   }
@@ -630,6 +641,20 @@ export class Game {
     this.hurtFx = Math.max(0, this.hurtFx - frameDt * 2.2);
     (this.camera.position.lerpVectors(n.prevCamPos, n.camPos, alpha),
       this.camera.quaternion.slerpQuaternions(n.prevCamQuat, n.camQuat, alpha));
+    // Trauma shake, scaled by the user's setting. Purely visual: the sim's
+    // camQuat (and so the fire ray) never carries it.
+    const z = n.trauma * n.trauma * this.settings.get("shake");
+    if (z > 0) {
+      const U = this.time * 30;
+      (this._e.set(
+        z * 0.045 * (Math.sin(U * 1.1) * 0.6 + Math.sin(U * 2.3 + 1) * 0.4),
+        z * 0.045 * (Math.sin(U * 0.9 + 2) * 0.6 + Math.sin(U * 2.7) * 0.4),
+        z * 0.03 * Math.sin(U * 1.7 + 0.5),
+        "YXZ",
+      ),
+        this._q.setFromEuler(this._e),
+        this.camera.quaternion.multiply(this._q));
+    }
     if (n.dead) {
       const h = Math.min(1, w.deadT / 1.4);
       ((this.camera.position.y -= h * 1.05),
@@ -637,7 +662,17 @@ export class Game {
         this._q.setFromEuler(this._e),
         this.camera.quaternion.multiply(this._q));
     }
-    ((this.camera.fov = n.fov),
+    // FOV: user base, widened by sprint/slide, pulled to the weapon's ADS FOV
+    // (scaled so the relative zoom is the same at any base FOV).
+    const base = this.settings.get("fov"),
+      hipFov = base + n.sprintBlend * 6 + n.slideBlend * 9,
+      targetFov = MathUtils.lerp(
+        hipFov,
+        W.weapon.def.adsFov * (base / 80),
+        n.ads,
+      );
+    ((this.camFov = damp(this.camFov, targetFov, 18, frameDt)),
+      (this.camera.fov = this.camFov),
       this.camera.updateProjectionMatrix(),
       this.weaponCamera.position.copy(this.camera.position),
       this.weaponCamera.quaternion.copy(this.camera.quaternion),

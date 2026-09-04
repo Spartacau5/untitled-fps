@@ -27,6 +27,9 @@ export class Audio {
     ((this.ctx = null),
       (this.ready = !1),
       (this.musicOn = !0),
+      (this.masterVol = 0.9),
+      (this.musicVol = 1),
+      (this.sfxVol = 1),
       (this.intensity = 0),
       (this.listenerPos = [0, 0, 0]),
       (this.listenerFwd = [0, 0, -1]),
@@ -71,8 +74,22 @@ export class Audio {
       this.musicLP.connect(this.musicBus),
       (this.noiseBuf = noiseBuffer(t, 2)),
       (this.ready = !0),
+      this._applyVolumes(),
       this._startAmbience(),
       (this._nextBeat = t.currentTime + 0.1));
+  }
+  // User volume settings, 0–1 each. Safe to call before init().
+  setVolumes({ master, music, sfx }) {
+    (master !== undefined && (this.masterVol = 0.9 * master),
+      music !== undefined && (this.musicVol = music),
+      sfx !== undefined && (this.sfxVol = sfx),
+      this._applyVolumes());
+  }
+  _applyVolumes() {
+    if (!this.ready) return;
+    ((this.master.gain.value = this.masterVol),
+      (this.dry.gain.value = this.sfxVol),
+      (this.revGain.gain.value = 0.55 * this.sfxVol));
   }
   resume() {
     this.ctx && this.ctx.state === "suspended" && this.ctx.resume();
@@ -937,7 +954,7 @@ export class Audio {
             ? 0.2
             : 0.08
         : 0;
-    (this.musicBus.gain.setTargetAtTime(a, n.currentTime, 0.5),
+    (this.musicBus.gain.setTargetAtTime(a * this.musicVol, n.currentTime, 0.5),
       this.musicLP.frequency.setTargetAtTime(
         e < 0.35 ? 600 : 4500,
         n.currentTime,
