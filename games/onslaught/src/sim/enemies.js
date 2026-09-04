@@ -146,10 +146,12 @@ export class Enemies {
           0,
           e.pos.z + a * l + e.dir.z * this.rng.range(0, 1.5),
         ),
+        prevPos: new Vector3(),
         vel: new Vector3(),
         kb: new Vector3(),
         push: new Vector3(),
         yaw: Math.atan2(-e.dir.x, -e.dir.z),
+        prevYaw: Math.atan2(-e.dir.x, -e.dir.z),
         hp: s.hp * n,
         maxHp: s.hp * n,
         state: "spawn",
@@ -176,6 +178,7 @@ export class Enemies {
       };
     return (
       (c.pos.y = this.arena.groundHeight(c.pos.x, c.pos.z)),
+      c.prevPos.copy(c.pos),
       this.list.push(c),
       this.particles.spawnFx(c.pos, s.glow),
       this.audio.enemyGrowl([c.pos.x, c.pos.y, c.pos.z], s.big),
@@ -369,6 +372,7 @@ export class Enemies {
     for (let l = s.length - 1; l >= 0; l--) {
       const o = s[l],
         c = o.def;
+      (o.prevPos.copy(o.pos), (o.prevYaw = o.yaw));
       ((o.flash = Math.max(0, o.flash - t * 9)),
         (o.squash = Math.max(0, o.squash - t * 1.4)),
         o.kb.multiplyScalar(Math.exp(-6 * t)));
@@ -496,7 +500,7 @@ export class Enemies {
         (o.headBob =
           Math.abs(Math.sin(o.phase)) * 0.05 * o.scale * o.moveBlend));
     }
-    (this._updateProjectiles(t, e), this._render());
+    this._updateProjectiles(t, e);
   }
   _blocked(t, e, n) {
     if (Math.hypot(t, e) > ARENA_RADIUS - n - 0.5) return !0;
@@ -507,7 +511,8 @@ export class Enemies {
     }
     return !1;
   }
-  _render() {
+  // Pose the instanced rigs from sim state; alpha interpolates prev→current tick.
+  render(alpha = 1) {
     for (const t in this.types) {
       const e = this.types[t],
         n = e.rig,
@@ -518,8 +523,12 @@ export class Enemies {
         if (l.type !== t || a >= MAX_PER_TYPE) continue;
         const o = l.scale,
           c = l.squash;
-        (n.root.position.copy(l.pos),
-          n.root.rotation.set(l.toppleX, l.yaw, l.toppleZ),
+        (n.root.position.lerpVectors(l.prevPos, l.pos, alpha),
+          n.root.rotation.set(
+            l.toppleX,
+            lerpAngle(l.prevYaw, l.yaw, alpha),
+            l.toppleZ,
+          ),
           n.root.scale.set(o * (1 + c * 0.6), o * (1 - c), o * (1 + c * 0.6)));
         const h = l.phase,
           d = l.moveBlend,

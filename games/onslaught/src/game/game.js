@@ -24,6 +24,7 @@ import {
 } from "three";
 import { Audio } from "../audio/audio.js";
 import { Input } from "../core/input.js";
+import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { RNG, parseSeed } from "../core/rng.js";
 import { SUN_DIR } from "../data/tuning.js";
@@ -165,6 +166,7 @@ export class Game {
       (this.hurtFx = 0),
       (this.lastHitSound = -1),
       (this.fps = 60),
+      (this.fixed = new FixedLoop({ tick: 1 / 60, maxSteps: 5 })),
       (this.startTime = 0),
       (this._v = new Vector3()),
       (this._v2 = new Vector3()),
@@ -561,31 +563,40 @@ export class Game {
     }
   }
   loop(t) {
-    let e = Math.min(0.05, (t - this.last) / 1e3);
-    ((this.last = t),
-      e <= 0 && (e = 1e-4),
-      (this.fps = damp(this.fps, 1 / e, 2, e)),
-      (this.slowmo = Math.max(0, this.slowmo - e)),
+    let frameDt = Math.min(0.05, (t - this.last) / 1e3);
+    this.last = t;
+    frameDt <= 0 && (frameDt = 1e-4);
+    ((this.fps = damp(this.fps, 1 / frameDt, 2, frameDt)),
+      (this.slowmo = Math.max(0, this.slowmo - frameDt)),
       (this.timeScale = damp(
         this.timeScale,
         this.slowmo > 0 ? 0.28 : 1,
         7,
-        e,
+        frameDt,
       )));
-    const n = e * this.timeScale;
-    this.time += n;
-    const s = this.time;
-    (this.state === "playing" || this.state === "dead"
-      ? this.updateGame(n, e)
-      : this.updateIdle(n, e),
-      this.arena.update(s, n),
+    // Look is applied per frame for aim latency; movement/combat step at a
+    // fixed rate and the renderer interpolates between the last two ticks.
+    const playing = this.state === "playing" || this.state === "dead";
+    playing && this.player.applyLook(this.input);
+    const alpha = this.fixed.advance(frameDt, this.timeScale, (dt) => {
+      this.time += dt;
+      playing ? this.stepGame(dt) : this.stepIdle(dt);
+      this.input.endTick();
+    });
+    playing
+      ? this.presentGame(alpha, frameDt)
+      : this.presentIdle(alpha, frameDt);
+    // FX are frame-rate driven but still honour slow-mo.
+    const s = this.time,
+      fxDt = frameDt * this.timeScale;
+    (this.arena.update(s, fxDt),
       this.sky.update(s),
-      this.particles.update(s, n, this.camera.position),
+      this.particles.update(s, fxDt, this.camera.position),
       this.tracers.update(s),
       this.decals.update(s),
-      this.shells.update(n, (r, a) => this.arena.groundHeight(r, a)),
-      (this.impactLight.intensity *= Math.exp(-28 * e)),
-      this.hud.update(e),
+      this.shells.update(fxDt, (r, a) => this.arena.groundHeight(r, a)),
+      (this.impactLight.intensity *= Math.exp(-28 * frameDt)),
+      this.hud.update(frameDt),
       this.audio.setListener(
         [
           this.camera.position.x,
@@ -596,13 +607,18 @@ export class Game {
         [this.player.right.x, 0, this.player.right.z],
       ),
       this.audio.update(
-        e,
+        frameDt,
         this.state === "playing" ? this.player.hp / this.player.maxHp : 1,
       ),
       this.render(),
       this.input.endFrame());
   }
-  updateIdle(t, e) {
+  // ---- menu / game-over diorama ------------------------------------------
+  stepIdle(dt) {
+    (this.state === "menu" || this.state === "over") &&
+      this.enemies.update(dt, this.player, this.time);
+  }
+  presentIdle(alpha, frameDt) {
     if (this.state === "menu" || this.state === "over") {
       const n = this.time * 0.07;
       (this.camera.position.set(
@@ -611,23 +627,24 @@ export class Game {
         Math.sin(n) * 26,
       ),
         this.camera.lookAt(0, 2.5, 0),
-        (this.camera.fov = damp(this.camera.fov, 62, 4, e)),
+        (this.camera.fov = damp(this.camera.fov, 62, 4, frameDt)),
         this.camera.updateProjectionMatrix(),
         this.player.forward
           .set(0, 0, -1)
           .applyQuaternion(this.camera.quaternion),
         this.player.right.set(1, 0, 0).applyQuaternion(this.camera.quaternion),
-        this.enemies.update(t, this.player, this.time),
         (this.postfx.u.uDamage.value = 0),
         (this.postfx.u.uRadial.value = 0),
         (this.postfx.u.uCA.value = this.grade.chromatic),
         (this.postfx.u.uFlash.value = 0));
     }
+    this.enemies.render(alpha);
   }
-  updateGame(t, e) {
+  // ---- match: fixed-rate simulation step ----------------------------------
+  stepGame(dt) {
     const n = this.player,
       s = this.input;
-    n.update(t, s, this.time);
+    n.update(dt, s, this.time);
     for (const h of n.events)
       h.type === "jump"
         ? (this.audio.jump(), this.weapons.onJump())
@@ -644,41 +661,44 @@ export class Game {
                   this.audio.playerHurt(h.amount),
                   (this.hurtFx = 1))
                 : h.type === "dead" && this.onDeath();
+    n.events.length = 0;
     if (
-      ((n.events.length = 0),
-      (this.hurtFx = Math.max(0, this.hurtFx - e * 2.2)),
-      this.camera.position.copy(n.camPos),
-      this.camera.quaternion.copy(n.camQuat),
-      n.dead)
+      n.dead &&
+      ((this.deadT += dt), this.deadT > 3.2 && this.state === "dead")
     ) {
-      this.deadT += e;
+      ((this.state = "over"), this.input.unlock());
+      const d = Math.floor(this.time - this.startTime);
+      (this.hud.showMenu(
+        !0,
+        "K.I.A.",
+        "REDEPLOY",
+        `WAVE ${this.wave} REACHED<br>${this.kills} KILLS · ${this.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
+        "THE SWARM PREVAILS",
+      ),
+        this.hud.show(!1));
+    }
+    (this.weapons.update(dt, s, n, this.time),
+      this.enemies.update(dt, n, this.time),
+      n.dead || (this.updateWaves(dt), this.updatePickups(dt)));
+  }
+  // ---- match: per-frame presentation ---------------------------------------
+  presentGame(alpha, frameDt) {
+    const n = this.player;
+    this.hurtFx = Math.max(0, this.hurtFx - frameDt * 2.2);
+    (this.camera.position.lerpVectors(n.prevCamPos, n.camPos, alpha),
+      this.camera.quaternion.slerpQuaternions(n.prevCamQuat, n.camQuat, alpha));
+    if (n.dead) {
       const h = Math.min(1, this.deadT / 1.4);
-      if (
-        ((this.camera.position.y -= h * 1.05),
+      ((this.camera.position.y -= h * 1.05),
         this._e.set(-h * 0.35, 0, h * 0.55),
         this._q.setFromEuler(this._e),
-        this.camera.quaternion.multiply(this._q),
-        this.deadT > 3.2 && this.state === "dead")
-      ) {
-        ((this.state = "over"), this.input.unlock());
-        const d = Math.floor(this.time - this.startTime);
-        (this.hud.showMenu(
-          !0,
-          "K.I.A.",
-          "REDEPLOY",
-          `WAVE ${this.wave} REACHED<br>${this.kills} KILLS · ${this.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
-          "THE SWARM PREVAILS",
-        ),
-          this.hud.show(!1));
-      }
+        this.camera.quaternion.multiply(this._q));
     }
     ((this.camera.fov = n.fov),
       this.camera.updateProjectionMatrix(),
       this.weaponCamera.position.copy(this.camera.position),
       this.weaponCamera.quaternion.copy(this.camera.quaternion),
-      this.weapons.update(t, s, n, this.time),
-      this.enemies.update(t, n, this.time),
-      n.dead || (this.updateWaves(t), this.updatePickups(t)));
+      this.enemies.render(alpha));
     const r = this.weapons.flash.intensity;
     (this.muzzleLight.position.copy(this.weapons.muzzleWorld),
       (this.muzzleLight.intensity =

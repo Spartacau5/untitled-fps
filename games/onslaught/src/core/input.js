@@ -5,8 +5,12 @@ export class Input {
       (this.pressed = new Set()),
       (this.mouseDown = [!1, !1, !1]),
       (this.mousePressed = [!1, !1, !1]),
+      // Mouse motion accumulated per render frame (consumed by look).
       (this.dx = 0),
       (this.dy = 0),
+      // Mouse motion accumulated per sim tick (consumed by weapon sway).
+      (this.tickDx = 0),
+      (this.tickDy = 0),
       (this.wheel = 0),
       (this.locked = !1),
       (this.sensitivity = 1),
@@ -42,7 +46,11 @@ export class Input {
       }),
       window.addEventListener("contextmenu", (e) => e.preventDefault()),
       window.addEventListener("mousemove", (e) => {
-        this.locked && ((this.dx += e.movementX), (this.dy += e.movementY));
+        this.locked &&
+          ((this.dx += e.movementX),
+          (this.dy += e.movementY),
+          (this.tickDx += e.movementX),
+          (this.tickDy += e.movementY));
       }),
       window.addEventListener(
         "wheel",
@@ -85,11 +93,16 @@ export class Input {
   justPressed(t) {
     return this.pressed.has(t);
   }
-  endFrame() {
+  // Edge-triggered input is consumed by the sim, so it is cleared per tick.
+  endTick() {
     (this.pressed.clear(),
       (this.mousePressed = [!1, !1, !1]),
-      (this.dx = 0),
-      (this.dy = 0),
+      (this.tickDx = 0),
+      (this.tickDy = 0),
       (this.wheel = 0));
+  }
+  // Look deltas are consumed per render frame.
+  endFrame() {
+    ((this.dx = 0), (this.dy = 0));
   }
 }

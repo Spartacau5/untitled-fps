@@ -46,9 +46,13 @@ export class Player {
       (this.events = []),
       (this.camPos = new Vector3()),
       (this.camQuat = new Quaternion()),
+      // Pose from the previous sim tick; the renderer interpolates prev→current.
+      (this.prevCamPos = new Vector3()),
+      (this.prevCamQuat = new Quaternion()),
       (this.forward = new Vector3(0, 0, -1)),
       (this.right = new Vector3(1, 0, 0)),
       (this._euler = new Euler(0, 0, 0, "YXZ")),
+      (this._prevEuler = new Euler(0, 0, 0, "YXZ")),
       (this._wish = new Vector3()),
       (this.hurtFlash = 0),
       (this.time = 0));
@@ -67,6 +71,33 @@ export class Player {
       (this.crouch = !1),
       (this.sprinting = !1),
       (this.hurtFlash = 0));
+    this._euler.set(this.pitch, this.yaw, 0, "YXZ");
+    this._prevEuler.copy(this._euler);
+    this.camQuat.setFromEuler(this._euler);
+    this.prevCamQuat.copy(this.camQuat);
+    this.camPos.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
+    this.prevCamPos.copy(this.camPos);
+  }
+  // Mouse look runs once per render frame (not per tick) so aim has no added
+  // latency. The delta is applied to both the current and previous camera
+  // pose so interpolation only smooths bob/recoil, never the aim itself.
+  applyLook(input) {
+    if (this.dead) return;
+    const K = MathUtils.lerp(1, this.adsFov / 80, this.ads),
+      nt = 0.0021 * input.sensitivity * K,
+      dYaw = -input.dx * nt,
+      pitch0 = this.pitch;
+    this.yaw += dYaw;
+    this.pitch = MathUtils.clamp(this.pitch - input.dy * nt, -1.5, 1.5);
+    const dPitch = this.pitch - pitch0;
+    ((this._euler.x += dPitch),
+      (this._euler.y += dYaw),
+      (this._prevEuler.x += dPitch),
+      (this._prevEuler.y += dYaw),
+      this.camQuat.setFromEuler(this._euler),
+      this.prevCamQuat.setFromEuler(this._prevEuler),
+      this.forward.set(0, 0, -1).applyQuaternion(this.camQuat),
+      this.right.set(1, 0, 0).applyQuaternion(this.camQuat));
   }
   addRecoil(t, e, n) {
     ((this.pitch += t * n),
@@ -101,11 +132,9 @@ export class Player {
   update(t, e, n) {
     this.time = n;
     const s = this.events;
-    if (!this.dead) {
-      const K = MathUtils.lerp(1, this.adsFov / 80, this.ads),
-        nt = 0.0021 * e.sensitivity * K;
-      ((this.yaw -= e.dx * nt), (this.pitch -= e.dy * nt));
-    }
+    (this.prevCamPos.copy(this.camPos),
+      this.prevCamQuat.copy(this.camQuat),
+      this._prevEuler.copy(this._euler));
     this.pitch = MathUtils.clamp(this.pitch, -1.5, 1.5);
     const r = this.dead ? 0 : (e.key("KeyW") ? 1 : 0) - (e.key("KeyS") ? 1 : 0),
       a = this.dead ? 0 : (e.key("KeyD") ? 1 : 0) - (e.key("KeyA") ? 1 : 0);

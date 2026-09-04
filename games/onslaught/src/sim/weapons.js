@@ -237,7 +237,11 @@ export class Weapons {
   }
   fire(t, e) {
     const n = t.def;
-    (t.model.parts, t.mag--, (t.cooldown = 60 / n.rpm));
+    // During sustained fire, carry the small negative remainder so the fixed
+    // tick doesn't quantize the rpm (75 ms on a 16.7 ms tick would become
+    // 83 ms). A remainder older than one tick means the trigger was released.
+    const carry = t.cooldown < 0 && t.cooldown > -0.02 ? t.cooldown : 0;
+    ((t.mag -= 1), (t.cooldown = carry + 60 / n.rpm));
     const s = this.time - t.lastShot;
     ((t.burst = s > 0.32 ? 0 : t.burst + 1), (t.lastShot = this.time));
     const r = this.adsSmooth,
@@ -469,11 +473,11 @@ export class Weapons {
       d = 1 - o * 0.88,
       u = MathUtils.lerp(0.012, 0.022, h) * d,
       m = MathUtils.lerp(0.0028, 0.0055, h) * d;
-    ((this.swayRotV.y += -e.dx * u),
-      (this.swayRotV.x += -e.dy * u),
-      (this.swayRotV.z += e.dx * u * 0.35),
-      (this.swayPosV.x += -e.dx * m),
-      (this.swayPosV.y += e.dy * m * 0.6));
+    ((this.swayRotV.y += -e.tickDx * u),
+      (this.swayRotV.x += -e.tickDy * u),
+      (this.swayRotV.z += e.tickDx * u * 0.35),
+      (this.swayPosV.x += -e.tickDx * m),
+      (this.swayPosV.y += e.tickDy * m * 0.6));
     const g = MathUtils.lerp(180, 90, h),
       v = 2 * Math.sqrt(g) * MathUtils.lerp(0.8, 0.55, h),
       p = MathUtils.lerp(230, 120, h),
