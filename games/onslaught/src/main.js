@@ -55,7 +55,7 @@ import {
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
-class h0 {
+class Input {
   constructor(t) {
     ((this.canvas = t),
       (this.keys = new Set()),
@@ -150,14 +150,14 @@ class h0 {
       (this.wheel = 0));
   }
 }
-function u0(i, t) {
+function noiseBuffer(i, t) {
   const e = Math.floor(i.sampleRate * t),
     n = i.createBuffer(1, e, i.sampleRate),
     s = n.getChannelData(0);
   for (let r = 0; r < e; r++) s[r] = Math.random() * 2 - 1;
   return n;
 }
-function d0(i, t, e) {
+function reverbImpulse(i, t, e) {
   const n = Math.floor(i.sampleRate * t),
     s = i.createBuffer(2, n, i.sampleRate);
   for (let r = 0; r < 2; r++) {
@@ -173,8 +173,8 @@ function d0(i, t, e) {
   }
   return s;
 }
-const xi = (i) => 440 * Math.pow(2, (i - 69) / 12);
-class f0 {
+const midiToHz = (i) => 440 * Math.pow(2, (i - 69) / 12);
+class Audio {
   constructor() {
     ((this.ctx = null),
       (this.ready = !1),
@@ -209,7 +209,7 @@ class f0 {
       (this.dry.gain.value = 1),
       this.dry.connect(this.master),
       (this.reverb = t.createConvolver()),
-      (this.reverb.buffer = d0(t, 1.8, 2.6)),
+      (this.reverb.buffer = reverbImpulse(t, 1.8, 2.6)),
       (this.revGain = t.createGain()),
       (this.revGain.gain.value = 0.55),
       this.reverb.connect(this.revGain),
@@ -221,7 +221,7 @@ class f0 {
       (this.musicLP.type = "lowpass"),
       (this.musicLP.frequency.value = 4e3),
       this.musicLP.connect(this.musicBus),
-      (this.noiseBuf = u0(t, 2)),
+      (this.noiseBuf = noiseBuffer(t, 2)),
       (this.ready = !0),
       this._startAmbience(),
       (this._nextBeat = t.currentTime + 0.1));
@@ -951,7 +951,7 @@ class f0 {
     [57, 64, 69, 76].forEach((e, n) => {
       (this.tone(t + n * 0.12, {
         type: "triangle",
-        freq: xi(e),
+        freq: midiToHz(e),
         gain: 0.35,
         attack: 0.01,
         decay: 0.5,
@@ -959,7 +959,7 @@ class f0 {
       }),
         this.tone(t + n * 0.12, {
           type: "sine",
-          freq: xi(e + 12),
+          freq: midiToHz(e + 12),
           gain: 0.15,
           attack: 0.01,
           decay: 0.4,
@@ -1127,7 +1127,7 @@ class f0 {
           const d = l[c % 16];
           (this._mtone(o, {
             type: "sawtooth",
-            freq: xi(d),
+            freq: midiToHz(d),
             gain: 0.28,
             attack: 0.01,
             decay: r * 0.9,
@@ -1135,7 +1135,7 @@ class f0 {
           }),
             this._mtone(o, {
               type: "square",
-              freq: xi(d - 12),
+              freq: midiToHz(d - 12),
               gain: 0.12,
               attack: 0.01,
               decay: r * 0.8,
@@ -1145,7 +1145,7 @@ class f0 {
               [69, 72, 76].forEach((u, m) =>
                 this._mtone(o + m * 0.02, {
                   type: "triangle",
-                  freq: xi(u),
+                  freq: midiToHz(u),
                   gain: 0.12,
                   attack: 0.05,
                   decay: 1.6,
@@ -1156,7 +1156,7 @@ class f0 {
           c % 16 === 0 &&
             this._mtone(o, {
               type: "triangle",
-              freq: xi(45),
+              freq: midiToHz(45),
               gain: 0.25,
               attack: 0.1,
               decay: 1.8,
@@ -1166,7 +1166,7 @@ class f0 {
     }
   }
 }
-const Nn = `
+const NOISE_GLSL = `
 float hash11(float p){ p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
 float hash21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float hash31(vec3 p3){ p3 = fract(p3 * 0.1031); p3 += dot(p3, p3.zyx + 31.32); return fract((p3.x + p3.y) * p3.z); }
@@ -1189,10 +1189,10 @@ float fbm3(vec3 p){ float v = 0.0; float a = 0.5; for (int i = 0; i < 4; i++) { 
   // Everything above this comment is bundled Three.js. Edit from here down:
   // arena, weapons, enemies, HUD, audio, postfx, and the Game class.
   // ---------------------------------------------------------------------------
-  be = 36,
-  Be = 9,
-  xa = new Vector3(0.38, 0.72, 0.58).normalize();
-function p0(i) {
+  ARENA_RADIUS = 36,
+  WALL_HEIGHT = 9,
+  SUN_DIR = new Vector3(0.38, 0.72, 0.58).normalize();
+function mulberry32(i) {
   return function () {
     ((i |= 0), (i = (i + 1831565813) | 0));
     let t = Math.imul(i ^ (i >>> 15), 1 | i);
@@ -1202,7 +1202,7 @@ function p0(i) {
     );
   };
 }
-class As {
+class BoxCollider {
   constructor(t, e, n, s, r, a, l) {
     ((this.cx = t),
       (this.cz = e),
@@ -1224,15 +1224,15 @@ class As {
     return [t * this.c - e * this.s, t * this.s + e * this.c];
   }
 }
-class m0 {
+class Arena {
   constructor(t) {
     ((this.scene = t),
-      (this.radius = be),
+      (this.radius = ARENA_RADIUS),
       (this.boxes = []),
       (this.gates = []),
       (this.timeUniform = { value: 0 }),
       (this.portalMats = []),
-      (this.rng = p0(1337)),
+      (this.rng = mulberry32(1337)),
       (this._tmp = new Vector3()),
       this._build());
   }
@@ -1316,7 +1316,7 @@ vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
             "#include <common>",
             `#include <common>
 varying vec3 vWPos; uniform float uTime;
-${Nn}`,
+${NOISE_GLSL}`,
           )
           .replace(
             "#include <map_fragment>",
@@ -1337,7 +1337,7 @@ ${Nn}`,
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.018, 0.025), gap);
           float ring = smoothstep(0.12, 0.0, abs(fr - (ARENA_RADIUS - 0.9)));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02), ring);
-        `.replace("ARENA_RADIUS", be.toFixed(1)),
+        `.replace("ARENA_RADIUS", ARENA_RADIUS.toFixed(1)),
           )
           .replace(
             "#include <roughnessmap_fragment>",
@@ -1393,49 +1393,57 @@ ${Nn}`,
     for (let z = 0; z < g; z++) {
       const U = (z / g) * Math.PI * 2,
         H = z % 4 === 2,
-        k = Math.cos(U) * (be + 0.6),
-        G = Math.sin(U) * (be + 0.6),
+        k = Math.cos(U) * (ARENA_RADIUS + 0.6),
+        G = Math.sin(U) * (ARENA_RADIUS + 0.6),
         q = -U + Math.PI / 2;
       if (H) {
         for (const Y of [-3.4, 3.4]) {
-          const it = new BoxGeometry(1.3, Be + 0.6, 1.6);
-          (it.translate(Y, (Be + 0.6) / 2, 0),
+          const it = new BoxGeometry(1.3, WALL_HEIGHT + 0.6, 1.6);
+          (it.translate(Y, (WALL_HEIGHT + 0.6) / 2, 0),
             this._place(it, k, G, q),
             c.push(it));
-          const vt = new BoxGeometry(0.12, Be - 1.5, 0.08);
-          (vt.translate(Y + (Y < 0 ? 0.66 : -0.66), (Be - 1.5) / 2 + 0.4, -0.8),
+          const vt = new BoxGeometry(0.12, WALL_HEIGHT - 1.5, 0.08);
+          (vt.translate(
+            Y + (Y < 0 ? 0.66 : -0.66),
+            (WALL_HEIGHT - 1.5) / 2 + 0.4,
+            -0.8,
+          ),
             this._place(vt, k, G, q),
             u.push(vt));
         }
         const O = new BoxGeometry(8.1, 1.6, 1.6);
-        (O.translate(0, Be - 0.2, 0), this._place(O, k, G, q), c.push(O));
+        (O.translate(0, WALL_HEIGHT - 0.2, 0),
+          this._place(O, k, G, q),
+          c.push(O));
         const et = new BoxGeometry(5.6, 0.12, 0.08);
-        (et.translate(0, Be - 1.05, -0.8),
+        (et.translate(0, WALL_HEIGHT - 1.05, -0.8),
           this._place(et, k, G, q),
           u.push(et));
-        const K = new BoxGeometry(8.2, Be + 1, 8);
-        (K.translate(0, (Be + 1) / 2, 4.6), this._place(K, k, G, q), m.push(K));
+        const K = new BoxGeometry(8.2, WALL_HEIGHT + 1, 8);
+        (K.translate(0, (WALL_HEIGHT + 1) / 2, 4.6),
+          this._place(K, k, G, q),
+          m.push(K));
         const nt = this._makePortal();
         (nt.position.set(
-          Math.cos(U) * (be + 0.2),
+          Math.cos(U) * (ARENA_RADIUS + 0.2),
           3.9,
-          Math.sin(U) * (be + 0.2),
+          Math.sin(U) * (ARENA_RADIUS + 0.2),
         ),
           (nt.rotation.y = q),
           t.add(nt));
         const _t = new Vector3(-Math.cos(U), 0, -Math.sin(U)),
           Lt = new PointLight(16738850, 40, 26, 2);
         (Lt.position.set(
-          Math.cos(U) * (be - 2.2),
+          Math.cos(U) * (ARENA_RADIUS - 2.2),
           3.2,
-          Math.sin(U) * (be - 2.2),
+          Math.sin(U) * (ARENA_RADIUS - 2.2),
         ),
           t.add(Lt),
           this.gates.push({
             pos: new Vector3(
-              Math.cos(U) * (be - 1.4),
+              Math.cos(U) * (ARENA_RADIUS - 1.4),
               0,
-              Math.sin(U) * (be - 1.4),
+              Math.sin(U) * (ARENA_RADIUS - 1.4),
             ),
             dir: _t,
             mat: nt.material,
@@ -1444,11 +1452,13 @@ ${Nn}`,
             angle: U,
           }));
       } else {
-        const O = new BoxGeometry(9.7, Be, 1.2);
-        (O.translate(0, Be / 2, 0), this._place(O, k, G, q), c.push(O));
+        const O = new BoxGeometry(9.7, WALL_HEIGHT, 1.2);
+        (O.translate(0, WALL_HEIGHT / 2, 0),
+          this._place(O, k, G, q),
+          c.push(O));
         for (const _t of [-3.2, 3.2]) {
-          const Lt = new BoxGeometry(0.5, Be, 0.4);
-          (Lt.translate(_t, Be / 2, -0.7),
+          const Lt = new BoxGeometry(0.5, WALL_HEIGHT, 0.4);
+          (Lt.translate(_t, WALL_HEIGHT / 2, -0.7),
             this._place(Lt, k, G, q),
             m.push(Lt));
         }
@@ -1486,8 +1496,8 @@ ${Nn}`,
         const K = new BoxGeometry(1.82, 0.12, 1.82);
         (K.translate(H, et, k), f.push(K));
       }
-      (this.boxes.push(new As(H, k, 0.85, 0.85, 0, 10, 0)),
-        this.boxes.push(new As(H, k, 1.15, 1.15, 0, 0.35, 0)));
+      (this.boxes.push(new BoxCollider(H, k, 0.85, 0.85, 0, 10, 0)),
+        this.boxes.push(new BoxCollider(H, k, 1.15, 1.15, 0, 0.35, 0)));
     }
     v(p, e.pillar);
     for (let z = 0; z < 4; z++) {
@@ -1513,7 +1523,7 @@ ${Nn}`,
       (nt.translate(0, 2, 0.29),
         this._place(nt, k, G, q),
         M.push(nt),
-        this.boxes.push(new As(k, G, O / 2, 0.28, 0, 2.1, q)));
+        this.boxes.push(new BoxCollider(k, G, O / 2, 0.28, 0, 2.1, q)));
     }
     (v(w, e.barrier), v(M, e.emOrange, !1));
     const _ = [],
@@ -1551,12 +1561,12 @@ ${Nn}`,
       (nt.translate(0, q[1] * 0.72, q[2] / 2 + 0.005),
         this._place(nt, H, k, O),
         L.push(nt),
-        this.boxes.push(new As(H, k, q[0] / 2, q[2] / 2, 0, q[1], O)),
+        this.boxes.push(new BoxCollider(H, k, q[0] / 2, q[2] / 2, 0, q[1], O)),
         A++);
     }
     (v(_, e.crate), v(L, (this.rng() > 0.5, e.emCyanDim), !1));
     const S = new DirectionalLight(13622527, 3.6);
-    (S.position.copy(xa).multiplyScalar(90),
+    (S.position.copy(SUN_DIR).multiplyScalar(90),
       (S.castShadow = !0),
       S.shadow.mapSize.set(2048, 2048),
       (S.shadow.camera.left = -44),
@@ -1595,7 +1605,7 @@ ${Nn}`,
           "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
         fragmentShader: `
         uniform float uTime; uniform float uActivity; varying vec2 vUv;
-        ${Nn}
+        ${NOISE_GLSL}
         void main(){
           vec2 p = (vUv - 0.5) * vec2(6.4, 7.6) / 3.4;
           float r = length(p);
@@ -1629,7 +1639,7 @@ ${Nn}`,
           "varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
         fragmentShader: `
         uniform float uTime; varying vec3 vP;
-        ${Nn}
+        ${NOISE_GLSL}
         float hexDist(vec2 p){ p = abs(p); return max(dot(p, normalize(vec2(1.0, 1.73))), p.x); }
         vec4 hexCoords(vec2 uv){ vec2 r = vec2(1.0, 1.73); vec2 h = r * 0.5; vec2 a = mod(uv, r) - h; vec2 b = mod(uv - h, r) - h; vec2 gv = dot(a, a) < dot(b, b) ? a : b; float y = 0.5 - hexDist(gv); vec2 id = uv - gv; return vec4(gv, id); }
         void main(){
@@ -1680,7 +1690,7 @@ ${Nn}`,
       ((t += w), (e += M));
     }
     const l = Math.hypot(t, e),
-      o = be - n - 0.3;
+      o = ARENA_RADIUS - n - 0.3;
     return (l > o && ((t *= o / l), (e *= o / l)), [t, e]);
   }
   floorAt(t, e, n, s) {
@@ -1756,13 +1766,13 @@ ${Nn}`,
       const c = e.x * e.x + e.z * e.z;
       if (c > 1e-8) {
         const h = 2 * (t.x * e.x + t.z * e.z),
-          d = t.x * t.x + t.z * t.z - be * be,
+          d = t.x * t.x + t.z * t.z - ARENA_RADIUS * ARENA_RADIUS,
           u = h * h - 4 * c * d;
         if (u > 0) {
           const m = (-h + Math.sqrt(u)) / (2 * c);
           if (m > 0 && m < s) {
             const g = t.y + e.y * m;
-            if (g > 0 && g < Be + 1) {
+            if (g > 0 && g < WALL_HEIGHT + 1) {
               ((s = m), (o = !0));
               const v = t.x + e.x * m,
                 p = t.z + e.z * m,
@@ -1797,7 +1807,7 @@ ${Nn}`,
     this.centerLight.intensity = 26 + Math.sin(t * 2) * 6;
   }
 }
-function g0(i) {
+function createSky(i) {
   const t = new SphereGeometry(700, 48, 24),
     e = new ShaderMaterial({
       side: BackSide,
@@ -1821,7 +1831,7 @@ function g0(i) {
       fragmentShader: `
       uniform float uTime; uniform vec3 uMoonDir; uniform vec3 uHorizon; uniform vec3 uZenith; uniform vec3 uFog;
       varying vec3 vWorldPos;
-      ${Nn}
+      ${NOISE_GLSL}
       void main(){
         vec3 d = normalize(vWorldPos - cameraPosition);
         float h = d.y;
@@ -1881,7 +1891,7 @@ function g0(i) {
     }
   );
 }
-const v0 = `
+const PARTICLE_VERT = `
 attribute vec3 aPos; attribute vec3 aVel; attribute vec2 aTime; attribute vec2 aSize; attribute vec4 aColor; attribute vec4 aMisc;
 uniform float uTime;
 varying vec2 vUv; varying vec4 vColor; varying float vType; varying float vLife; varying float vSeed;
@@ -1917,9 +1927,9 @@ void main(){
   gl_Position = projectionMatrix * viewPos;
 }
 `,
-  _0 = `
+  PARTICLE_FRAG = `
 varying vec2 vUv; varying vec4 vColor; varying float vType; varying float vLife; varying float vSeed;
-${Nn}
+${NOISE_GLSL}
 void main(){
   vec2 uv = vUv - 0.5;
   float a;
@@ -1942,7 +1952,7 @@ void main(){
   gl_FragColor = vec4(col, a);
 }
 `;
-class Zo {
+class ParticleBuffer {
   constructor(t, e) {
     const n = new PlaneGeometry(1, 1),
       s = new InstancedBufferGeometry();
@@ -1972,8 +1982,8 @@ class Zo {
     ((s.instanceCount = t), (this.uTime = { value: 0 }));
     const r = new ShaderMaterial({
       uniforms: { uTime: this.uTime },
-      vertexShader: v0,
-      fragmentShader: _0,
+      vertexShader: PARTICLE_VERT,
+      fragmentShader: PARTICLE_FRAG,
       transparent: !0,
       depthWrite: !1,
       depthTest: !0,
@@ -2013,7 +2023,7 @@ class Zo {
     }
   }
 }
-class x0 {
+class RingSystem {
   constructor(t) {
     const e = new PlaneGeometry(1, 1);
     e.rotateX(-Math.PI / 2);
@@ -2090,12 +2100,12 @@ class x0 {
     }
   }
 }
-const J = (i, t) => i + Math.random() * (t - i);
-class M0 {
+const rand = (i, t) => i + Math.random() * (t - i);
+class ParticleSystem {
   constructor(t) {
-    ((this.add = new Zo(8e3, !0)),
-      (this.alpha = new Zo(2e3, !1)),
-      (this.rings = new x0(48)),
+    ((this.add = new ParticleBuffer(8e3, !0)),
+      (this.alpha = new ParticleBuffer(2e3, !1)),
+      (this.rings = new RingSystem(48)),
       t.add(this.add.mesh, this.alpha.mesh, this.rings.mesh),
       (this.t = 0),
       (this._ambT = 0));
@@ -2104,21 +2114,21 @@ class M0 {
     for (this.t = t, this._ambT += e; this._ambT > 0.05;) {
       this._ambT -= 0.05;
       const s = Math.random() * Math.PI * 2,
-        r = J(2, 22),
+        r = rand(2, 22),
         a = n.x + Math.cos(s) * r,
         l = n.z + Math.sin(s) * r,
         o = Math.random() > 0.35;
       this.add.emit(
         a,
-        J(0.2, 6),
+        rand(0.2, 6),
         l,
-        J(-0.3, 0.3),
-        J(0.05, 0.3),
-        J(-0.3, 0.3),
+        rand(-0.3, 0.3),
+        rand(0.05, 0.3),
+        rand(-0.3, 0.3),
         t,
-        J(5, 9),
-        J(0.02, 0.05),
-        J(0.02, 0.05),
+        rand(5, 9),
+        rand(0.02, 0.05),
+        rand(0.02, 0.05),
         o ? 0.4 : 1,
         o ? 0.9 : 0.5,
         o ? 1 : 0.15,
@@ -2132,9 +2142,9 @@ class M0 {
     (this.add.flush(t), this.alpha.flush(t), this.rings.flush(t));
   }
   randomInCone(t, e, n) {
-    const s = J(-1, 1),
-      r = J(-1, 1),
-      a = J(-1, 1);
+    const s = rand(-1, 1),
+      r = rand(-1, 1),
+      a = rand(-1, 1);
     return (n.set(t.x + s * e, t.y + r * e, t.z + a * e).normalize(), n);
   }
   impactSparks(t, e, n = 14, s = 1) {
@@ -2142,7 +2152,7 @@ class M0 {
       a = new Vector3();
     for (let l = 0; l < n; l++) {
       this.randomInCone(e, 0.9, a);
-      const o = J(2.5, 9) * s,
+      const o = rand(2.5, 9) * s,
         c = Math.random() > 0.6;
       this.add.emit(
         t.x,
@@ -2152,15 +2162,15 @@ class M0 {
         a.y * o + 1.5,
         a.z * o + e.z,
         r,
-        J(0.2, 0.6),
-        J(0.015, 0.03),
+        rand(0.2, 0.6),
+        rand(0.015, 0.03),
         0.005,
         1,
         c ? 0.85 : 0.6,
         c ? 0.5 : 0.2,
-        J(3, 6),
+        rand(3, 6),
         14,
-        J(1.5, 3),
+        rand(1.5, 3),
         0,
         0.05,
       );
@@ -2191,13 +2201,13 @@ class M0 {
           t.x + e.x * 0.05,
           t.y + e.y * 0.05,
           t.z + e.z * 0.05,
-          a.x * J(0.6, 1.4),
-          a.y * J(0.6, 1.4) + 0.4,
-          a.z * J(0.6, 1.4),
+          a.x * rand(0.6, 1.4),
+          a.y * rand(0.6, 1.4) + 0.4,
+          a.z * rand(0.6, 1.4),
           r,
-          J(0.6, 1.1),
-          J(0.12, 0.2),
-          J(0.5, 0.8),
+          rand(0.6, 1.1),
+          rand(0.12, 0.2),
+          rand(0.5, 0.8),
           0.55,
           0.52,
           0.48,
@@ -2205,7 +2215,7 @@ class M0 {
           -0.6,
           3.5,
           1,
-          J(-2, 2),
+          rand(-2, 2),
         ));
   }
   fleshBurst(t, e, n = !1, s = [1, 0.42, 0.1]) {
@@ -2213,8 +2223,8 @@ class M0 {
       a = new Vector3(),
       l = n ? 26 : 14;
     for (let o = 0; o < l; o++) {
-      a.set(J(-1, 1), J(-0.6, 1), J(-1, 1)).normalize();
-      const c = J(1.5, 6) * (n ? 1.5 : 1);
+      a.set(rand(-1, 1), rand(-0.6, 1), rand(-1, 1)).normalize();
+      const c = rand(1.5, 6) * (n ? 1.5 : 1);
       this.add.emit(
         t.x,
         t.y,
@@ -2223,22 +2233,22 @@ class M0 {
         1.5 + a.y * c,
         e.z * 2.5 + a.z * c,
         r,
-        J(0.4, 0.9),
-        J(0.04, 0.09),
+        rand(0.4, 0.9),
+        rand(0.04, 0.09),
         0.01,
         s[0],
         s[1],
         s[2],
-        J(3, 6),
+        rand(3, 6),
         16,
-        J(1, 2.5),
+        rand(1, 2.5),
         2,
         0,
       );
     }
     for (let o = 0; o < (n ? 10 : 5); o++) {
-      a.set(J(-1, 1), J(-0.5, 1), J(-1, 1)).normalize();
-      const c = J(3, 8);
+      a.set(rand(-1, 1), rand(-0.5, 1), rand(-1, 1)).normalize();
+      const c = rand(3, 8);
       this.add.emit(
         t.x,
         t.y,
@@ -2247,8 +2257,8 @@ class M0 {
         1 + a.y * c,
         e.z * 2 + a.z * c,
         r,
-        J(0.25, 0.5),
-        J(0.02, 0.04),
+        rand(0.25, 0.5),
+        rand(0.02, 0.04),
         0.005,
         s[0],
         s[1] * 0.8,
@@ -2285,11 +2295,11 @@ class M0 {
         t.x,
         t.y,
         t.z,
-        J(-0.6, 0.6),
-        J(0.3, 0.9),
-        J(-0.6, 0.6),
+        rand(-0.6, 0.6),
+        rand(0.3, 0.9),
+        rand(-0.6, 0.6),
         r,
-        J(0.5, 0.9),
+        rand(0.5, 0.9),
         0.15,
         0.6,
         0.15,
@@ -2299,7 +2309,7 @@ class M0 {
         -0.4,
         3,
         1,
-        J(-2, 2),
+        rand(-2, 2),
       );
   }
   deathBurst(t, e, n = 1, s = !1) {
@@ -2307,42 +2317,42 @@ class M0 {
       a = new Vector3(),
       l = Math.floor(50 * n);
     for (let o = 0; o < l; o++) {
-      a.set(J(-1, 1), J(-0.2, 1), J(-1, 1)).normalize();
-      const c = J(2, 9) * n;
+      a.set(rand(-1, 1), rand(-0.2, 1), rand(-1, 1)).normalize();
+      const c = rand(2, 9) * n;
       this.add.emit(
         t.x,
-        t.y + J(0, 1.2 * n),
+        t.y + rand(0, 1.2 * n),
         t.z,
         a.x * c,
         a.y * c + 2,
         a.z * c,
         r,
-        J(0.6, 1.6),
-        J(0.03, 0.1) * n,
+        rand(0.6, 1.6),
+        rand(0.03, 0.1) * n,
         0.01,
         e[0],
         e[1],
         e[2],
-        J(3, 7),
-        J(6, 14),
-        J(0.8, 2),
+        rand(3, 7),
+        rand(6, 14),
+        rand(0.8, 2),
         2,
         0,
       );
     }
     for (let o = 0; o < Math.floor(12 * n); o++) {
-      a.set(J(-1, 1), J(0, 1), J(-1, 1)).normalize();
-      const c = J(4, 12) * n;
+      a.set(rand(-1, 1), rand(0, 1), rand(-1, 1)).normalize();
+      const c = rand(4, 12) * n;
       this.add.emit(
         t.x,
-        t.y + J(0.3, 1.4 * n),
+        t.y + rand(0.3, 1.4 * n),
         t.z,
         a.x * c,
         a.y * c,
         a.z * c,
         r,
-        J(0.3, 0.6),
-        J(0.02, 0.05),
+        rand(0.3, 0.6),
+        rand(0.02, 0.05),
         0.005,
         1,
         0.8,
@@ -2356,14 +2366,14 @@ class M0 {
     }
     for (let o = 0; o < Math.floor(6 * n); o++)
       this.alpha.emit(
-        t.x + J(-0.3, 0.3),
-        t.y + J(0.3, 1.3 * n),
-        t.z + J(-0.3, 0.3),
-        J(-0.8, 0.8),
-        J(0.4, 1.4),
-        J(-0.8, 0.8),
+        t.x + rand(-0.3, 0.3),
+        t.y + rand(0.3, 1.3 * n),
+        t.z + rand(-0.3, 0.3),
+        rand(-0.8, 0.8),
+        rand(0.4, 1.4),
+        rand(-0.8, 0.8),
         r,
-        J(0.9, 1.6),
+        rand(0.9, 1.6),
         0.3 * n,
         1.2 * n,
         0.12,
@@ -2373,7 +2383,7 @@ class M0 {
         -0.5,
         2.5,
         1,
-        J(-1.5, 1.5),
+        rand(-1.5, 1.5),
       );
     (this.add.emit(
       t.x,
@@ -2435,17 +2445,17 @@ class M0 {
       ));
     for (let s = 0; s < 40; s++) {
       const r = Math.random() * Math.PI * 2,
-        a = J(3, 8);
+        a = rand(3, 8);
       this.add.emit(
         t.x,
         0.1,
         t.z,
         Math.cos(r) * a,
-        J(1, 5),
+        rand(1, 5),
         Math.sin(r) * a,
         n,
-        J(0.4, 1),
-        J(0.03, 0.07),
+        rand(0.4, 1),
+        rand(0.03, 0.07),
         0.01,
         1,
         0.5,
@@ -2467,7 +2477,7 @@ class M0 {
         1.2,
         Math.sin(r) * 3,
         n,
-        J(0.8, 1.4),
+        rand(0.8, 1.4),
         0.4,
         1.6,
         0.35,
@@ -2477,7 +2487,7 @@ class M0 {
         -0.3,
         3,
         1,
-        J(-1, 1),
+        rand(-1, 1),
       );
     }
   }
@@ -2488,13 +2498,13 @@ class M0 {
         t.x,
         t.y,
         t.z,
-        e.x * J(1, 2.5) + J(-0.3, 0.3),
-        e.y * J(1, 2.5) + 0.6,
-        e.z * J(1, 2.5) + J(-0.3, 0.3),
+        e.x * rand(1, 2.5) + rand(-0.3, 0.3),
+        e.y * rand(1, 2.5) + 0.6,
+        e.z * rand(1, 2.5) + rand(-0.3, 0.3),
         s,
-        J(0.5, 1) * n,
+        rand(0.5, 1) * n,
         0.08,
-        J(0.35, 0.6) * n,
+        rand(0.35, 0.6) * n,
         0.5,
         0.48,
         0.45,
@@ -2502,24 +2512,24 @@ class M0 {
         -0.4,
         4,
         1,
-        J(-3, 3),
+        rand(-3, 3),
       );
   }
   spawnFx(t, e) {
     const n = this.t;
     for (let s = 0; s < 24; s++) {
       const r = Math.random() * Math.PI * 2,
-        a = J(0.2, 1);
+        a = rand(0.2, 1);
       this.add.emit(
         t.x + Math.cos(r) * a,
-        J(0, 0.3),
+        rand(0, 0.3),
         t.z + Math.sin(r) * a,
         0,
-        J(1.5, 4),
+        rand(1.5, 4),
         0,
         n,
-        J(0.6, 1.2),
-        J(0.03, 0.06),
+        rand(0.6, 1.2),
+        rand(0.03, 0.06),
         0.01,
         e[0],
         e[1],
@@ -2538,11 +2548,11 @@ class M0 {
       t.x,
       t.y,
       t.z,
-      J(-0.3, 0.3),
-      J(-0.3, 0.3),
-      J(-0.3, 0.3),
+      rand(-0.3, 0.3),
+      rand(-0.3, 0.3),
+      rand(-0.3, 0.3),
       this.t,
-      J(0.2, 0.4),
+      rand(0.2, 0.4),
       n,
       0.01,
       e[0],
@@ -2559,8 +2569,8 @@ class M0 {
     const n = this.t,
       s = new Vector3();
     for (let r = 0; r < 18; r++) {
-      s.set(J(-1, 1), J(0.2, 1), J(-1, 1)).normalize();
-      const a = J(2, 6);
+      s.set(rand(-1, 1), rand(0.2, 1), rand(-1, 1)).normalize();
+      const a = rand(2, 6);
       this.add.emit(
         t.x,
         t.y,
@@ -2569,8 +2579,8 @@ class M0 {
         s.y * a,
         s.z * a,
         n,
-        J(0.4, 0.8),
-        J(0.04, 0.08),
+        rand(0.4, 0.8),
+        rand(0.04, 0.08),
         0.01,
         e[0],
         e[1],
@@ -2607,16 +2617,16 @@ class M0 {
     const e = this.t;
     for (let n = 0; n < 30; n++) {
       const s = Math.random() * Math.PI * 2,
-        r = J(1, 3);
+        r = rand(1, 3);
       this.add.emit(
         t.x,
         t.y + 0.3,
         t.z,
         Math.cos(s) * r,
-        J(2, 5),
+        rand(2, 5),
         Math.sin(s) * r,
         e,
-        J(0.5, 1),
+        rand(0.5, 1),
         0.05,
         0.01,
         0.4,
@@ -2631,7 +2641,7 @@ class M0 {
     }
   }
 }
-class y0 {
+class Tracers {
   constructor(t, e = 160) {
     const n = new PlaneGeometry(1, 1, 1, 1),
       s = new InstancedBufferGeometry();
@@ -2726,7 +2736,7 @@ class y0 {
     }
   }
 }
-class S0 {
+class Decals {
   constructor(t, e = 320) {
     const n = new PlaneGeometry(1, 1),
       s = new InstancedBufferGeometry();
@@ -2767,7 +2777,7 @@ class S0 {
         }`,
       fragmentShader: `
         varying vec2 vUv; varying float vType; varying float vAge; varying float vSeed;
-        ${Nn}
+        ${NOISE_GLSL}
         void main(){
           vec2 c = vUv - 0.5; float r = length(c) * 2.0;
           float n = noise2(c * 10.0 + vSeed * 40.0);
@@ -2822,7 +2832,7 @@ class S0 {
     }
   }
 }
-class E0 {
+class Shells {
   constructor(t, e = 64) {
     const n = new CylinderGeometry(0.0045, 0.0045, 0.028, 8);
     n.rotateZ(Math.PI / 2);
@@ -2918,7 +2928,7 @@ class E0 {
     this.mesh.instanceMatrix.needsUpdate = !0;
   }
 }
-const w0 = `
+const BLOOM_DOWN_FRAG = `
 uniform sampler2D tSrc; uniform vec2 uTexel; uniform float uThreshold; uniform float uKnee; uniform float uPrefilter;
 varying vec2 vUv;
 vec3 pf(vec3 c){
@@ -2937,7 +2947,7 @@ void main(){
   vec3 col = e * 0.125 + (a + c + g + i) * 0.03125 + (b + d + f + h) * 0.0625 + (j + k + l + m) * 0.125;
   gl_FragColor = vec4(col, 1.0);
 }`,
-  T0 = `
+  BLOOM_UP_FRAG = `
 uniform sampler2D tSrc; uniform vec2 uTexel; uniform float uScale;
 varying vec2 vUv;
 void main(){
@@ -2947,7 +2957,7 @@ void main(){
          + texture2D(tSrc, vUv + vec2(-t.x, t.y)).rgb + texture2D(tSrc, vUv + vec2(0.0, t.y)).rgb * 2.0 + texture2D(tSrc, vUv + vec2(t.x, t.y)).rgb;
   gl_FragColor = vec4(s / 16.0, 1.0);
 }`,
-  b0 = `
+  COMPOSITE_FRAG = `
 uniform sampler2D tScene; uniform sampler2D tBloom; uniform vec2 uRes; uniform float uTime;
 uniform float uBloom; uniform float uExposure; uniform float uCA; uniform float uVignette; uniform float uGrain;
 uniform float uDamage; uniform float uFlash; uniform float uSat; uniform float uContrast; uniform float uRadial; uniform float uDesat;
@@ -2986,9 +2996,9 @@ void main(){
   col += uFlash;
   gl_FragColor = vec4(srgb(clamp(col, 0.0, 1.0)), 1.0);
 }`,
-  wr =
+  FULLSCREEN_VERT =
     "varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }";
-class A0 {
+class PostFX {
   constructor(t) {
     this.renderer = t;
     const e = t.getDrawingBufferSize(new Vector2());
@@ -3035,8 +3045,8 @@ class A0 {
           uKnee: { value: 0.6 },
           uPrefilter: { value: 0 },
         },
-        vertexShader: wr,
-        fragmentShader: w0,
+        vertexShader: FULLSCREEN_VERT,
+        fragmentShader: BLOOM_DOWN_FRAG,
         depthTest: !1,
         depthWrite: !1,
       })),
@@ -3046,8 +3056,8 @@ class A0 {
           uTexel: { value: new Vector2() },
           uScale: { value: 1 },
         },
-        vertexShader: wr,
-        fragmentShader: T0,
+        vertexShader: FULLSCREEN_VERT,
+        fragmentShader: BLOOM_UP_FRAG,
         depthTest: !1,
         depthWrite: !1,
         blending: CustomBlending,
@@ -3074,8 +3084,8 @@ class A0 {
       }),
       (this.compMat = new ShaderMaterial({
         uniforms: this.u,
-        vertexShader: wr,
-        fragmentShader: b0,
+        vertexShader: FULLSCREEN_VERT,
+        fragmentShader: COMPOSITE_FRAG,
         depthTest: !1,
         depthWrite: !1,
       })));
@@ -3125,8 +3135,8 @@ class A0 {
       this._pass(this.compMat, null));
   }
 }
-const Ln = (i, t, e, n) => MathUtils.damp(i, t, e, n);
-class R0 {
+const damp4 = (i, t, e, n) => MathUtils.damp(i, t, e, n);
+class Player {
   constructor(t) {
     ((this.arena = t),
       (this.pos = new Vector3(0, 0.5, 4)),
@@ -3290,8 +3300,8 @@ class R0 {
         const K = m.x * f,
           nt = m.z * f,
           _t = m.lengthSq() > 0.01 ? 11 : 14;
-        ((this.vel.x = Ln(this.vel.x, K, _t, t)),
-          (this.vel.z = Ln(this.vel.z, nt, _t, t)));
+        ((this.vel.x = damp4(this.vel.x, K, _t, t)),
+          (this.vel.z = damp4(this.vel.z, nt, _t, t)));
       }
       !this.dead &&
         e.justPressed("Space") &&
@@ -3361,7 +3371,7 @@ class R0 {
           this.hp < this.maxHp &&
           (this.hp = Math.min(this.maxHp, this.hp + 120 * t))),
       (this.hurtFlash = Math.max(0, this.hurtFlash - t * 2.5)),
-      (this.eye = Ln(
+      (this.eye = damp4(
         this.eye,
         this.crouch ? this.eyeCrouch : this.eyeStand,
         16,
@@ -3376,7 +3386,12 @@ class R0 {
       this.stepDist > nt &&
         ((this.stepDist = 0), s.push({ type: "step", sprint: this.sprinting }));
     }
-    this.bobAmt = Ln(this.bobAmt, C ? Math.min(1, this.speed / 4.5) : 0, 10, t);
+    this.bobAmt = damp4(
+      this.bobAmt,
+      C ? Math.min(1, this.speed / 4.5) : 0,
+      10,
+      t,
+    );
     const S = (this.sprinting ? 1.7 : 1) * (1 - this.ads * 0.75),
       y = Math.sin(this.bobPhase) * 0.016 * this.bobAmt * S,
       P = Math.sin(this.bobPhase * 2) * 0.011 * this.bobAmt * S;
@@ -3397,9 +3412,14 @@ class R0 {
         -this.moveInput.x * 0.012 * (1 - this.ads * 0.6) -
         this.localVel.x * 0.0025 +
         (this.sliding ? 0.07 : 0);
-    ((this.roll = Ln(this.roll, q, 9, t)),
-      (this.sprintBlend = Ln(this.sprintBlend, this.sprinting ? 1 : 0, 10, t)),
-      (this.slideBlend = Ln(this.slideBlend, this.sliding ? 1 : 0, 10, t)),
+    ((this.roll = damp4(this.roll, q, 9, t)),
+      (this.sprintBlend = damp4(
+        this.sprintBlend,
+        this.sprinting ? 1 : 0,
+        10,
+        t,
+      )),
+      (this.slideBlend = damp4(this.slideBlend, this.sliding ? 1 : 0, 10, t)),
       this.camPos.set(
         this.pos.x + d * y,
         this.pos.y + this.eye + P + this.landDip * 0.5,
@@ -3416,10 +3436,10 @@ class R0 {
       this.right.set(1, 0, 0).applyQuaternion(this.camQuat));
     const O = 80 + this.sprintBlend * 6 + this.slideBlend * 9,
       et = MathUtils.lerp(O, this.adsFov, this.ads);
-    this.fov = Ln(this.fov, et, 18, t);
+    this.fov = damp4(this.fov, et, 18, t);
   }
 }
-const tt = {
+const VIEWMODEL_MATS = {
   metal: new MeshStandardMaterial({
     color: 4014409,
     roughness: 0.38,
@@ -3483,23 +3503,23 @@ const tt = {
     side: DoubleSide,
   }),
 };
-function ot(i, t, e, n, s = 0, r = 0, a = 0, l = 0) {
+function box(i, t, e, n, s = 0, r = 0, a = 0, l = 0) {
   const o =
       l > 0 ? new RoundedBoxGeometry(i, t, e, 2, l) : new BoxGeometry(i, t, e),
     c = new Mesh(o, n);
   return (c.position.set(s, r, a), c);
 }
-function Ae(i, t, e, n, s = 0, r = 0, a = 0, l = "z", o = 18, c = !1) {
+function cyl(i, t, e, n, s = 0, r = 0, a = 0, l = "z", o = 18, c = !1) {
   const h = new CylinderGeometry(i, t, e, o, 1, c);
   l === "z" ? h.rotateX(Math.PI / 2) : l === "x" && h.rotateZ(Math.PI / 2);
   const d = new Mesh(h, n);
   return (d.position.set(s, r, a), d);
 }
-function Ma(i, t, e, n, s) {
+function sphere(i, t, e, n, s) {
   const r = new Mesh(new SphereGeometry(i, 12, 10), t);
   return (r.position.set(e, n, s), r);
 }
-function Vl(i, t, e, n, s) {
+function tube(i, t, e, n, s) {
   const r = new Vector3(...i),
     a = new Vector3(...t),
     l = r.distanceTo(a),
@@ -3512,88 +3532,192 @@ function Vl(i, t, e, n, s) {
     c
   );
 }
-function Gl(i, t, e, n, s, r) {
+function torus(i, t, e, n, s, r) {
   const a = new TorusGeometry(i, t, 8, 24),
     l = new Mesh(a, e);
   return (l.position.set(n, s, r), l);
 }
-function za(i, t = -0.3) {
+function makeRightHand(i, t = -0.3) {
   const e = new Group();
-  (e.add(ot(0.05, 0.085, 0.052, tt.glove, 0.004, 0, 0.026, 0.014)),
-    e.add(ot(0.05, 0.072, 0.028, tt.glove, 0, -0.012, -0.022, 0.01)));
+  (e.add(box(0.05, 0.085, 0.052, VIEWMODEL_MATS.glove, 0.004, 0, 0.026, 0.014)),
+    e.add(
+      box(0.05, 0.072, 0.028, VIEWMODEL_MATS.glove, 0, -0.012, -0.022, 0.01),
+    ));
   for (let n = 0; n < 4; n++)
-    e.add(ot(0.05, 0.014, 0.03, tt.glove, 0, 0.02 - n * 0.017, -0.026, 0.005));
+    e.add(
+      box(
+        0.05,
+        0.014,
+        0.03,
+        VIEWMODEL_MATS.glove,
+        0,
+        0.02 - n * 0.017,
+        -0.026,
+        0.005,
+      ),
+    );
   return (
-    e.add(ot(0.018, 0.045, 0.02, tt.glove, -0.03, 0.03, 0.01, 0.006)),
-    e.add(Vl([0.01, -0.05, 0.05], [0.11, -0.3, 0.38], 0.036, 0.055, tt.sleeve)),
+    e.add(
+      box(0.018, 0.045, 0.02, VIEWMODEL_MATS.glove, -0.03, 0.03, 0.01, 0.006),
+    ),
+    e.add(
+      tube(
+        [0.01, -0.05, 0.05],
+        [0.11, -0.3, 0.38],
+        0.036,
+        0.055,
+        VIEWMODEL_MATS.sleeve,
+      ),
+    ),
     e.position.set(i[0], i[1], i[2]),
     (e.rotation.x = t),
     e
   );
 }
-function Oa(i, t = [-0.13, -0.34, 0.24]) {
+function makeLeftHand(i, t = [-0.13, -0.34, 0.24]) {
   const e = new Group();
-  (e.add(ot(0.05, 0.048, 0.088, tt.glove, -0.004, -0.032, 0, 0.014)),
-    e.add(ot(0.02, 0.06, 0.084, tt.glove, 0.03, -0.004, 0, 0.008)));
+  (e.add(
+    box(0.05, 0.048, 0.088, VIEWMODEL_MATS.glove, -0.004, -0.032, 0, 0.014),
+  ),
+    e.add(
+      box(0.02, 0.06, 0.084, VIEWMODEL_MATS.glove, 0.03, -0.004, 0, 0.008),
+    ));
   for (let n = 0; n < 4; n++)
     e.add(
-      ot(0.016, 0.028, 0.017, tt.glove, 0.036, 0.025, -0.03 + n * 0.02, 0.005),
+      box(
+        0.016,
+        0.028,
+        0.017,
+        VIEWMODEL_MATS.glove,
+        0.036,
+        0.025,
+        -0.03 + n * 0.02,
+        0.005,
+      ),
     );
   return (
-    e.add(ot(0.02, 0.05, 0.028, tt.glove, -0.034, -0.002, 0.02, 0.007)),
-    e.add(Vl([-0.01, -0.05, 0.02], t, 0.036, 0.055, tt.sleeve)),
+    e.add(
+      box(0.02, 0.05, 0.028, VIEWMODEL_MATS.glove, -0.034, -0.002, 0.02, 0.007),
+    ),
+    e.add(tube([-0.01, -0.05, 0.02], t, 0.036, 0.055, VIEWMODEL_MATS.sleeve)),
     e.position.set(i[0], i[1], i[2]),
     e
   );
 }
-function C0(i) {
+function buildRifleModel(i) {
   const t = new Group(),
     e = {};
-  (t.add(ot(0.068, 0.07, 0.25, tt.metal, 0, 0.035, -0.03, 0.008)),
-    t.add(ot(0.062, 0.056, 0.17, tt.metalDark, 0, -0.025, 0, 0.006)),
-    t.add(ot(0.024, 0.012, 0.25, tt.metalDark, 0, 0.076, -0.03)));
+  (t.add(box(0.068, 0.07, 0.25, VIEWMODEL_MATS.metal, 0, 0.035, -0.03, 0.008)),
+    t.add(
+      box(0.062, 0.056, 0.17, VIEWMODEL_MATS.metalDark, 0, -0.025, 0, 0.006),
+    ),
+    t.add(box(0.024, 0.012, 0.25, VIEWMODEL_MATS.metalDark, 0, 0.076, -0.03)));
   for (let h = 0; h < 7; h++)
-    t.add(ot(0.026, 0.005, 0.012, tt.metal, 0, 0.084, 0.07 - h * 0.03));
-  (t.add(ot(0.03, 0.018, 0.02, tt.metalLight, 0, 0.05, -0.15)),
-    t.add(ot(0.002, 0.008, 0.06, tt.accent, 0.0355, 0.03, -0.05)),
-    t.add(ot(0.002, 0.008, 0.06, tt.accent, -0.0355, 0.03, -0.05)));
+    t.add(
+      box(0.026, 0.005, 0.012, VIEWMODEL_MATS.metal, 0, 0.084, 0.07 - h * 0.03),
+    );
+  (t.add(box(0.03, 0.018, 0.02, VIEWMODEL_MATS.metalLight, 0, 0.05, -0.15)),
+    t.add(box(0.002, 0.008, 0.06, VIEWMODEL_MATS.accent, 0.0355, 0.03, -0.05)),
+    t.add(
+      box(0.002, 0.008, 0.06, VIEWMODEL_MATS.accent, -0.0355, 0.03, -0.05),
+    ));
   const n = new Group();
   n.position.set(0, -0.05, -0.02);
-  const s = ot(0.04, 0.17, 0.07, tt.polymer2, 0, -0.085, 0.008, 0.005);
+  const s = box(
+    0.04,
+    0.17,
+    0.07,
+    VIEWMODEL_MATS.polymer2,
+    0,
+    -0.085,
+    0.008,
+    0.005,
+  );
   ((s.rotation.x = 0.13), n.add(s));
-  const r = ot(0.043, 0.012, 0.074, tt.metalDark, 0, -0.17, 0.03);
+  const r = box(0.043, 0.012, 0.074, VIEWMODEL_MATS.metalDark, 0, -0.17, 0.03);
   ((r.rotation.x = 0.13),
     n.add(r),
-    n.add(ot(0.041, 0.004, 0.071, tt.orange, 0, -0.06, 0.006)),
+    n.add(box(0.041, 0.004, 0.071, VIEWMODEL_MATS.orange, 0, -0.06, 0.006)),
     t.add(n),
     (e.mag = n),
     (e.magRest = n.position.clone()));
-  const a = ot(0.032, 0.105, 0.046, tt.polymer, 0, -0.1, 0.078, 0.007);
+  const a = box(
+    0.032,
+    0.105,
+    0.046,
+    VIEWMODEL_MATS.polymer,
+    0,
+    -0.1,
+    0.078,
+    0.007,
+  );
   ((a.rotation.x = -0.32),
     t.add(a),
-    t.add(ot(0.006, 0.02, 0.008, tt.metalLight, 0, -0.06, 0.035)),
-    t.add(ot(0.004, 0.004, 0.06, tt.metalDark, 0, -0.072, 0.03)),
-    t.add(Ae(0.017, 0.017, 0.2, tt.metalDark, 0, 0.022, 0.2)),
-    t.add(ot(0.046, 0.085, 0.13, tt.polymer, 0, 0, 0.31, 0.008)),
-    t.add(ot(0.05, 0.11, 0.025, tt.polymer2, 0, -0.004, 0.375, 0.006)),
-    t.add(ot(0.056, 0.058, 0.3, tt.polymer2, 0, 0.034, -0.31, 0.008)));
+    t.add(box(0.006, 0.02, 0.008, VIEWMODEL_MATS.metalLight, 0, -0.06, 0.035)),
+    t.add(box(0.004, 0.004, 0.06, VIEWMODEL_MATS.metalDark, 0, -0.072, 0.03)),
+    t.add(cyl(0.017, 0.017, 0.2, VIEWMODEL_MATS.metalDark, 0, 0.022, 0.2)),
+    t.add(box(0.046, 0.085, 0.13, VIEWMODEL_MATS.polymer, 0, 0, 0.31, 0.008)),
+    t.add(
+      box(0.05, 0.11, 0.025, VIEWMODEL_MATS.polymer2, 0, -0.004, 0.375, 0.006),
+    ),
+    t.add(
+      box(0.056, 0.058, 0.3, VIEWMODEL_MATS.polymer2, 0, 0.034, -0.31, 0.008),
+    ));
   for (let h = 0; h < 9; h++)
-    t.add(ot(0.062, 0.005, 0.012, tt.metalDark, 0, 0.065, -0.18 - h * 0.03));
+    t.add(
+      box(
+        0.062,
+        0.005,
+        0.012,
+        VIEWMODEL_MATS.metalDark,
+        0,
+        0.065,
+        -0.18 - h * 0.03,
+      ),
+    );
   for (let h = 0; h < 5; h++)
-    (t.add(ot(0.002, 0.02, 0.028, tt.metalDark, 0.029, 0.03, -0.22 - h * 0.04)),
+    (t.add(
+      box(
+        0.002,
+        0.02,
+        0.028,
+        VIEWMODEL_MATS.metalDark,
+        0.029,
+        0.03,
+        -0.22 - h * 0.04,
+      ),
+    ),
       t.add(
-        ot(0.002, 0.02, 0.028, tt.metalDark, -0.029, 0.03, -0.22 - h * 0.04),
+        box(
+          0.002,
+          0.02,
+          0.028,
+          VIEWMODEL_MATS.metalDark,
+          -0.029,
+          0.03,
+          -0.22 - h * 0.04,
+        ),
       ));
-  (t.add(ot(0.002, 0.005, 0.2, tt.accent, 0.0292, 0.048, -0.31)),
-    t.add(Ae(0.011, 0.011, 0.3, tt.metal, 0, 0.034, -0.6)),
-    t.add(Ae(0.015, 0.015, 0.03, tt.metalDark, 0, 0.034, -0.48)),
-    t.add(Ae(0.016, 0.0145, 0.07, tt.metalDark, 0, 0.034, -0.77)));
+  (t.add(box(0.002, 0.005, 0.2, VIEWMODEL_MATS.accent, 0.0292, 0.048, -0.31)),
+    t.add(cyl(0.011, 0.011, 0.3, VIEWMODEL_MATS.metal, 0, 0.034, -0.6)),
+    t.add(cyl(0.015, 0.015, 0.03, VIEWMODEL_MATS.metalDark, 0, 0.034, -0.48)),
+    t.add(cyl(0.016, 0.0145, 0.07, VIEWMODEL_MATS.metalDark, 0, 0.034, -0.77)));
   for (let h = 0; h < 3; h++)
-    t.add(ot(0.036, 0.004, 0.008, tt.polymer, 0, 0.034, -0.75 - h * 0.015));
+    t.add(
+      box(
+        0.036,
+        0.004,
+        0.008,
+        VIEWMODEL_MATS.polymer,
+        0,
+        0.034,
+        -0.75 - h * 0.015,
+      ),
+    );
   ((e.muzzle = new Object3D()),
     e.muzzle.position.set(0, 0.034, -0.805),
     t.add(e.muzzle));
-  const l = ot(0.03, 0.026, 0.05, tt.metalLight, 0, 0.058, 0.1);
+  const l = box(0.03, 0.026, 0.05, VIEWMODEL_MATS.metalLight, 0, 0.058, 0.1);
   (t.add(l),
     (e.bolt = l),
     (e.boltRest = 0.1),
@@ -3601,17 +3725,54 @@ function C0(i) {
     (e.eject = new Object3D()),
     e.eject.position.set(0.04, 0.045, -0.03),
     t.add(e.eject),
-    t.add(ot(0.03, 0.02, 0.05, tt.metalDark, 0, 0.093, -0.07, 0.004)),
-    t.add(ot(0.012, 0.012, 0.014, tt.metalDark, 0, 0.108, -0.055)));
-  const o = Ae(0.02, 0.02, 0.036, tt.tube, 0, 0.122, -0.07, "z", 28, !0);
+    t.add(
+      box(0.03, 0.02, 0.05, VIEWMODEL_MATS.metalDark, 0, 0.093, -0.07, 0.004),
+    ),
+    t.add(
+      box(0.012, 0.012, 0.014, VIEWMODEL_MATS.metalDark, 0, 0.108, -0.055),
+    ));
+  const o = cyl(
+    0.02,
+    0.02,
+    0.036,
+    VIEWMODEL_MATS.tube,
+    0,
+    0.122,
+    -0.07,
+    "z",
+    28,
+    !0,
+  );
   (t.add(o),
     t.add(
-      Ae(0.0225, 0.0225, 0.006, tt.metalDark, 0, 0.122, -0.089, "z", 28, !0),
+      cyl(
+        0.0225,
+        0.0225,
+        0.006,
+        VIEWMODEL_MATS.metalDark,
+        0,
+        0.122,
+        -0.089,
+        "z",
+        28,
+        !0,
+      ),
     ),
     t.add(
-      Ae(0.0225, 0.0225, 0.006, tt.metalDark, 0, 0.122, -0.051, "z", 28, !0),
+      cyl(
+        0.0225,
+        0.0225,
+        0.006,
+        VIEWMODEL_MATS.metalDark,
+        0,
+        0.122,
+        -0.051,
+        "z",
+        28,
+        !0,
+      ),
     ),
-    t.add(ot(0.008, 0.006, 0.012, tt.orange, 0, 0.104, -0.075)));
+    t.add(box(0.008, 0.006, 0.012, VIEWMODEL_MATS.orange, 0, 0.104, -0.075)));
   const c = new Mesh(new CircleGeometry(0.0195, 36), i);
   return (
     c.position.set(0, 0.122, -0.068),
@@ -3624,53 +3785,81 @@ function C0(i) {
     (e.adsOffset = new Vector3(0, -0.122, -0.2)),
     (e.hipOffset = new Vector3(0.165, -0.165, -0.31)),
     (e.hipRot = new Euler(0, 0.035, 0.02)),
-    (e.handR = za([0.004, -0.11, 0.09])),
+    (e.handR = makeRightHand([0.004, -0.11, 0.09])),
     t.add(e.handR),
-    (e.handL = Oa([-0.002, -0.006, -0.3], [-0.13, -0.33, -0.02])),
+    (e.handL = makeLeftHand([-0.002, -0.006, -0.3], [-0.13, -0.33, -0.02])),
     t.add(e.handL),
     (e.handLRest = e.handL.position.clone()),
     { group: t, parts: e }
   );
 }
-function P0() {
+function buildShotgunModel() {
   const i = new Group(),
     t = {};
-  (i.add(ot(0.058, 0.088, 0.24, tt.metal, 0, 0.022, -0.02, 0.008)),
-    i.add(ot(0.062, 0.04, 0.12, tt.metalDark, 0, -0.02, 0, 0.006)),
-    i.add(ot(0.002, 0.03, 0.08, tt.metalDark, 0.0295, 0.03, -0.02)),
-    i.add(ot(0.002, 0.006, 0.09, tt.orange, -0.0295, 0.04, -0.03)),
-    i.add(Ae(0.0125, 0.0125, 0.62, tt.metalDark, 0, 0.06, -0.43)),
-    i.add(Ae(0.0115, 0.0115, 0.52, tt.metal, 0, 0.014, -0.38)),
-    i.add(Ae(0.015, 0.015, 0.024, tt.metalDark, 0, 0.014, -0.65)),
-    i.add(ot(0.03, 0.062, 0.02, tt.metalDark, 0, 0.037, -0.6)),
-    i.add(Ae(0.0145, 0.0145, 0.04, tt.metalLight, 0, 0.06, -0.73)),
+  (i.add(box(0.058, 0.088, 0.24, VIEWMODEL_MATS.metal, 0, 0.022, -0.02, 0.008)),
+    i.add(box(0.062, 0.04, 0.12, VIEWMODEL_MATS.metalDark, 0, -0.02, 0, 0.006)),
+    i.add(
+      box(0.002, 0.03, 0.08, VIEWMODEL_MATS.metalDark, 0.0295, 0.03, -0.02),
+    ),
+    i.add(box(0.002, 0.006, 0.09, VIEWMODEL_MATS.orange, -0.0295, 0.04, -0.03)),
+    i.add(cyl(0.0125, 0.0125, 0.62, VIEWMODEL_MATS.metalDark, 0, 0.06, -0.43)),
+    i.add(cyl(0.0115, 0.0115, 0.52, VIEWMODEL_MATS.metal, 0, 0.014, -0.38)),
+    i.add(cyl(0.015, 0.015, 0.024, VIEWMODEL_MATS.metalDark, 0, 0.014, -0.65)),
+    i.add(box(0.03, 0.062, 0.02, VIEWMODEL_MATS.metalDark, 0, 0.037, -0.6)),
+    i.add(cyl(0.0145, 0.0145, 0.04, VIEWMODEL_MATS.metalLight, 0, 0.06, -0.73)),
     (t.muzzle = new Object3D()),
     t.muzzle.position.set(0, 0.06, -0.755),
     i.add(t.muzzle));
   const e = new Group();
   (e.position.set(0, 0.014, -0.34),
-    e.add(ot(0.05, 0.052, 0.16, tt.polymer2, 0, 0, 0, 0.01)));
+    e.add(box(0.05, 0.052, 0.16, VIEWMODEL_MATS.polymer2, 0, 0, 0, 0.01)));
   for (let a = 0; a < 5; a++)
-    e.add(ot(0.054, 0.006, 0.01, tt.metalDark, 0, 0, -0.06 + a * 0.03));
+    e.add(
+      box(0.054, 0.006, 0.01, VIEWMODEL_MATS.metalDark, 0, 0, -0.06 + a * 0.03),
+    );
   (i.add(e), (t.pump = e), (t.pumpRest = -0.34), (t.pumpTravel = 0.085));
-  const n = ot(0.05, 0.1, 0.25, tt.polymer, 0, -0.018, 0.255, 0.01);
+  const n = box(
+    0.05,
+    0.1,
+    0.25,
+    VIEWMODEL_MATS.polymer,
+    0,
+    -0.018,
+    0.255,
+    0.01,
+  );
   ((n.rotation.x = 0.06),
     i.add(n),
-    i.add(ot(0.056, 0.12, 0.03, tt.polymer2, 0, -0.03, 0.38, 0.006)),
-    i.add(ot(0.04, 0.008, 0.16, tt.orange, 0, 0.04, 0.24)));
-  const s = ot(0.035, 0.1, 0.05, tt.polymer, 0, -0.09, 0.085, 0.007);
+    i.add(
+      box(0.056, 0.12, 0.03, VIEWMODEL_MATS.polymer2, 0, -0.03, 0.38, 0.006),
+    ),
+    i.add(box(0.04, 0.008, 0.16, VIEWMODEL_MATS.orange, 0, 0.04, 0.24)));
+  const s = box(
+    0.035,
+    0.1,
+    0.05,
+    VIEWMODEL_MATS.polymer,
+    0,
+    -0.09,
+    0.085,
+    0.007,
+  );
   ((s.rotation.x = -0.35),
     i.add(s),
-    i.add(ot(0.006, 0.02, 0.008, tt.metalLight, 0, -0.055, 0.04)),
-    i.add(ot(0.004, 0.004, 0.06, tt.metalDark, 0, -0.066, 0.04)),
-    i.add(ot(0.012, 0.012, 0.03, tt.metalDark, 0, 0.072, -0.7)),
-    i.add(Ma(0.005, tt.white, 0, 0.081, -0.7)),
-    i.add(ot(0.022, 0.01, 0.024, tt.metalDark, 0, 0.07, -0.1)));
-  const r = Gl(0.0095, 0.0018, tt.metalDark, 0, 0.081, -0.1);
+    i.add(box(0.006, 0.02, 0.008, VIEWMODEL_MATS.metalLight, 0, -0.055, 0.04)),
+    i.add(box(0.004, 0.004, 0.06, VIEWMODEL_MATS.metalDark, 0, -0.066, 0.04)),
+    i.add(box(0.012, 0.012, 0.03, VIEWMODEL_MATS.metalDark, 0, 0.072, -0.7)),
+    i.add(sphere(0.005, VIEWMODEL_MATS.white, 0, 0.081, -0.7)),
+    i.add(box(0.022, 0.01, 0.024, VIEWMODEL_MATS.metalDark, 0, 0.07, -0.1)));
+  const r = torus(0.0095, 0.0018, VIEWMODEL_MATS.metalDark, 0, 0.081, -0.1);
   return (
     i.add(r),
-    i.add(ot(0.003, 0.012, 0.004, tt.metalDark, 0.0128, 0.078, -0.1)),
-    i.add(ot(0.003, 0.012, 0.004, tt.metalDark, -0.0128, 0.078, -0.1)),
+    i.add(
+      box(0.003, 0.012, 0.004, VIEWMODEL_MATS.metalDark, 0.0128, 0.078, -0.1),
+    ),
+    i.add(
+      box(0.003, 0.012, 0.004, VIEWMODEL_MATS.metalDark, -0.0128, 0.078, -0.1),
+    ),
     (t.sight = new Object3D()),
     t.sight.position.set(0, 0.081, -0.1),
     i.add(t.sight),
@@ -3680,62 +3869,138 @@ function P0() {
     (t.eject = new Object3D()),
     t.eject.position.set(0.035, 0.03, -0.03),
     i.add(t.eject),
-    (t.handR = za([0.004, -0.1, 0.1], -0.35)),
+    (t.handR = makeRightHand([0.004, -0.1, 0.1], -0.35)),
     i.add(t.handR),
-    (t.handL = Oa([-0.002, -0.028, 0], [-0.12, -0.33, 0.28])),
+    (t.handL = makeLeftHand([-0.002, -0.028, 0], [-0.12, -0.33, 0.28])),
     e.add(t.handL),
     (t.handLRest = t.handL.position.clone()),
     { group: i, parts: t }
   );
 }
-function L0() {
+function buildDmrModel() {
   const i = new Group(),
     t = {};
-  (i.add(ot(0.07, 0.09, 0.32, tt.metal, 0, 0.02, -0.05, 0.008)),
-    i.add(ot(0.024, 0.012, 0.32, tt.metalDark, 0, 0.071, -0.05)));
+  (i.add(box(0.07, 0.09, 0.32, VIEWMODEL_MATS.metal, 0, 0.02, -0.05, 0.008)),
+    i.add(box(0.024, 0.012, 0.32, VIEWMODEL_MATS.metalDark, 0, 0.071, -0.05)));
   for (let l = 0; l < 9; l++)
-    i.add(ot(0.026, 0.005, 0.012, tt.metal, 0, 0.079, 0.08 - l * 0.032));
-  (i.add(ot(0.064, 0.05, 0.15, tt.metalDark, 0, -0.03, 0.02, 0.006)),
-    i.add(ot(0.002, 0.01, 0.12, tt.orange, 0.0355, 0.03, -0.06)),
-    i.add(ot(0.002, 0.01, 0.12, tt.orange, -0.0355, 0.03, -0.06)),
-    i.add(ot(0.064, 0.068, 0.38, tt.polymer2, 0, 0.032, -0.41, 0.008)));
-  for (let l = 0; l < 8; l++)
-    (i.add(ot(0.002, 0.03, 0.02, tt.metalDark, 0.033, 0.03, -0.28 - l * 0.04)),
-      i.add(
-        ot(0.002, 0.03, 0.02, tt.metalDark, -0.033, 0.03, -0.28 - l * 0.04),
+    i.add(
+      box(
+        0.026,
+        0.005,
+        0.012,
+        VIEWMODEL_MATS.metal,
+        0,
+        0.079,
+        0.08 - l * 0.032,
       ),
-      i.add(ot(0.03, 0.002, 0.02, tt.metalDark, 0, -0.003, -0.28 - l * 0.04)));
-  (i.add(ot(0.002, 0.004, 0.3, tt.accent, 0.0332, 0.055, -0.4)),
-    i.add(Ae(0.013, 0.013, 0.48, tt.metalDark, 0, 0.036, -0.82)),
-    i.add(Ae(0.022, 0.019, 0.1, tt.metalDark, 0, 0.036, -1.06)));
+    );
+  (i.add(
+    box(0.064, 0.05, 0.15, VIEWMODEL_MATS.metalDark, 0, -0.03, 0.02, 0.006),
+  ),
+    i.add(box(0.002, 0.01, 0.12, VIEWMODEL_MATS.orange, 0.0355, 0.03, -0.06)),
+    i.add(box(0.002, 0.01, 0.12, VIEWMODEL_MATS.orange, -0.0355, 0.03, -0.06)),
+    i.add(
+      box(0.064, 0.068, 0.38, VIEWMODEL_MATS.polymer2, 0, 0.032, -0.41, 0.008),
+    ));
+  for (let l = 0; l < 8; l++)
+    (i.add(
+      box(
+        0.002,
+        0.03,
+        0.02,
+        VIEWMODEL_MATS.metalDark,
+        0.033,
+        0.03,
+        -0.28 - l * 0.04,
+      ),
+    ),
+      i.add(
+        box(
+          0.002,
+          0.03,
+          0.02,
+          VIEWMODEL_MATS.metalDark,
+          -0.033,
+          0.03,
+          -0.28 - l * 0.04,
+        ),
+      ),
+      i.add(
+        box(
+          0.03,
+          0.002,
+          0.02,
+          VIEWMODEL_MATS.metalDark,
+          0,
+          -0.003,
+          -0.28 - l * 0.04,
+        ),
+      ));
+  (i.add(box(0.002, 0.004, 0.3, VIEWMODEL_MATS.accent, 0.0332, 0.055, -0.4)),
+    i.add(cyl(0.013, 0.013, 0.48, VIEWMODEL_MATS.metalDark, 0, 0.036, -0.82)),
+    i.add(cyl(0.022, 0.019, 0.1, VIEWMODEL_MATS.metalDark, 0, 0.036, -1.06)));
   for (let l = 0; l < 4; l++)
-    i.add(ot(0.05, 0.005, 0.01, tt.polymer, 0, 0.036, -1.03 - l * 0.018));
+    i.add(
+      box(
+        0.05,
+        0.005,
+        0.01,
+        VIEWMODEL_MATS.polymer,
+        0,
+        0.036,
+        -1.03 - l * 0.018,
+      ),
+    );
   ((t.muzzle = new Object3D()),
     t.muzzle.position.set(0, 0.036, -1.115),
     i.add(t.muzzle));
   const e = new Group();
   e.position.set(0, -0.04, -0.15);
-  const n = ot(0.042, 0.13, 0.1, tt.metalDark, 0, -0.065, 0.006, 0.005);
+  const n = box(
+    0.042,
+    0.13,
+    0.1,
+    VIEWMODEL_MATS.metalDark,
+    0,
+    -0.065,
+    0.006,
+    0.005,
+  );
   ((n.rotation.x = 0.1), e.add(n));
-  const s = ot(0.045, 0.012, 0.104, tt.metal, 0, -0.13, 0.02);
+  const s = box(0.045, 0.012, 0.104, VIEWMODEL_MATS.metal, 0, -0.13, 0.02);
   ((s.rotation.x = 0.1),
     e.add(s),
     i.add(e),
     (t.mag = e),
     (t.magRest = e.position.clone()));
-  const r = ot(0.034, 0.105, 0.05, tt.polymer, 0, -0.1, 0.07, 0.007);
+  const r = box(
+    0.034,
+    0.105,
+    0.05,
+    VIEWMODEL_MATS.polymer,
+    0,
+    -0.1,
+    0.07,
+    0.007,
+  );
   ((r.rotation.x = -0.3),
     i.add(r),
-    i.add(ot(0.006, 0.02, 0.008, tt.metalLight, 0, -0.06, 0.03)),
-    i.add(ot(0.004, 0.004, 0.06, tt.metalDark, 0, -0.075, 0.03)),
-    i.add(ot(0.05, 0.11, 0.3, tt.polymer, 0, -0.012, 0.29, 0.01)),
-    i.add(ot(0.046, 0.032, 0.15, tt.polymer2, 0, 0.06, 0.27, 0.008)),
-    i.add(ot(0.056, 0.125, 0.03, tt.polymer2, 0, -0.02, 0.445, 0.006)));
+    i.add(box(0.006, 0.02, 0.008, VIEWMODEL_MATS.metalLight, 0, -0.06, 0.03)),
+    i.add(box(0.004, 0.004, 0.06, VIEWMODEL_MATS.metalDark, 0, -0.075, 0.03)),
+    i.add(box(0.05, 0.11, 0.3, VIEWMODEL_MATS.polymer, 0, -0.012, 0.29, 0.01)),
+    i.add(
+      box(0.046, 0.032, 0.15, VIEWMODEL_MATS.polymer2, 0, 0.06, 0.27, 0.008),
+    ),
+    i.add(
+      box(0.056, 0.125, 0.03, VIEWMODEL_MATS.polymer2, 0, -0.02, 0.445, 0.006),
+    ));
   const a = new Group();
   return (
     a.position.set(0, 0.048, 0.03),
-    a.add(Ae(0.006, 0.006, 0.045, tt.metalLight, 0.055, 0, 0, "x")),
-    a.add(Ma(0.011, tt.metalLight, 0.08, 0, 0)),
+    a.add(
+      cyl(0.006, 0.006, 0.045, VIEWMODEL_MATS.metalLight, 0.055, 0, 0, "x"),
+    ),
+    a.add(sphere(0.011, VIEWMODEL_MATS.metalLight, 0.08, 0, 0)),
     i.add(a),
     (t.bolt = a),
     (t.boltRest = 0.03),
@@ -3743,28 +4008,43 @@ function L0() {
     (t.eject = new Object3D()),
     t.eject.position.set(0.04, 0.05, 0),
     i.add(t.eject),
-    i.add(ot(0.016, 0.012, 0.03, tt.metalDark, 0, 0.082, -0.76)),
-    i.add(ot(0.0045, 0.024, 0.0045, tt.metalDark, 0, 0.099, -0.76)),
-    i.add(Ma(0.0028, tt.white, 0, 0.1115, -0.76)),
-    i.add(Ae(0.0175, 0.0175, 0.02, tt.tube, 0, 0.105, -0.76, "z", 24, !0)),
-    i.add(ot(0.032, 0.012, 0.03, tt.metalDark, 0, 0.078, -0.17)),
-    i.add(ot(0.014, 0.024, 0.016, tt.metalDark, 0, 0.094, -0.17)),
-    i.add(Gl(0.0125, 0.0025, tt.metalDark, 0, 0.1115, -0.17)),
+    i.add(box(0.016, 0.012, 0.03, VIEWMODEL_MATS.metalDark, 0, 0.082, -0.76)),
+    i.add(
+      box(0.0045, 0.024, 0.0045, VIEWMODEL_MATS.metalDark, 0, 0.099, -0.76),
+    ),
+    i.add(sphere(0.0028, VIEWMODEL_MATS.white, 0, 0.1115, -0.76)),
+    i.add(
+      cyl(
+        0.0175,
+        0.0175,
+        0.02,
+        VIEWMODEL_MATS.tube,
+        0,
+        0.105,
+        -0.76,
+        "z",
+        24,
+        !0,
+      ),
+    ),
+    i.add(box(0.032, 0.012, 0.03, VIEWMODEL_MATS.metalDark, 0, 0.078, -0.17)),
+    i.add(box(0.014, 0.024, 0.016, VIEWMODEL_MATS.metalDark, 0, 0.094, -0.17)),
+    i.add(torus(0.0125, 0.0025, VIEWMODEL_MATS.metalDark, 0, 0.1115, -0.17)),
     (t.sight = new Object3D()),
     t.sight.position.set(0, 0.1115, -0.17),
     i.add(t.sight),
     (t.adsOffset = new Vector3(0, -0.1115, -0.08)),
     (t.hipOffset = new Vector3(0.16, -0.165, -0.28)),
     (t.hipRot = new Euler(0, 0.03, 0.02)),
-    (t.handR = za([0.004, -0.115, 0.085])),
+    (t.handR = makeRightHand([0.004, -0.115, 0.085])),
     i.add(t.handR),
-    (t.handL = Oa([-0.002, -0.01, -0.4], [-0.13, -0.34, -0.1])),
+    (t.handL = makeLeftHand([-0.002, -0.01, -0.4], [-0.13, -0.34, -0.1])),
     i.add(t.handL),
     (t.handLRest = t.handL.position.clone()),
     { group: i, parts: t }
   );
 }
-function D0() {
+function makeRedDotMaterial() {
   return new ShaderMaterial({
     transparent: !0,
     depthWrite: !1,
@@ -3806,16 +4086,16 @@ function D0() {
       }`,
   });
 }
-const Jo = new Vector3(),
-  Qo = new Vector3();
-function U0(i, t, e) {
-  (t.getWorldPosition(Jo),
-    t.getWorldDirection(Qo),
-    i.uniforms.uSightPos.value.copy(Jo),
-    i.uniforms.uSightFwd.value.copy(Qo).negate(),
+const _sightPos = new Vector3(),
+  _sightFwd = new Vector3();
+function updateRedDot(i, t, e) {
+  (t.getWorldPosition(_sightPos),
+    t.getWorldDirection(_sightFwd),
+    i.uniforms.uSightPos.value.copy(_sightPos),
+    i.uniforms.uSightFwd.value.copy(_sightFwd).negate(),
     (i.uniforms.uTime.value = e));
 }
-class I0 {
+class MuzzleFlash {
   constructor() {
     ((this.group = new Group()),
       (this.uniforms = {
@@ -3834,7 +4114,7 @@ class I0 {
           "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
         fragmentShader: `
         uniform float uLife; uniform float uSeed; uniform float uIntensity; uniform vec3 uColor; varying vec2 vUv;
-        ${Nn}
+        ${NOISE_GLSL}
         void main(){
           float u = vUv.x; float v = (vUv.y - 0.5) * 2.0;
           float n = noise2(vec2(u * 5.0 + uSeed * 10.0, v * 3.0 + uSeed * 3.0));
@@ -3919,12 +4199,11 @@ class I0 {
       e >= 1 && ((this.group.visible = !1), (this.intensity = 0)));
   }
 }
-const tl = Math.PI / 180,
-  pn = (i, t) => i + Math.random() * (t - i),
-  Wn = MathUtils.damp,
-  el = (i) => i * i * (3 - 2 * i),
-  Mi = (i) => 1 - Math.pow(1 - Math.min(1, Math.max(0, i)), 3),
-  N0 = [
+const DEG = Math.PI / 180,
+  damp = MathUtils.damp,
+  smooth01 = (i) => i * i * (3 - 2 * i),
+  easeOutCubic = (i) => 1 - Math.pow(1 - Math.min(1, Math.max(0, i)), 3),
+  WEAPONS = [
     {
       key: "ar",
       name: "VK-7 ASSAULT RIFLE",
@@ -4099,10 +4378,10 @@ const tl = Math.PI / 180,
       smoke: 1.2,
     },
   ],
-  Tr = new Vector3(0.07, -0.085, 0.02),
-  br = new Vector3(-0.42, 0.55, 0.3),
-  F0 = new Vector3(0, -0.075, 0.37);
-class z0 {
+  VM_HIP_OFFSET = new Vector3(0.07, -0.085, 0.02),
+  VM_SPRINT_OFFSET = new Vector3(-0.42, 0.55, 0.3),
+  VM_ADS_OFFSET = new Vector3(0, -0.075, 0.37);
+class WeaponState {
   constructor(t, e) {
     ((this.def = t),
       (this.model = e),
@@ -4142,22 +4421,26 @@ class z0 {
       t.pump && (t.pump.position.z = t.pumpRest));
   }
 }
-class O0 {
+class Weapons {
   constructor(t, e, n) {
     ((this.audio = e),
       (this.cb = n),
       (this.cam = t),
       (this.rig = new Group()),
       t.add(this.rig),
-      (this.redDotMat = D0()));
-    const s = [C0(this.redDotMat), P0(), L0()];
-    this.weapons = N0.map((r, a) => new z0(r, s[a]));
+      (this.redDotMat = makeRedDotMaterial()));
+    const s = [
+      buildRifleModel(this.redDotMat),
+      buildShotgunModel(),
+      buildDmrModel(),
+    ];
+    this.weapons = WEAPONS.map((r, a) => new WeaponState(r, s[a]));
     for (const r of this.weapons)
       (this.rig.add(r.model.group), (r.model.group.visible = !1));
     ((this.current = 0),
       (this.lastWeapon = 1),
       (this.weapons[0].model.group.visible = !0),
-      (this.flash = new I0()),
+      (this.flash = new MuzzleFlash()),
       this.weapons[0].model.parts.muzzle.add(this.flash.group),
       (this.switching = null),
       (this.ads = 0),
@@ -4214,7 +4497,7 @@ class O0 {
   onLand(t) {
     ((this.swayPosV.y -= t * 0.75),
       (this.swayRotV.x -= t * 3.2),
-      (this.swayRotV.z += pn(-1, 1) * t * 0.8));
+      (this.swayRotV.z += rand(-1, 1) * t * 0.8));
   }
   onJump() {
     ((this.swayPosV.y += 0.28), (this.swayRotV.x += 0.9));
@@ -4254,7 +4537,7 @@ class O0 {
         !n.dead &&
         this.startSwitch(o),
       this.switching && this.updateSwitch(t),
-      (this.sprintBlend = Wn(
+      (this.sprintBlend = damp(
         this.sprintBlend,
         n.sprinting ? 1 : 0,
         n.sprinting ? 9 : 13,
@@ -4272,7 +4555,7 @@ class O0 {
       0,
       1,
     )),
-      (this.adsSmooth = el(this.ads)),
+      (this.adsSmooth = smooth01(this.ads)),
       (n.ads = this.adsSmooth),
       (n.adsFov = a.adsFov),
       (n.moveMult = a.moveMult),
@@ -4314,7 +4597,7 @@ class O0 {
       this.updatePose(t, e, n, s),
       this.cam.updateMatrixWorld(!0),
       l.muzzle.getWorldPosition(this.muzzleWorld),
-      l.lens && U0(this.redDotMat, l.sight, s),
+      l.lens && updateRedDot(this.redDotMat, l.sight, s),
       this.flash.update(t));
   }
   fire(t, e) {
@@ -4346,15 +4629,15 @@ class O0 {
     const m = n.pattern
         ? n.pattern[Math.min(t.burst, n.pattern.length - 1)]
         : 0,
-      g = n.recoilPitch * tl * pn(0.85, 1.15) * (1 - r * n.adsRecoilReduce),
-      v = n.recoilYaw * tl * (m + pn(-0.6, 0.6)) * (1 - r * 0.3);
+      g = n.recoilPitch * DEG * rand(0.85, 1.15) * (1 - r * n.adsRecoilReduce),
+      v = n.recoilYaw * DEG * (m + rand(-0.6, 0.6)) * (1 - r * 0.3);
     (e.addRecoil(g, v, n.recoilPermanent), e.addTrauma(n.trauma));
     const p = 1 - r * 0.4;
     ((this.kickPos.z += n.kickBack * p),
       (this.kickPos.y += n.kickUp * p),
-      (this.kickRot.x += n.kickPitch * p * pn(0.8, 1.2)),
-      (this.kickRot.y += pn(-1, 1) * n.kickYaw),
-      (this.kickRot.z += pn(-1, 1) * n.kickRoll * p),
+      (this.kickRot.x += n.kickPitch * p * rand(0.8, 1.2)),
+      (this.kickRot.y += rand(-1, 1) * n.kickYaw),
+      (this.kickRot.z += rand(-1, 1) * n.kickRoll * p),
       this.flash.fire(n.flash),
       this.cb.muzzleSmoke(a, o, n.smoke),
       this.audio.gunshot(n.sound),
@@ -4388,9 +4671,9 @@ class O0 {
     const s = this._up.copy(n.right).cross(n.forward),
       r = this._v2
         .copy(n.right)
-        .multiplyScalar(pn(1.6, 2.6))
-        .addScaledVector(s, pn(1.3, 2.2))
-        .addScaledVector(n.forward, pn(-0.4, 0.2))
+        .multiplyScalar(rand(1.6, 2.6))
+        .addScaledVector(s, rand(1.3, 2.2))
+        .addScaledVector(n.forward, rand(-0.4, 0.2))
         .add(n.vel);
     this.cb.ejectShell(this._v, r, t.def.shell);
   }
@@ -4406,7 +4689,7 @@ class O0 {
     const n = this.weapon;
     if (e.phase === "down") {
       const s = n.def.switchTime * 0.4,
-        r = Mi(e.t / s);
+        r = easeOutCubic(e.t / s);
       (this.animPos.set(0.04 * r, -0.28 * r, 0.02 * r),
         this.animRot.set(-0.7 * r, 0.15 * r, 0.25 * r),
         e.t >= s &&
@@ -4417,7 +4700,7 @@ class O0 {
           (e.t = 0)));
     } else {
       const s = this.weapon.def.switchTime * 0.6,
-        r = 1 - Mi(e.t / s);
+        r = 1 - easeOutCubic(e.t / s);
       (this.animPos.set(0.04 * r, -0.28 * r, 0.02 * r),
         this.animRot.set(-0.7 * r, 0.15 * r, 0.25 * r),
         e.t >= s &&
@@ -4448,13 +4731,13 @@ class O0 {
       s.t += e;
       let u = 1;
       if (s.phase === "intro")
-        ((u = Mi(s.t / r.reloadIntro)),
+        ((u = easeOutCubic(s.t / r.reloadIntro)),
           s.t >= r.reloadIntro && ((s.phase = "shells"), (s.shellT = 0)));
       else if (s.phase === "shells") {
         (n.mousePressed[0] && t.mag > 0 && (s.cancel = !0), (s.shellT += e));
         const m = s.shellT / r.reloadTime,
           g = Math.sin(Math.min(1, m) * Math.PI);
-        (a.handL.position.copy(a.handLRest).lerp(F0, g),
+        (a.handL.position.copy(a.handLRest).lerp(VM_ADS_OFFSET, g),
           !s.loaded &&
             m >= 0.5 &&
             ((s.loaded = !0),
@@ -4474,7 +4757,7 @@ class O0 {
                 (t.pumpSounded = !1),
                 (t.pumpShell = !0)))));
       } else if (
-        ((u = 1 - Mi(s.t / r.reloadOutro)),
+        ((u = 1 - easeOutCubic(s.t / r.reloadOutro)),
         a.handL.position.copy(a.handLRest),
         s.t >= r.reloadOutro)
       ) {
@@ -4496,11 +4779,11 @@ class O0 {
       h = !0,
       d = 0;
     if (l >= 0.15 && l < 0.42) {
-      const u = Mi((l - 0.15) / 0.27);
+      const u = easeOutCubic((l - 0.15) / 0.27);
       ((c = -0.3 * u), (d = -0.5 * u));
     } else if (l >= 0.42 && l < 0.5) ((h = !1), (c = -0.3));
     else if (l >= 0.5 && l < 0.76) {
-      const u = 1 - Mi((l - 0.5) / 0.26);
+      const u = 1 - easeOutCubic((l - 0.5) / 0.26);
       ((c = -0.3 * u), (d = -0.25 * u));
     }
     if (
@@ -4542,7 +4825,7 @@ class O0 {
       a = r.def,
       l = r.model.parts,
       o = this.adsSmooth,
-      c = el(this.sprintBlend),
+      c = smooth01(this.sprintBlend),
       h = a.weight,
       d = 1 - o * 0.88,
       u = MathUtils.lerp(0.012, 0.022, h) * d,
@@ -4576,22 +4859,22 @@ class O0 {
       ));
     const w = n.localVel,
       M = 1 - o * 0.8;
-    ((this.moveOff.x = Wn(this.moveOff.x, -w.x * 0.0055 * M, 7, t)),
-      (this.moveOff.y = Wn(
+    ((this.moveOff.x = damp(this.moveOff.x, -w.x * 0.0055 * M, 7, t)),
+      (this.moveOff.y = damp(
         this.moveOff.y,
         MathUtils.clamp(-w.y * 0.004, -0.03, 0.03) * M,
         7,
         t,
       )),
-      (this.moveOff.z = Wn(this.moveOff.z, w.z * 0.004 * M, 7, t)),
-      (this.moveRot.z = Wn(this.moveRot.z, -w.x * 0.012 * M, 7, t)),
-      (this.moveRot.x = Wn(
+      (this.moveOff.z = damp(this.moveOff.z, w.z * 0.004 * M, 7, t)),
+      (this.moveRot.z = damp(this.moveRot.z, -w.x * 0.012 * M, 7, t)),
+      (this.moveRot.x = damp(
         this.moveRot.x,
         MathUtils.clamp(w.y * 0.012, -0.08, 0.08) * M,
         7,
         t,
       )),
-      (this.moveRot.y = Wn(this.moveRot.y, -w.x * 0.006 * M, 7, t)));
+      (this.moveRot.y = damp(this.moveRot.y, -w.x * 0.006 * M, 7, t)));
     const _ = n.bobPhase,
       L = n.bobAmt * (n.sprinting ? 2.4 : 1) * (1 - o * 0.9),
       R = Math.sin(_) * 0.011 * L,
@@ -4606,7 +4889,7 @@ class O0 {
       H = l.hipRot,
       k =
         U.x +
-        Tr.x * c +
+        VM_HIP_OFFSET.x * c +
         this.swayPos.x +
         this.moveOff.x +
         R +
@@ -4615,7 +4898,7 @@ class O0 {
         this.animPos.x,
       G =
         U.y +
-        Tr.y * c +
+        VM_HIP_OFFSET.y * c +
         this.swayPos.y +
         this.moveOff.y +
         A +
@@ -4624,14 +4907,14 @@ class O0 {
         this.animPos.y,
       q =
         U.z +
-        Tr.z * c +
+        VM_HIP_OFFSET.z * c +
         this.swayPos.z +
         this.moveOff.z +
         this.kickPos.z +
         this.animPos.z,
       O =
         H.x * (1 - o) +
-        br.x * c +
+        VM_SPRINT_OFFSET.x * c +
         this.swayRot.x +
         this.moveRot.x +
         S +
@@ -4639,14 +4922,14 @@ class O0 {
         this.animRot.x,
       et =
         H.y * (1 - o) +
-        br.y * c +
+        VM_SPRINT_OFFSET.y * c +
         this.swayRot.y +
         this.moveRot.y +
         this.kickRot.y +
         this.animRot.y,
       K =
         H.z * (1 - o) +
-        br.z * c +
+        VM_SPRINT_OFFSET.z * c +
         this.swayRot.z +
         this.moveRot.z +
         C +
@@ -4673,7 +4956,7 @@ class O0 {
       (t.z = MathUtils.clamp(t.z + e.z * r, -a, a)));
   }
 }
-const Ar = {
+const ENEMIES = {
     runner: {
       key: "runner",
       name: "HUSK",
@@ -4781,17 +5064,15 @@ const Ar = {
       },
     },
   },
-  nn = (i, t) => i + Math.random() * (t - i),
-  Rs = MathUtils.damp,
-  B0 = new Matrix4().makeScale(0, 0, 0),
-  Cs = 128;
-function Ps(i, t, e) {
+  ZERO_MATRIX = new Matrix4().makeScale(0, 0, 0),
+  MAX_PER_TYPE = 128;
+function lerpAngle(i, t, e) {
   let n = t - i;
   for (; n > Math.PI;) n -= Math.PI * 2;
   for (; n < -Math.PI;) n += Math.PI * 2;
   return i + n * e;
 }
-function k0(i) {
+function buildEnemyRig(i) {
   const t = (M, _, L, R) => {
       const A = new Object3D();
       return (A.position.set(_, L, R), M.add(A), A);
@@ -4957,7 +5238,7 @@ function k0(i) {
     torsoBot: n - i.hips[1] * 0.5,
   };
 }
-function Rr(i, t, e, n = !1) {
+function makeEnemyMaterial(i, t, e, n = !1) {
   return (
     (i.onBeforeCompile = (s) => {
       ((s.uniforms.uTime = t),
@@ -4982,7 +5263,7 @@ attribute float aFlash; attribute float aDissolve; varying float vFlash; varying
             "#include <common>",
             `#include <common>
 varying float vFlash; varying float vDissolve; varying vec3 vWPos; uniform float uTime;
-${Nn}`,
+${NOISE_GLSL}`,
           )
           .replace(
             "#include <clipping_planes_fragment>",
@@ -5007,30 +5288,30 @@ ${Nn}`,
     i
   );
 }
-const Ei = new Vector3(),
-  H0 = new Vector3(),
-  V0 = new Vector3();
-function Hs(i, t, e, n) {
-  Ei.subVectors(i, e);
-  const s = Ei.dot(t),
-    r = Ei.dot(Ei) - n * n;
+const _rayTmp = new Vector3(),
+  _capA = new Vector3(),
+  _capB = new Vector3();
+function raySphere(i, t, e, n) {
+  _rayTmp.subVectors(i, e);
+  const s = _rayTmp.dot(t),
+    r = _rayTmp.dot(_rayTmp) - n * n;
   if (r > 0 && s > 0) return -1;
   const a = s * s - r;
   if (a < 0) return -1;
   const l = -s - Math.sqrt(a);
   return l < 0 ? 0 : l;
 }
-function nl(i, t, e, n, s) {
+function rayCapsule(i, t, e, n, s) {
   let r = -1;
-  const a = Hs(i, t, e, s);
+  const a = raySphere(i, t, e, s);
   a >= 0 && (r = a);
-  const l = Hs(i, t, n, s);
+  const l = raySphere(i, t, n, s);
   l >= 0 && (r < 0 || l < r) && (r = l);
-  const o = H0.subVectors(n, e),
+  const o = _capA.subVectors(n, e),
     c = o.length();
   if (c < 1e-5) return r;
   o.multiplyScalar(1 / c);
-  const h = V0.subVectors(i, e),
+  const h = _capB.subVectors(i, e),
     d = t.dot(o),
     u = h.dot(o),
     m = t.x - o.x * d,
@@ -5050,7 +5331,7 @@ function nl(i, t, e, n, s) {
   const C = u + A * d;
   return (C < 0 || C > c || ((r < 0 || A < r) && (r = A)), r);
 }
-class G0 {
+class Enemies {
   constructor(t, e, n, s, r) {
     ((this.scene = t),
       (this.arena = e),
@@ -5061,7 +5342,7 @@ class G0 {
       (this.list = []),
       (this.types = {}),
       (this.nextId = 1));
-    for (const a in Ar) this._buildType(Ar[a]);
+    for (const a in ENEMIES) this._buildType(ENEMIES[a]);
     (this._buildProjectiles(),
       (this._v = new Vector3()),
       (this._v2 = new Vector3()),
@@ -5071,10 +5352,10 @@ class G0 {
       (this._b = new Vector3()));
   }
   _buildType(t) {
-    const e = k0(t.proportions),
-      n = new Float32Array(Cs),
-      s = new Float32Array(Cs),
-      r = Rr(
+    const e = buildEnemyRig(t.proportions),
+      n = new Float32Array(MAX_PER_TYPE),
+      s = new Float32Array(MAX_PER_TYPE),
+      r = makeEnemyMaterial(
         new MeshStandardMaterial({
           color: t.bodyColor,
           roughness: 0.55,
@@ -5083,7 +5364,7 @@ class G0 {
         this.uTime,
         !1,
       ),
-      a = Rr(
+      a = makeEnemyMaterial(
         new MeshStandardMaterial({
           color: 0,
           emissive: new Color(t.glow[0], t.glow[1], t.glow[2]),
@@ -5103,13 +5384,13 @@ class G0 {
         d.setUsage(DynamicDrawUsage),
         o.geom.setAttribute("aFlash", h),
         o.geom.setAttribute("aDissolve", d));
-      const u = new InstancedMesh(o.geom, c ? a : r, Cs);
+      const u = new InstancedMesh(o.geom, c ? a : r, MAX_PER_TYPE);
       (u.instanceMatrix.setUsage(DynamicDrawUsage),
         (u.frustumCulled = !1),
         (u.castShadow = !c),
         (u.receiveShadow = !c),
         (u.count = 0),
-        (u.customDepthMaterial = Rr(
+        (u.customDepthMaterial = makeEnemyMaterial(
           new MeshDepthMaterial({ depthPacking: RGBADepthPacking }),
           this.uTime,
           !1,
@@ -5155,12 +5436,12 @@ class G0 {
     for (const t of this.projectiles) t.active = !1;
   }
   spawn(t, e, n = 1) {
-    const s = Ar[t];
+    const s = ENEMIES[t];
     this.types[t];
     const r = -e.dir.z,
       a = e.dir.x,
-      l = nn(-2.4, 2.4),
-      o = s.scale * nn(0.92, 1.08),
+      l = rand(-2.4, 2.4),
+      o = s.scale * rand(0.92, 1.08),
       c = {
         id: this.nextId++,
         type: t,
@@ -5168,9 +5449,9 @@ class G0 {
         scale: o,
         radius: s.radius * (o / s.scale),
         pos: new Vector3(
-          e.pos.x + r * l + e.dir.x * nn(0, 1.5),
+          e.pos.x + r * l + e.dir.x * rand(0, 1.5),
           0,
-          e.pos.z + a * l + e.dir.z * nn(0, 1.5),
+          e.pos.z + a * l + e.dir.z * rand(0, 1.5),
         ),
         vel: new Vector3(),
         kb: new Vector3(),
@@ -5192,10 +5473,10 @@ class G0 {
         toppleTZ: 0,
         sink: 0,
         attackDone: !1,
-        cooldown: nn(0.4, 1.2),
+        cooldown: rand(0.4, 1.2),
         steerBias: Math.random() > 0.5 ? 1 : -1,
         blockedT: 0,
-        growlT: nn(0.5, 3),
+        growlT: rand(0.5, 3),
         lunge: 0,
         attackLean: 0,
         headBob: 0,
@@ -5219,8 +5500,8 @@ class G0 {
         h = -Math.cos(r.yaw),
         d = r.pos.x,
         u = r.pos.z;
-      Ei.set(d, r.pos.y + a.hipH * o, u);
-      const m = Hs(t, e, Ei, a.headY * o * 0.75);
+      _rayTmp.set(d, r.pos.y + a.hipH * o, u);
+      const m = raySphere(t, e, _rayTmp, a.headY * o * 0.75);
       if (m < 0 || m > n) continue;
       const g = 0.2 * o * r.moveBlend;
       this._headC.set(
@@ -5228,14 +5509,14 @@ class G0 {
         r.pos.y + a.headY * o - 0.04 * o * r.moveBlend + r.headBob,
         u + h * g,
       );
-      const v = Hs(t, e, this._headC, l.head * 0.64 * o);
+      const v = raySphere(t, e, this._headC, l.head * 0.64 * o);
       (this._a.set(d, r.pos.y + a.torsoBot * o, u),
         this._b.set(
           d + c * g * 0.7,
           r.pos.y + a.torsoTop * o,
           u + h * g * 0.7,
         ));
-      const p = nl(
+      const p = rayCapsule(
         t,
         e,
         this._a,
@@ -5244,7 +5525,7 @@ class G0 {
       );
       (this._a.set(d, r.pos.y + 0.08, u),
         this._b.set(d, r.pos.y + a.torsoBot * o, u));
-      const f = nl(t, e, this._a, this._b, l.hips[0] * 0.5 * o);
+      const f = rayCapsule(t, e, this._a, this._b, l.hips[0] * 0.5 * o);
       let w = -1,
         M = !1;
       (v >= 0 && ((w = v), (M = !0)),
@@ -5284,8 +5565,8 @@ class G0 {
     const r = -Math.sin(t.yaw),
       a = -Math.cos(t.yaw),
       l = e.x * r + e.z * a;
-    ((t.toppleTX = (l < 0 ? 1 : -1) * (Math.PI / 2) * nn(0.85, 1)),
-      (t.toppleTZ = nn(-0.5, 0.5)));
+    ((t.toppleTX = (l < 0 ? 1 : -1) * (Math.PI / 2) * rand(0.85, 1)),
+      (t.toppleTZ = rand(-0.5, 0.5)));
     const o = ((s ? s.kbForce : 2) * 1.6) / t.def.mass;
     ((t.kb.x += e.x * o),
       (t.kb.z += e.z * o),
@@ -5338,7 +5619,7 @@ class G0 {
       )
         if (
           s.pos.y < this.arena.groundHeight(s.pos.x, s.pos.z) + 0.15 ||
-          Math.hypot(s.pos.x, s.pos.z) > be - 0.4 ||
+          Math.hypot(s.pos.x, s.pos.z) > ARENA_RADIUS - 0.4 ||
           s.life <= 0
         )
           r = !0;
@@ -5405,7 +5686,7 @@ class G0 {
       if (o.state === "spawn")
         ((o.t += t),
           (o.dissolve = Math.max(0, 1 - o.t / 0.7)),
-          (o.yaw = Ps(o.yaw, m, 1 - Math.exp(-4 * t))),
+          (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-4 * t))),
           o.t >= 0.7 && ((o.state = "chase"), (o.dissolve = 0)));
       else if (o.state === "chase") {
         let v = h / u,
@@ -5442,21 +5723,22 @@ class G0 {
         } else o.blockedT = Math.max(0, o.blockedT - t);
         const _ = v * f + o.push.x * 4,
           L = p * f + o.push.z * 4;
-        ((o.vel.x = Rs(o.vel.x, _, 5, t)),
-          (o.vel.z = Rs(o.vel.z, L, 5, t)),
-          (o.yaw = Ps(
+        ((o.vel.x = damp(o.vel.x, _, 5, t)),
+          (o.vel.z = damp(o.vel.z, L, 5, t)),
+          (o.yaw = lerpAngle(
             o.yaw,
             Math.atan2(-o.vel.x, -o.vel.z),
             1 - Math.exp(-7 * t),
           )),
-          (c.ranged || u < 6) && (o.yaw = Ps(o.yaw, m, 1 - Math.exp(-7 * t))),
+          (c.ranged || u < 6) &&
+            (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-7 * t))),
           (o.growlT -= t),
           o.growlT < 0 &&
-            ((o.growlT = nn(3, 9)),
+            ((o.growlT = rand(3, 9)),
             this.audio.enemyGrowl([o.pos.x, o.pos.y, o.pos.z], c.big)),
-          (o.attackLean = Rs(o.attackLean, 0, 8, t)));
+          (o.attackLean = damp(o.attackLean, 0, 8, t)));
       } else if (o.state === "attack") {
-        ((o.t += t), (o.yaw = Ps(o.yaw, m, 1 - Math.exp(-12 * t))));
+        ((o.t += t), (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-12 * t))));
         const v = Math.exp(-8 * t);
         if (((o.vel.x *= v), (o.vel.z *= v), c.ranged))
           ((o.attackLean = o.t < c.windup ? -0.35 * (o.t / c.windup) : 0.4),
@@ -5465,7 +5747,7 @@ class G0 {
               ((o.attackDone = !0), this._fireProjectile(o, e)),
             o.t >= c.windup + c.swing &&
               ((o.state = "chase"),
-              (o.cooldown = c.cooldown * nn(0.8, 1.25)),
+              (o.cooldown = c.cooldown * rand(0.8, 1.25)),
               (o.attackLean = 0)));
         else {
           if (
@@ -5510,7 +5792,7 @@ class G0 {
       }
       o.pos.y = r.groundHeight(o.pos.x, o.pos.z) - o.sink;
       const g = Math.hypot(o.vel.x, o.vel.z);
-      ((o.moveBlend = Rs(
+      ((o.moveBlend = damp(
         o.moveBlend,
         o.state === "chase" ? Math.min(1, g / (c.speed * 0.6)) : 0,
         8,
@@ -5524,7 +5806,7 @@ class G0 {
     (this._updateProjectiles(t, e), this._render());
   }
   _blocked(t, e, n) {
-    if (Math.hypot(t, e) > be - n - 0.5) return !0;
+    if (Math.hypot(t, e) > ARENA_RADIUS - n - 0.5) return !0;
     for (const s of this.arena.boxes) {
       if (s.y1 < 0.5) continue;
       const [r, a] = s.toLocal(t, e);
@@ -5540,7 +5822,7 @@ class G0 {
         r = e.def.proportions;
       let a = 0;
       for (const l of this.list) {
-        if (l.type !== t || a >= Cs) continue;
+        if (l.type !== t || a >= MAX_PER_TYPE) continue;
         const o = l.scale,
           c = l.squash;
         (n.root.position.copy(l.pos),
@@ -5590,7 +5872,7 @@ class G0 {
           const f =
             l.headless &&
             (p.part.kind === "head" || p.part.kind === "headGlow");
-          p.mesh.setMatrixAt(a, f ? B0 : p.part.node.matrixWorld);
+          p.mesh.setMatrixAt(a, f ? ZERO_MATRIX : p.part.node.matrixWorld);
         }
         ((e.flash[a] = l.flash), (e.dissolve[a] = l.dissolve), a++);
       }
@@ -5602,7 +5884,7 @@ class G0 {
     }
   }
 }
-class W0 {
+class HUD {
   constructor() {
     const t = (e) => document.getElementById(e);
     ((this.el = {
@@ -5779,10 +6061,8 @@ class W0 {
         this.hintT <= 0 && this.el.hint.classList.remove("show")));
   }
 }
-const il = (i, t) => i + Math.random() * (t - i),
-  Cr = MathUtils.damp,
-  q0 = new Vector3(0, 1, 0);
-class X0 {
+const UP = new Vector3(0, 1, 0);
+class Game {
   constructor(t) {
     this.canvas = t;
     const e = new URLSearchParams(location.search);
@@ -5811,29 +6091,29 @@ class X0 {
       (this.weaponCamera = new PerspectiveCamera(56, s, 0.012, 8)),
       this.scene.add(this.camera),
       this.weaponScene.add(this.weaponCamera),
-      (this.input = new h0(t)),
-      (this.audio = new f0()),
-      (this.hud = new W0()),
-      (this.arena = new m0(this.scene)),
-      (this.sky = g0(xa)),
+      (this.input = new Input(t)),
+      (this.audio = new Audio()),
+      (this.hud = new HUD()),
+      (this.arena = new Arena(this.scene)),
+      (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
-      (this.particles = new M0(this.scene)),
-      (this.tracers = new y0(this.scene)),
-      (this.decals = new S0(this.scene)),
-      (this.shells = new E0(this.scene)),
+      (this.particles = new ParticleSystem(this.scene)),
+      (this.tracers = new Tracers(this.scene)),
+      (this.decals = new Decals(this.scene)),
+      (this.shells = new Shells(this.scene)),
       (this.shells.onBounce = (l) => {
         const o = this.audio.spatial([l.x, l.y, l.z], 3, 14);
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
-      (this.player = new R0(this.arena)),
-      (this.weapons = new O0(this.weaponCamera, this.audio, {
+      (this.player = new Player(this.arena)),
+      (this.weapons = new Weapons(this.weaponCamera, this.audio, {
         fireRay: (l, o, c, h, d) => this.fireRay(l, o, c, h, d),
         ejectShell: (l, o, c) => this.shells.eject(l, o, c),
         muzzleSmoke: (l, o, c) => this.particles.muzzleSmoke(l, o, c),
         onAmmoChange: () => this.syncAmmo(),
         onWeaponChange: () => this.syncWeapon(),
       })),
-      (this.enemies = new G0(
+      (this.enemies = new Enemies(
         this.scene,
         this.arena,
         this.particles,
@@ -5844,9 +6124,9 @@ class X0 {
           slam: (l, o) => this.onSlam(l, o),
         },
       )),
-      (this.postfx = new A0(n)));
+      (this.postfx = new PostFX(n)));
     const r = new DirectionalLight(12571903, 1.8);
-    (r.position.copy(xa).multiplyScalar(10),
+    (r.position.copy(SUN_DIR).multiplyScalar(10),
       this.weaponScene.add(r),
       this.weaponScene.add(r.target),
       this.weaponScene.add(new HemisphereLight(2768230, 723208, 1.1)));
@@ -6079,7 +6359,7 @@ class X0 {
       (this.decals.add(
         o.point,
         o.normal,
-        il(0.09, 0.14) * (d ? 1.5 : n.key === "shotgun" ? 0.8 : 1),
+        rand(0.09, 0.14) * (d ? 1.5 : n.key === "shotgun" ? 0.8 : 1),
         0,
         c,
       ),
@@ -6156,7 +6436,7 @@ class X0 {
         )),
       (t.def.big || Math.random() < 0.13) && this.spawnPickup(t.pos),
       this._v.set(t.pos.x, this.arena.groundHeight(t.pos.x, t.pos.z), t.pos.z),
-      this.decals.add(this._v, q0, 1.5 * t.scale, 1, n));
+      this.decals.add(this._v, UP, 1.5 * t.scale, 1, n));
   }
   startWave(t) {
     ((this.wave = t), (this.waveActive = !0));
@@ -6166,7 +6446,7 @@ class X0 {
       r = [];
     for (let a = 0; a < e; a++) r.push("runner");
     for (let a = 0; a < s; a++) r[Math.floor(Math.random() * e)] = "spitter";
-    for (let a = 0; a < n; a++) r[Math.floor(il(e * 0.2, e * 0.9))] = "brute";
+    for (let a = 0; a < n; a++) r[Math.floor(rand(e * 0.2, e * 0.9))] = "brute";
     ((this.queue = r.reverse()),
       (this.maxAlive = Math.min(14 + t * 4, 64)),
       (this.spawnInterval = Math.max(0.2, 1.1 - t * 0.06)),
@@ -6269,9 +6549,14 @@ class X0 {
     let e = Math.min(0.05, (t - this.last) / 1e3);
     ((this.last = t),
       e <= 0 && (e = 1e-4),
-      (this.fps = Cr(this.fps, 1 / e, 2, e)),
+      (this.fps = damp(this.fps, 1 / e, 2, e)),
       (this.slowmo = Math.max(0, this.slowmo - e)),
-      (this.timeScale = Cr(this.timeScale, this.slowmo > 0 ? 0.28 : 1, 7, e)));
+      (this.timeScale = damp(
+        this.timeScale,
+        this.slowmo > 0 ? 0.28 : 1,
+        7,
+        e,
+      )));
     const n = e * this.timeScale;
     this.time += n;
     const s = this.time;
@@ -6311,7 +6596,7 @@ class X0 {
         Math.sin(n) * 26,
       ),
         this.camera.lookAt(0, 2.5, 0),
-        (this.camera.fov = Cr(this.camera.fov, 62, 4, e)),
+        (this.camera.fov = damp(this.camera.fov, 62, 4, e)),
         this.camera.updateProjectionMatrix(),
         this.player.forward
           .set(0, 0, -1)
@@ -6435,9 +6720,9 @@ class X0 {
     );
   }
 }
-const Y0 = document.getElementById("game");
+const canvas = document.getElementById("game");
 try {
-  new X0(Y0);
+  new Game(canvas);
 } catch (i) {
   console.error(i);
   const t = document.createElement("div");
