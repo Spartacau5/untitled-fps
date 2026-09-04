@@ -5,13 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config games/onslaught/vite.config.js",
+    "build:game": "vite build --config games/onslaught/vite.config.js",
     "build": "node scripts/build.mjs",
     "serve": "python3 -m http.server 4176 --directory dist",
     "dev:portal": "npm run build && npm run serve",
+    "lint": "eslint games/onslaught/src",
+    "test": "npm run lint",
     "deploy:cloudflare": "npm run build && npx wrangler@4 pages deploy dist --project-name bench-portal --branch main"
   },
   "devDependencies": {
+    "acorn": "^8.18.0",
+    "acorn-walk": "^8.3.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.12.0",
+    "lil-gui": "^0.21.0",
     "prettier": "^3.6.2",
     "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "three": "0.170.0"
   }
 }
