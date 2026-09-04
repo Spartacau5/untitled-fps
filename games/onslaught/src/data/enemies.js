@@ -1,5 +1,5 @@
-import { theme } from "../theme/theme.js";
-
+// Gameplay stats only. Body/glow colors live in theme.enemies and are read by
+// render/enemy-view.js, so the sim stays free of presentation imports.
 export const ENEMIES = {
   runner: {
     key: "runner",
@@ -15,8 +15,6 @@ export const ENEMIES = {
     score: 100,
     radius: 0.36,
     mass: 1,
-    glow: theme.enemies.runner.glow,
-    bodyColor: theme.enemies.runner.body,
     ranged: !1,
     big: !1,
     slam: !1,
@@ -49,8 +47,6 @@ export const ENEMIES = {
     score: 400,
     radius: 0.64,
     mass: 6,
-    glow: theme.enemies.brute.glow,
-    bodyColor: theme.enemies.brute.body,
     ranged: !1,
     big: !0,
     slam: !0,
@@ -84,8 +80,6 @@ export const ENEMIES = {
     score: 200,
     radius: 0.38,
     mass: 1.5,
-    glow: theme.enemies.spitter.glow,
-    bodyColor: theme.enemies.spitter.body,
     ranged: !0,
     big: !1,
     slam: !1,

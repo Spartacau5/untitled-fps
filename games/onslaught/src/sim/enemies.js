@@ -1,16 +1,4 @@
-import {
-  Color,
-  DynamicDrawUsage,
-  InstancedBufferAttribute,
-  InstancedMesh,
-  MathUtils,
-  Matrix4,
-  MeshDepthMaterial,
-  MeshStandardMaterial,
-  RGBADepthPacking,
-  SphereGeometry,
-  Vector3,
-} from "three";
+import { MathUtils, Vector3 } from "three";
 import {
   _rayTmp,
   damp,
@@ -18,106 +6,37 @@ import {
   rayCapsule,
   raySphere,
 } from "../core/mathx.js";
-import { ENEMIES, MAX_PER_TYPE } from "../data/enemies.js";
+import { ENEMIES } from "../data/enemies.js";
 import { ARENA_RADIUS } from "../data/tuning.js";
-import { buildEnemyRig, makeEnemyMaterial } from "../render/enemy-view.js";
+import { EV_GROWL, EV_HIT, EV_KILL, EV_SLAM, EV_SPAWN } from "./events.js";
 
-export const ZERO_MATRIX = new Matrix4().makeScale(0, 0, 0);
+// Rig heights derived from an enemy's proportions. Shared by the sim (hitboxes)
+// and the view (skeleton) so both agree on where the head and torso are.
+export function rigMetrics(i) {
+  const hipH = i.legUL + i.legLL + 0.06;
+  return {
+    hipH,
+    headY: hipH + i.hips[1] * 0.45 + i.torso[1] + 0.02 + i.head * 0.55,
+    torsoTop: hipH + i.hips[1] * 0.45 + i.torso[1],
+    torsoBot: hipH - i.hips[1] * 0.5,
+  };
+}
+
+// Pure enemy simulation: spawning, steering, attacks, hitboxes, death timing.
+// Emits events on `world` instead of touching particles/audio/meshes.
 export class Enemies {
-  constructor(t, e, n, s, r, rng) {
-    ((this.scene = t),
-      (this.arena = e),
-      (this.particles = n),
-      (this.audio = s),
-      (this.cb = r),
+  constructor(arena, rng) {
+    ((this.arena = arena),
       (this.rng = rng),
-      (this.uTime = { value: 0 }),
       (this.list = []),
-      (this.types = {}),
+      (this.metrics = {}),
       (this.nextId = 1));
-    for (const a in ENEMIES) this._buildType(ENEMIES[a]);
-    (this._buildProjectiles(),
-      (this._v = new Vector3()),
-      (this._v2 = new Vector3()),
-      (this._v3 = new Vector3()),
+    for (const a in ENEMIES)
+      this.metrics[a] = rigMetrics(ENEMIES[a].proportions);
+    ((this._v = new Vector3()),
       (this._headC = new Vector3()),
       (this._a = new Vector3()),
       (this._b = new Vector3()));
-  }
-  _buildType(t) {
-    const e = buildEnemyRig(t.proportions),
-      n = new Float32Array(MAX_PER_TYPE),
-      s = new Float32Array(MAX_PER_TYPE),
-      r = makeEnemyMaterial(
-        new MeshStandardMaterial({
-          color: t.bodyColor,
-          roughness: 0.55,
-          metalness: 0.55,
-        }),
-        this.uTime,
-        !1,
-      ),
-      a = makeEnemyMaterial(
-        new MeshStandardMaterial({
-          color: 0,
-          emissive: new Color(t.glow[0], t.glow[1], t.glow[2]),
-          emissiveIntensity: 2.2,
-          roughness: 0.6,
-          metalness: 0,
-        }),
-        this.uTime,
-        !0,
-      ),
-      l = [];
-    for (const o of e.parts) {
-      const c = o.kind === "glow" || o.kind === "headGlow",
-        h = new InstancedBufferAttribute(n, 1),
-        d = new InstancedBufferAttribute(s, 1);
-      (h.setUsage(DynamicDrawUsage),
-        d.setUsage(DynamicDrawUsage),
-        o.geom.setAttribute("aFlash", h),
-        o.geom.setAttribute("aDissolve", d));
-      const u = new InstancedMesh(o.geom, c ? a : r, MAX_PER_TYPE);
-      (u.instanceMatrix.setUsage(DynamicDrawUsage),
-        (u.frustumCulled = !1),
-        (u.castShadow = !c),
-        (u.receiveShadow = !c),
-        (u.count = 0),
-        (u.customDepthMaterial = makeEnemyMaterial(
-          new MeshDepthMaterial({ depthPacking: RGBADepthPacking }),
-          this.uTime,
-          !1,
-          !0,
-        )),
-        this.scene.add(u),
-        l.push({ mesh: u, part: o, fa: h, da: d }));
-    }
-    this.types[t.key] = { def: t, rig: e, meshes: l, flash: n, dissolve: s };
-  }
-  _buildProjectiles() {
-    const t = new SphereGeometry(0.17, 12, 10),
-      e = new MeshStandardMaterial({
-        color: 1127185,
-        emissive: 5635942,
-        emissiveIntensity: 4.5,
-        roughness: 0.4,
-      });
-    ((this.projMesh = new InstancedMesh(t, e, 64)),
-      this.projMesh.instanceMatrix.setUsage(DynamicDrawUsage),
-      (this.projMesh.frustumCulled = !1),
-      (this.projMesh.count = 0),
-      this.scene.add(this.projMesh),
-      (this.projectiles = []));
-    for (let n = 0; n < 64; n++)
-      this.projectiles.push({
-        active: !1,
-        pos: new Vector3(),
-        vel: new Vector3(),
-        life: 0,
-        dmg: 10,
-        owner: null,
-      });
-    this._pm = new Matrix4();
   }
   get alive() {
     let t = 0;
@@ -126,12 +45,10 @@ export class Enemies {
   }
   clear() {
     this.list.length = 0;
-    for (const t of this.projectiles) t.active = !1;
   }
-  spawn(t, e, n = 1) {
-    const s = ENEMIES[t];
-    this.types[t];
-    const r = -e.dir.z,
+  spawn(t, e, n = 1, world) {
+    const s = ENEMIES[t],
+      r = -e.dir.z,
       a = e.dir.x,
       l = this.rng.range(-2.4, 2.4),
       o = s.scale * this.rng.range(0.92, 1.08),
@@ -180,8 +97,7 @@ export class Enemies {
       (c.pos.y = this.arena.groundHeight(c.pos.x, c.pos.z)),
       c.prevPos.copy(c.pos),
       this.list.push(c),
-      this.particles.spawnFx(c.pos, s.glow),
-      this.audio.enemyGrowl([c.pos.x, c.pos.y, c.pos.z], s.big),
+      world && world.emit(EV_SPAWN, { pos: c.pos.clone(), kind: t, big: s.big }),
       c
     );
   }
@@ -189,7 +105,7 @@ export class Enemies {
     let s = null;
     for (const r of this.list) {
       if (r.state === "die") continue;
-      const a = this.types[r.type].rig,
+      const a = this.metrics[r.type],
         l = r.def.proportions,
         o = r.scale,
         c = -Math.sin(r.yaw),
@@ -238,21 +154,28 @@ export class Enemies {
     }
     return s;
   }
-  damage(t, e, n, s) {
+  damage(t, e, n, s, world) {
     const r = t.enemy;
     if (r.state === "die") return { killed: !1 };
     ((r.hp -= e), (r.flash = 1), (r.squash = Math.min(0.22, r.squash + 0.1)));
     const a = s.kbForce / r.def.mass;
-    return (
-      (r.kb.x += n.x * a),
+    ((r.kb.x += n.x * a),
       (r.kb.z += n.z * a),
-      r.state === "spawn" && ((r.state = "chase"), (r.dissolve = 0)),
-      this.particles.fleshBurst(t.point, n, t.head, r.def.glow),
-      this.audio.impactFlesh([t.point.x, t.point.y, t.point.z]),
-      r.hp <= 0 ? (this.kill(r, n, t.head, s), { killed: !0 }) : { killed: !1 }
+      r.state === "spawn" && ((r.state = "chase"), (r.dissolve = 0)));
+    const killed = r.hp <= 0;
+    return (
+      world.emit(EV_HIT, {
+        point: t.point,
+        dir: n,
+        head: t.head,
+        killed,
+        kind: r.type,
+      }),
+      killed && this.kill(r, n, t.head, s, world),
+      { killed }
     );
   }
-  kill(t, e, n, s) {
+  kill(t, e, n, s, world) {
     ((t.state = "die"),
       (t.t = 0),
       (t.headless = n),
@@ -264,84 +187,9 @@ export class Enemies {
     ((t.toppleTX = (l < 0 ? 1 : -1) * (Math.PI / 2) * this.rng.range(0.85, 1)),
       (t.toppleTZ = this.rng.range(-0.5, 0.5)));
     const o = ((s ? s.kbForce : 2) * 1.6) / t.def.mass;
-    ((t.kb.x += e.x * o),
-      (t.kb.z += e.z * o),
-      this.particles.deathBurst(t.pos, t.def.glow, t.scale, n),
-      this.audio.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big),
-      this.cb.onKill(t, n));
+    ((t.kb.x += e.x * o), (t.kb.z += e.z * o), world.onKill(t, n));
   }
-  _fireProjectile(t, e) {
-    const n = this.types[t.type].rig,
-      s = this.projectiles.find((h) => !h.active);
-    if (!s) return;
-    const r = -Math.sin(t.yaw),
-      a = -Math.cos(t.yaw);
-    ((s.active = !0),
-      (s.life = 3.5),
-      (s.dmg = t.def.damage),
-      (s.owner = t),
-      s.pos.set(
-        t.pos.x + r * 0.4,
-        t.pos.y + n.headY * t.scale - 0.1,
-        t.pos.z + a * 0.4,
-      ));
-    const l = this._v.set(e.pos.x, e.pos.y + 1.1, e.pos.z),
-      c = l.distanceTo(s.pos) / t.def.projSpeed;
-    (l.addScaledVector(e.vel, c * 0.7),
-      s.vel.subVectors(l, s.pos).normalize().multiplyScalar(t.def.projSpeed),
-      (s.vel.y += 5 * c * 0.5),
-      this.audio.spit([s.pos.x, s.pos.y, s.pos.z]),
-      this.particles.splash(s.pos, [0.4, 1, 0.4]));
-  }
-  _updateProjectiles(t, e) {
-    let n = 0;
-    for (const s of this.projectiles) {
-      if (!s.active) continue;
-      ((s.life -= t),
-        (s.vel.y -= 5 * t),
-        s.pos.addScaledVector(s.vel, t),
-        this.particles.trail(s.pos, [0.35, 1, 0.4], 0.16));
-      let r = !1;
-      const a = MathUtils.clamp(s.pos.y, e.pos.y + 0.3, e.pos.y + 1.65),
-        l = s.pos.x - e.pos.x,
-        o = s.pos.y - a,
-        c = s.pos.z - e.pos.z;
-      if (
-        (l * l + o * o + c * c < 0.42 &&
-          !e.dead &&
-          (this.cb.playerHit(s.dmg, s.owner ? s.owner.pos : s.pos, null),
-          (r = !0)),
-        !r)
-      )
-        if (
-          s.pos.y < this.arena.groundHeight(s.pos.x, s.pos.z) + 0.15 ||
-          Math.hypot(s.pos.x, s.pos.z) > ARENA_RADIUS - 0.4 ||
-          s.life <= 0
-        )
-          r = !0;
-        else
-          for (const h of this.arena.boxes) {
-            if (s.pos.y < h.y0 || s.pos.y > h.y1) continue;
-            const [d, u] = h.toLocal(s.pos.x, s.pos.z);
-            if (Math.abs(d) < h.hx + 0.15 && Math.abs(u) < h.hz + 0.15) {
-              r = !0;
-              break;
-            }
-          }
-      if (r) {
-        ((s.active = !1),
-          this.particles.splash(s.pos, [0.4, 1, 0.4]),
-          this.audio.splash([s.pos.x, s.pos.y, s.pos.z]));
-        continue;
-      }
-      (this._pm.makeTranslation(s.pos.x, s.pos.y, s.pos.z),
-        this.projMesh.setMatrixAt(n++, this._pm));
-    }
-    ((this.projMesh.count = n),
-      (this.projMesh.instanceMatrix.needsUpdate = !0));
-  }
-  update(t, e, n) {
-    this.uTime.value = n;
+  update(t, e, world) {
     const s = this.list,
       r = this.arena,
       a = e.pos;
@@ -432,7 +280,7 @@ export class Enemies {
           (o.growlT -= t),
           o.growlT < 0 &&
             ((o.growlT = this.rng.range(3, 9)),
-            this.audio.enemyGrowl([o.pos.x, o.pos.y, o.pos.z], c.big)),
+            world.emit(EV_GROWL, { pos: o.pos.clone(), big: c.big })),
           (o.attackLean = damp(o.attackLean, 0, 8, t)));
       } else if (o.state === "attack") {
         ((o.t += t), (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-12 * t))));
@@ -441,7 +289,8 @@ export class Enemies {
           ((o.attackLean = o.t < c.windup ? -0.35 * (o.t / c.windup) : 0.4),
             !o.attackDone &&
               o.t >= c.windup &&
-              ((o.attackDone = !0), this._fireProjectile(o, e)),
+              ((o.attackDone = !0),
+              world.projectiles.fire(o, this.metrics[o.type].headY, e, world)),
             o.t >= c.windup + c.swing &&
               ((o.state = "chase"),
               (o.cooldown = c.cooldown * this.rng.range(0.8, 1.25)),
@@ -460,10 +309,9 @@ export class Enemies {
             o.attackDone = !0;
             const p = u < c.range * 1.3 && Math.abs(e.pos.y - o.pos.y) < 1.8;
             (c.slam &&
-              (this.particles.slamWave(o.pos, 4),
-              this.audio.bruteSlam([o.pos.x, o.pos.y, o.pos.z]),
-              this.cb.slam(o.pos, u)),
-              p && !e.dead && this.cb.playerHit(c.damage, o.pos, o));
+              (world.emit(EV_SLAM, { pos: o.pos.clone(), dist: u }),
+              world.onSlam(o.pos, u)),
+              p && !e.dead && world.onPlayerHit(c.damage, o.pos, o));
           }
           o.t >= c.windup + c.swing &&
             ((o.state = "chase"), (o.cooldown = c.cooldown));
@@ -500,7 +348,6 @@ export class Enemies {
         (o.headBob =
           Math.abs(Math.sin(o.phase)) * 0.05 * o.scale * o.moveBlend));
     }
-    this._updateProjectiles(t, e);
   }
   _blocked(t, e, n) {
     if (Math.hypot(t, e) > ARENA_RADIUS - n - 0.5) return !0;
@@ -510,79 +357,5 @@ export class Enemies {
       if (Math.abs(r) < s.hx + n && Math.abs(a) < s.hz + n) return !0;
     }
     return !1;
-  }
-  // Pose the instanced rigs from sim state; alpha interpolates prev→current tick.
-  render(alpha = 1) {
-    for (const t in this.types) {
-      const e = this.types[t],
-        n = e.rig,
-        s = n.n,
-        r = e.def.proportions;
-      let a = 0;
-      for (const l of this.list) {
-        if (l.type !== t || a >= MAX_PER_TYPE) continue;
-        const o = l.scale,
-          c = l.squash;
-        (n.root.position.lerpVectors(l.prevPos, l.pos, alpha),
-          n.root.rotation.set(
-            l.toppleX,
-            lerpAngle(l.prevYaw, l.yaw, alpha),
-            l.toppleZ,
-          ),
-          n.root.scale.set(o * (1 + c * 0.6), o * (1 - c), o * (1 + c * 0.6)));
-        const h = l.phase,
-          d = l.moveBlend,
-          u = Math.sin(h) * 0.95 * d,
-          m = Math.sin(h + Math.PI) * 0.95 * d;
-        ((s.legL.rotation.x = u),
-          (s.legR.rotation.x = m),
-          (s.knL.rotation.x = Math.max(0, -Math.sin(h - 0.9)) * 1.2 * d + 0.1),
-          (s.knR.rotation.x =
-            Math.max(0, -Math.sin(h + Math.PI - 0.9)) * 1.2 * d + 0.1),
-          (s.hips.position.y =
-            n.hipH + Math.abs(Math.sin(h)) * 0.06 * d - (1 - d) * 0.02),
-          (s.hips.rotation.y = Math.sin(h) * 0.14 * d),
-          (s.torso.rotation.x = r.lean * d + l.attackLean + 0.08),
-          (s.torso.rotation.y = -Math.sin(h) * 0.16 * d),
-          (s.neck.rotation.x = -r.lean * 0.75 * d - l.attackLean * 0.6));
-        let g = 0,
-          v = 0;
-        if (l.state === "attack") {
-          const p = l.def;
-          ((g = Math.min(1, l.t / p.windup)),
-            (v = l.t > p.windup ? Math.min(1, (l.t - p.windup) / 0.25) : 0));
-        }
-        (r.armsForward
-          ? ((s.shL.rotation.x =
-              -1.35 + Math.sin(h + Math.PI) * 0.35 * d - g * 1.2 + v * 1.8),
-            (s.shR.rotation.x =
-              -1.35 + Math.sin(h) * 0.35 * d - g * 1.2 + v * 1.8),
-            (s.shL.rotation.z = 0.25 + g * 0.6 - v * 0.5),
-            (s.shR.rotation.z = -0.25 - g * 0.6 + v * 0.5),
-            (s.elL.rotation.x = -0.45 - g * 0.8 + v * 0.6),
-            (s.elR.rotation.x = -0.45 - g * 0.8 + v * 0.6))
-          : ((s.shL.rotation.x =
-              Math.sin(h + Math.PI) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6),
-            (s.shR.rotation.x =
-              Math.sin(h) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6),
-            (s.shL.rotation.z = 0.35 + g * 0.4 - v * 0.6),
-            (s.shR.rotation.z = -0.35 - g * 0.4 + v * 0.6),
-            (s.elL.rotation.x = -0.6 - g * 0.5),
-            (s.elR.rotation.x = -0.6 - g * 0.5)),
-          n.root.updateMatrixWorld(!0));
-        for (const p of e.meshes) {
-          const f =
-            l.headless &&
-            (p.part.kind === "head" || p.part.kind === "headGlow");
-          p.mesh.setMatrixAt(a, f ? ZERO_MATRIX : p.part.node.matrixWorld);
-        }
-        ((e.flash[a] = l.flash), (e.dissolve[a] = l.dissolve), a++);
-      }
-      for (const l of e.meshes)
-        ((l.mesh.count = a),
-          (l.mesh.instanceMatrix.needsUpdate = !0),
-          (l.fa.needsUpdate = !0),
-          (l.da.needsUpdate = !0));
-    }
   }
 }

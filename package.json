@@ -10,7 +10,8 @@
     "serve": "python3 -m http.server 4176 --directory dist",
     "dev:portal": "npm run build && npm run serve",
     "lint": "eslint games/onslaught/src",
-    "test": "npm run lint && node --test \"tests/**/*.test.mjs\"",
+    "check:boundary": "node scripts/check-sim-boundary.mjs",
+    "test": "npm run lint && npm run check:boundary && node --test \"tests/**/*.test.mjs\"",
     "deploy:cloudflare": "npm run build && npx wrangler@4 pages deploy dist --project-name bench-portal --branch main"
   },
   "devDependencies": {

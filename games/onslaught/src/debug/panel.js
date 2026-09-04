@@ -17,7 +17,7 @@ export function mountDebugPanel(game) {
   gui
     .add(game.renderer, "toneMappingExposure", 0.2, 3, 0.01)
     .name("renderer exposure");
-  const sun = game.arena.sun;
+  const sun = game.arenaView.sun;
   if (sun) gui.add(sun, "intensity", 0, 8, 0.05).name("sun");
   gui
     .add(

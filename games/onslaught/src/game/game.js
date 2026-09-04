@@ -26,34 +26,38 @@ import { Audio } from "../audio/audio.js";
 import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
-import { RNG, parseSeed } from "../core/rng.js";
+import { parseSeed } from "../core/rng.js";
 import { SUN_DIR } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
+import { ArenaView } from "../render/arena-view.js";
+import { EnemyView } from "../render/enemy-view.js";
 import { Decals } from "../render/fx/decals.js";
 import { ParticleSystem } from "../render/fx/particles.js";
 import { Shells } from "../render/fx/shells.js";
 import { Tracers } from "../render/fx/tracers.js";
 import { PostFX } from "../render/postfx.js";
 import { createSky } from "../render/sky.js";
-import { Arena } from "../sim/arena.js";
-import { Enemies } from "../sim/enemies.js";
-import { Player } from "../sim/player.js";
-import { Weapons } from "../sim/weapons.js";
+import { WeaponView } from "../render/weapon-view.js";
+import * as EV from "../sim/events.js";
+import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
 
+// Presentation shell: owns the renderer, cameras, views, FX, audio and HUD.
+// All gameplay lives in sim/world.js; this class feeds it input frames and
+// turns its events and state into pixels and sound.
 export class Game {
   constructor(t) {
     this.canvas = t;
     const e = new URLSearchParams(location.search);
-    ((this.debug = e.has("debug")),
-      (this.noSpawn = e.has("nospawn")),
-      (this.god = e.has("god")));
+    ((this.debug = e.has("debug")), (this.god = e.has("god")));
     // Mutable copy so the debug panel can tune the grade live.
     this.grade = { ...theme.grade };
-    // One master seed; every system draws from its own forked stream so a run
-    // is reproducible from `?seed=`.
     this.seed = parseSeed(location.search);
-    this.rng = new RNG(this.seed);
+    this.world = new World({
+      seed: this.seed,
+      god: this.god,
+      noSpawn: e.has("nospawn"),
+    });
     const n = new WebGLRenderer({
       canvas: t,
       antialias: !1,
@@ -79,7 +83,7 @@ export class Game {
       (this.input = new Input(t)),
       (this.audio = new Audio()),
       (this.hud = new HUD()),
-      (this.arena = new Arena(this.scene, this.rng.fork("layout"))),
+      (this.arenaView = new ArenaView(this.scene, this.world.arena)),
       (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
@@ -90,32 +94,9 @@ export class Game {
         const o = this.audio.spatial([l.x, l.y, l.z], 3, 14);
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
-      (this.player = new Player(this.arena)),
-      (this.weapons = new Weapons(
-        this.weaponCamera,
-        this.audio,
-        {
-          fireRay: (l, o, c, h, d) => this.fireRay(l, o, c, h, d),
-          ejectShell: (l, o, c) => this.shells.eject(l, o, c),
-          muzzleSmoke: (l, o, c) => this.particles.muzzleSmoke(l, o, c),
-          onAmmoChange: () => this.syncAmmo(),
-          onWeaponChange: () => this.syncWeapon(),
-        },
-        this.rng.fork("combat"),
-      )),
-      (this.enemies = new Enemies(
-        this.scene,
-        this.arena,
-        this.particles,
-        this.audio,
-        {
-          playerHit: (l, o, c) => this.onPlayerHit(l, o, c),
-          onKill: (l, o) => this.onKill(l, o),
-          slam: (l, o) => this.onSlam(l, o),
-        },
-        this.rng.fork("ai"),
-      )),
-      (this.waveRng = this.rng.fork("waves")),
+      (this.enemyView = new EnemyView(this.scene)),
+      (this.weaponView = new WeaponView(this.weaponCamera)),
+      (this.pickupMeshes = new Map()),
       (this.postfx = new PostFX(n)));
     const r = new DirectionalLight(
       theme.lights.weaponKey.color,
@@ -150,24 +131,10 @@ export class Game {
       (this.last = performance.now()),
       (this.timeScale = 1),
       (this.slowmo = 0),
-      (this.score = 0),
-      (this.kills = 0),
-      (this.streak = 0),
-      (this.lastKillT = -10),
-      (this.wave = 0),
-      (this.waveActive = !1),
-      (this.breakT = 0),
-      (this.queue = []),
-      (this.spawnTimer = 0),
-      (this.maxAlive = 10),
-      (this.spawnInterval = 1),
-      (this.pickups = []),
-      (this.deadT = 0),
       (this.hurtFx = 0),
       (this.lastHitSound = -1),
       (this.fps = 60),
       (this.fixed = new FixedLoop({ tick: 1 / 60, maxSteps: 5 })),
-      (this.startTime = 0),
       (this._v = new Vector3()),
       (this._v2 = new Vector3()),
       (this._q = new Quaternion()),
@@ -183,7 +150,6 @@ export class Game {
       }),
       (window.game = this),
       this.syncWeapon(),
-      this.syncAmmo(),
       this.debug &&
         setTimeout(() => {
           (this.start(), (this.input.locked = !0));
@@ -192,6 +158,19 @@ export class Game {
         (requestAnimationFrame(this._raf), this.loop(l));
       }),
       requestAnimationFrame(this._raf));
+  }
+  // Compatibility accessors for the debug panel and console poking.
+  get player() {
+    return this.world.player;
+  }
+  get weapons() {
+    return this.world.weapons;
+  }
+  get enemies() {
+    return this.world.enemies;
+  }
+  get arena() {
+    return this.world.arena;
   }
   _setupEnvironment() {
     const t = new PMREMGenerator(this.renderer),
@@ -209,7 +188,7 @@ export class Game {
       }),
     );
     ((s.rotation.x = Math.PI / 2), (s.position.y = 3.4), e.add(s));
-    for (const a of this.arena.gates) {
+    for (const a of this.world.arena.gates) {
       const l = new Mesh(
         new SphereGeometry(2.5, 12, 8),
         new MeshBasicMaterial({ color: new Color(2.2, 0.8, 0.2) }),
@@ -225,20 +204,15 @@ export class Game {
       t.dispose());
   }
   _buildPickupProto() {
-    const t = new Group(),
-      e = new Mesh(new BoxGeometry(0.55, 0.36, 0.38), this.arena.mats.crate);
+    const mats = this.arenaView.mats,
+      t = new Group(),
+      e = new Mesh(new BoxGeometry(0.55, 0.36, 0.38), mats.crate);
     ((e.castShadow = !0), t.add(e));
     for (const s of [-0.16, 0.16]) {
-      const r = new Mesh(
-        new BoxGeometry(0.06, 0.37, 0.39),
-        this.arena.mats.emCyan,
-      );
+      const r = new Mesh(new BoxGeometry(0.06, 0.37, 0.39), mats.emCyan);
       ((r.position.x = s), t.add(r));
     }
-    const n = new Mesh(
-      new BoxGeometry(0.3, 0.02, 0.2),
-      this.arena.mats.emWhite,
-    );
+    const n = new Mesh(new BoxGeometry(0.3, 0.02, 0.2), mats.emWhite);
     ((n.position.y = 0.19), t.add(n), (this.pickupProto = t));
   }
   start() {
@@ -256,50 +230,34 @@ export class Game {
       this.debug || this.input.lock(),
       (this.last = performance.now()),
       this.hud.banner(...theme.strings.deployingBanner, 2.5),
-      (this.audio.intensity = 1),
-      (this.breakT = 4),
-      (this.waveActive = !1),
-      (this.wave = 0));
+      (this.audio.intensity = 1));
   }
   pause() {
+    const w = this.world;
     ((this.state = "paused"),
       this.hud.showMenu(
         !0,
         "PAUSED",
         "RESUME",
         null,
-        `WAVE ${this.wave} · SCORE ${this.score.toLocaleString("en-US")}`,
+        `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
       ));
   }
   resetGame() {
-    // Re-fork the per-run streams so a replay from the same seed is identical.
-    // The layout stream is not reset: arena geometry is built once.
-    ((this.rng = new RNG(this.seed)),
-      (this.weapons.rng = this.rng.fork("combat")),
-      (this.enemies.rng = this.rng.fork("ai")),
-      (this.waveRng = this.rng.fork("waves")));
-    (this.player.reset(), this.weapons.resetAll(), this.enemies.clear());
-    for (const t of this.pickups) this.scene.remove(t.mesh);
-    ((this.pickups.length = 0),
-      (this.score = 0),
-      (this.kills = 0),
-      (this.streak = 0),
-      (this.queue.length = 0),
+    (this.world.startRun(),
+      this.weaponView.reset(),
+      this._syncPickups(),
       (this.slowmo = 0),
       (this.timeScale = 1),
-      (this.deadT = 0),
-      (this.startTime = this.time),
       (this.postfx.u.uDesat.value = 0),
-      this.syncAmmo(),
+      this.handleEvents(this.world.drainEvents()),
       this.syncWeapon());
   }
   onDeath() {
     ((this.state = "dead"),
-      (this.deadT = 0),
       this.audio.gameOver(),
       (this.audio.intensity = 0),
-      this.hud.banner("K.I.A.", "THE SWARM OVERRAN THE ARENA", 6, !0),
-      (this.slowmo = 2.5));
+      this.hud.banner("K.I.A.", "THE SWARM OVERRAN THE ARENA", 6, !0));
   }
   onKey(t) {
     (t === "KeyM" &&
@@ -330,14 +288,10 @@ export class Game {
     const n = this.renderer.getDrawingBufferSize(new Vector2());
     this.postfx.setSize(n.x, n.y);
   }
-  syncAmmo() {
-    const t = this.weapons.weapon;
-    this.hud.setAmmo(t.mag, t.reserve, t.def.magSize);
-  }
   syncWeapon() {
-    const t = this.weapons.weapon;
-    (this.hud.setWeapon(t.def.name, t.def.mode, this.weapons.current),
-      this.syncAmmo());
+    const t = this.world.weapons.weapon;
+    (this.hud.setWeapon(t.def.name, t.def.mode, this.world.weapons.current),
+      this.hud.setAmmo(t.mag, t.reserve, t.def.magSize));
   }
   project(t, e, n) {
     const s = this._v.set(t, e, n).project(this.camera);
@@ -348,219 +302,225 @@ export class Game {
           y: (-s.y * 0.5 + 0.5) * window.innerHeight,
         };
   }
-  fireRay(t, e, n, s, r) {
-    const l = this.enemies.raycast(t, e, 240),
-      o = this.arena.raycast(t, e, l ? l.t : 240),
-      c = this.time;
-    let h;
-    if (l && (!o || l.t < o.dist)) {
-      const d =
-          1 -
-          (1 - n.falloffMin) *
-            MathUtils.clamp(
-              (l.t - n.falloffStart) / (n.falloffEnd - n.falloffStart),
-              0,
-              1,
-            ),
-        u = n.damage * d * (l.head ? n.headMult : 1),
-        m = this.enemies.damage(l, u, e, n);
-      ((h = l.point),
-        this.hud.hitmarker(m.killed ? (l.head ? "head" : "kill") : "hit"),
-        c - this.lastHitSound > 0.03 &&
-          ((this.lastHitSound = c),
-          m.killed ? this.audio.kill(l.head) : this.audio.hitmarker(l.head)));
-    } else if (o) {
-      h = o.point;
-      const d = n.key === "dmr";
-      (this.decals.add(
-        o.point,
-        o.normal,
-        rand(0.09, 0.14) * (d ? 1.5 : n.key === "shotgun" ? 0.8 : 1),
-        0,
-        c,
-      ),
-        this.particles.impactSparks(
-          o.point,
-          o.normal,
-          d ? 26 : n.key === "shotgun" ? 5 : 12,
-          d ? 1.5 : 1,
+  // ---- sim events → audio / FX / HUD ----------------------------------------
+  handleEvents(list) {
+    for (const ev of list) this.handleEvent(ev);
+  }
+  handleEvent(h) {
+    const w = this.world,
+      n = w.player,
+      c = this.time,
+      A = this.audio,
+      H = this.hud;
+    switch (h.type) {
+      // player
+      case EV.EV_JUMP:
+        (A.jump(), this.weaponView.onEvent(h, w.weapons));
+        break;
+      case EV.EV_LAND:
+        (A.land(h.strength), this.weaponView.onEvent(h, w.weapons));
+        break;
+      case EV.EV_STEP:
+        A.footstep(h.sprint ? 1.25 : 0.85);
+        break;
+      case EV.EV_SLIDE:
+        A.slide();
+        break;
+      case EV.EV_HURT:
+        (H.damageFrom(h.angle),
+          A.playerHurt(h.amount),
+          (this.hurtFx = 1),
+          H.setHealth(n.hp, n.maxHp));
+        break;
+      case EV.EV_DEAD:
+        this.onDeath();
+        break;
+      // weapons
+      case EV.EV_SHOT:
+        (this.weaponView.onEvent(h, w.weapons),
+          this.particles.muzzleSmoke(
+            this.weaponView.muzzleWorld,
+            n.forward,
+            h.def.smoke,
+          ),
+          A.gunshot(h.def.sound));
+        break;
+      case EV.EV_TRACER: {
+        const d = h.def.key === "dmr";
+        this.tracers.fire(
+          this.weaponView.muzzleWorld,
+          h.end,
+          c,
+          d ? 520 : 360,
+          h.def.tracerWidth,
+          d ? 9 : 4.5,
+          h.def.tracer,
+        );
+        break;
+      }
+      case EV.EV_IMPACT: {
+        const d = h.def.key === "dmr",
+          sg = h.def.key === "shotgun";
+        (this.decals.add(
+          h.point,
+          h.normal,
+          rand(0.09, 0.14) * (d ? 1.5 : sg ? 0.8 : 1),
+          0,
+          c,
         ),
-        c - this.lastHitSound > 0.03 &&
-          ((this.lastHitSound = c),
-          this.audio.impactWorld([o.point.x, o.point.y, o.point.z])),
-        this.impactLight.position.copy(o.point).addScaledVector(o.normal, 0.25),
-        (this.impactLight.intensity = d ? 60 : 30));
-    } else h = t.clone().addScaledVector(e, 240);
-    r &&
-      this.tracers.fire(
-        s,
-        h,
-        c,
-        n.key === "dmr" ? 520 : 360,
-        n.tracerWidth,
-        n.key === "dmr" ? 9 : 4.5,
-        n.tracer,
-      );
-  }
-  onPlayerHit(t, e, n) {
-    this.player.dead ||
-      (this.god && (t = 0),
-      this.player.damage(t, e),
-      n &&
-        (this._v.subVectors(this.player.pos, n.pos),
-        (this._v.y = 0),
-        this._v.normalize(),
-        this.player.knock(this._v, n.def.big ? 7 : 2.2)),
-      this.hud.setHealth(this.player.hp, this.player.maxHp));
-  }
-  onSlam(t, e) {
-    (this.player.addTrauma(MathUtils.clamp(1 - e / 14, 0, 0.8)),
-      e < 5 &&
-        (this._v.subVectors(this.player.pos, t),
-        (this._v.y = 0),
-        this._v.normalize(),
-        this.player.knock(this._v, 5)));
-  }
-  onKill(t, e) {
-    this.kills++;
-    const n = this.time;
-    ((this.streak = n - this.lastKillT < 1.8 ? this.streak + 1 : 1),
-      (this.lastKillT = n));
-    const s = Math.min(4, 1 + (this.streak - 1) * 0.25);
-    let r = Math.round(t.def.score * s) + (e ? 50 : 0);
-    this.score += r;
-    const a = this.project(t.pos.x, t.pos.y + 1.75 * t.scale, t.pos.z);
-    (a &&
-      this.hud.popup(
-        "+" + r + (e ? " HEADSHOT" : ""),
-        a.x,
-        a.y,
-        e ? "head" : "kill",
-      ),
-      this.hud.feed(
-        `${t.def.name} ${e ? "HEADSHOT" : "DOWN"}`,
-        e ? "head" : "",
-      ),
-      this.streak >= 3 &&
-        this.streak % 3 === 0 &&
-        (this.hud.feed(`${this.streak}x STREAK  ×${s.toFixed(2)}`, "wave"),
-        this.hud.popup(
-          `${this.streak}x STREAK`,
-          window.innerWidth / 2,
-          window.innerHeight * 0.36,
-          "bonus",
-        )),
-      (t.def.big || this.waveRng.chance(0.13)) && this.spawnPickup(t.pos),
-      this._v.set(t.pos.x, this.arena.groundHeight(t.pos.x, t.pos.z), t.pos.z),
-      this.decals.add(this._v, UP, 1.5 * t.scale, 1, n));
-  }
-  startWave(t) {
-    ((this.wave = t), (this.waveActive = !0));
-    const e = Math.min(6 + t * 5 + Math.floor(t * t * 0.45), 130),
-      n = t >= 3 ? 1 + Math.floor((t - 3) / 2) + (t % 5 === 0 ? 2 : 0) : 0,
-      s = t >= 2 ? Math.floor(e * 0.18) : 0,
-      r = [];
-    for (let a = 0; a < e; a++) r.push("runner");
-    for (let a = 0; a < s; a++) r[this.waveRng.int(e)] = "spitter";
-    for (let a = 0; a < n; a++)
-      r[Math.floor(this.waveRng.range(e * 0.2, e * 0.9))] = "brute";
-    ((this.queue = r.reverse()),
-      (this.maxAlive = Math.min(14 + t * 4, 64)),
-      (this.spawnInterval = Math.max(0.2, 1.1 - t * 0.06)),
-      (this.spawnTimer = 1),
-      this.hud.banner(
-        "WAVE " + t,
-        t % 5 === 0 ? "HEAVY PRESENCE DETECTED" : e + " HOSTILES INBOUND",
-        3.2,
-        t % 5 === 0,
-      ),
-      this.hud.feed("WAVE " + t + " STARTED", "wave"),
-      this.audio.waveStart(),
-      (this.audio.intensity = 2));
-    for (const a of this.arena.gates) a.activity = 1.2;
-  }
-  updateWaves(t) {
-    if (this.noSpawn) return;
-    if (!this.waveActive) {
-      ((this.breakT -= t), this.breakT <= 0 && this.startWave(this.wave + 1));
-      return;
-    }
-    this.spawnTimer -= t;
-    const e = this.enemies.alive;
-    if (this.queue.length && e < this.maxAlive && this.spawnTimer <= 0) {
-      const n = 1 + this.waveRng.int(Math.min(3, this.wave));
-      for (let s = 0; s < n && this.queue.length; s++) {
-        const r = this.arena.gates,
-          a = this.waveRng.pick(r);
-        (this.enemies.spawn(this.queue.pop(), a, 1 + (this.wave - 1) * 0.07),
-          (a.activity = 1.2));
+          this.particles.impactSparks(
+            h.point,
+            h.normal,
+            d ? 26 : sg ? 5 : 12,
+            d ? 1.5 : 1,
+          ),
+          c - this.lastHitSound > 0.03 &&
+            ((this.lastHitSound = c),
+            A.impactWorld([h.point.x, h.point.y, h.point.z])),
+          this.impactLight.position
+            .copy(h.point)
+            .addScaledVector(h.normal, 0.25),
+          (this.impactLight.intensity = d ? 60 : 30));
+        break;
       }
-      this.spawnTimer = this.spawnInterval;
-    }
-    !this.queue.length && e === 0 && this.waveCleared();
-  }
-  waveCleared() {
-    ((this.waveActive = !1), (this.breakT = 9));
-    const t = 250 * this.wave;
-    ((this.score += t),
-      this.hud.banner(
-        "WAVE " + this.wave + " CLEARED",
-        "+" + t + " BONUS  ·  REINFORCEMENTS IN 9s",
-        4,
-      ),
-      this.hud.feed("WAVE " + this.wave + " CLEARED  +" + t, "wave"),
-      this.audio.waveClear(),
-      (this.audio.intensity = 1),
-      (this.slowmo = 1.3));
-    for (const e of this.weapons.weapons)
-      e.reserve = Math.min(e.def.reserve * 2, e.reserve + e.def.magSize * 2);
-    this.syncAmmo();
-  }
-  spawnPickup(t) {
-    const e = this.pickupProto.clone(),
-      n = this.arena.groundHeight(t.x, t.z);
-    (e.position.set(t.x, n + 0.35, t.z),
-      this.scene.add(e),
-      this.pickups.push({
-        mesh: e,
-        life: 28,
-        t: this.waveRng.float() * 6,
-        baseY: n + 0.35,
-      }));
-  }
-  updatePickups(t) {
-    for (let e = this.pickups.length - 1; e >= 0; e--) {
-      const n = this.pickups[e];
-      ((n.t += t),
-        (n.life -= t),
-        (n.mesh.rotation.y += t * 1.2),
-        (n.mesh.position.y = n.baseY + Math.sin(n.t * 3) * 0.07),
-        (n.mesh.visible = n.life > 5 || Math.sin(n.t * 12) > 0));
-      const s = Math.hypot(
-        n.mesh.position.x - this.player.pos.x,
-        n.mesh.position.z - this.player.pos.z,
-      );
-      if (
-        n.life <= 0 ||
-        (s < 1.35 &&
-          Math.abs(n.mesh.position.y - this.player.pos.y) < 2 &&
-          !this.player.dead)
-      ) {
-        if (n.life > 0) {
-          for (const r of this.weapons.weapons)
-            r.reserve = Math.min(
-              r.def.reserve * 2,
-              r.reserve + r.def.magSize * (r === this.weapons.weapon ? 2 : 1),
-            );
-          (this.syncAmmo(),
-            this.hud.feed("AMMO RESUPPLY", "wave"),
-            this.hud.hint("AMMO RESUPPLIED"),
-            this.audio.pickup(),
-            this.particles.pickupBurst(n.mesh.position));
-        }
-        (this.scene.remove(n.mesh), this.pickups.splice(e, 1));
+      case EV.EV_HIT: {
+        const glow = theme.enemies[h.kind].glow;
+        (this.particles.fleshBurst(h.point, h.dir, h.head, glow),
+          A.impactFlesh([h.point.x, h.point.y, h.point.z]),
+          H.hitmarker(h.killed ? (h.head ? "head" : "kill") : "hit"),
+          c - this.lastHitSound > 0.03 &&
+            ((this.lastHitSound = c),
+            h.killed ? A.kill(h.head) : A.hitmarker(h.head)));
+        break;
       }
+      case EV.EV_DRY_FIRE:
+        A.dryFire();
+        break;
+      case EV.EV_EJECT: {
+        (this.weaponView.onEvent(h, w.weapons),
+          this.weaponView.ejectWorld(this._v));
+        const s = this._v2.copy(n.right).cross(n.forward),
+          v = new Vector3()
+            .copy(n.right)
+            .multiplyScalar(rand(1.6, 2.6))
+            .addScaledVector(s, rand(1.3, 2.2))
+            .addScaledVector(n.forward, rand(-0.4, 0.2))
+            .add(n.vel);
+        this.shells.eject(this._v, v, h.shell);
+        break;
+      }
+      case EV.EV_PUMP:
+        A.pump();
+        break;
+      case EV.EV_RELOAD_STAGE:
+        h.stage === "start"
+          ? h.key === "shotgun"
+            ? A.click(0.5, 1200)
+            : A.click(0.6, 1500)
+          : h.stage === "magOut"
+            ? A.magOut()
+            : h.stage === "magIn"
+              ? A.magIn()
+              : h.stage === "bolt"
+                ? A.bolt()
+                : h.stage === "shellIn" && A.shellIn();
+        break;
+      case EV.EV_SWITCH:
+        (h.quiet || A.weaponSwitch(), this.syncWeapon());
+        break;
+      case EV.EV_AMMO:
+        H.setAmmo(h.mag, h.reserve, h.magSize);
+        break;
+      // enemies
+      case EV.EV_SPAWN:
+        (this.particles.spawnFx(h.pos, theme.enemies[h.kind].glow),
+          A.enemyGrowl([h.pos.x, h.pos.y, h.pos.z], h.big));
+        break;
+      case EV.EV_GROWL:
+        A.enemyGrowl([h.pos.x, h.pos.y, h.pos.z], h.big);
+        break;
+      case EV.EV_SLAM:
+        (this.particles.slamWave(h.pos, 4),
+          A.bruteSlam([h.pos.x, h.pos.y, h.pos.z]));
+        break;
+      case EV.EV_SPIT:
+        (A.spit([h.pos.x, h.pos.y, h.pos.z]),
+          this.particles.splash(h.pos, [0.4, 1, 0.4]));
+        break;
+      case EV.EV_PROJECTILE_HIT:
+        (this.particles.splash(h.pos, [0.4, 1, 0.4]),
+          A.splash([h.pos.x, h.pos.y, h.pos.z]));
+        break;
+      case EV.EV_KILL: {
+        const t = h.enemy,
+          e = h.head,
+          glow = theme.enemies[t.type].glow;
+        (this.particles.deathBurst(t.pos, glow, t.scale, e),
+          A.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big));
+        const a = this.project(t.pos.x, t.pos.y + 1.75 * t.scale, t.pos.z);
+        (a &&
+          H.popup(
+            "+" + h.points + (e ? " HEADSHOT" : ""),
+            a.x,
+            a.y,
+            e ? "head" : "kill",
+          ),
+          H.feed(`${t.def.name} ${e ? "HEADSHOT" : "DOWN"}`, e ? "head" : ""),
+          h.streak >= 3 &&
+            h.streak % 3 === 0 &&
+            (H.feed(`${h.streak}x STREAK  ×${h.mult.toFixed(2)}`, "wave"),
+            H.popup(
+              `${h.streak}x STREAK`,
+              window.innerWidth / 2,
+              window.innerHeight * 0.36,
+              "bonus",
+            )),
+          this._v.set(t.pos.x, h.groundY, t.pos.z),
+          this.decals.add(this._v, UP, 1.5 * t.scale, 1, c));
+        break;
+      }
+      // match flow
+      case EV.EV_WAVE_START: {
+        const [title, sub, danger] = h.banner;
+        (H.banner(title, sub, 3.2, danger),
+          H.feed("WAVE " + h.wave + " STARTED", "wave"),
+          A.waveStart(),
+          (A.intensity = 2));
+        break;
+      }
+      case EV.EV_WAVE_CLEAR:
+        (H.banner(
+          "WAVE " + h.wave + " CLEARED",
+          "+" + h.bonus + " BONUS  ·  REINFORCEMENTS IN 9s",
+          4,
+        ),
+          H.feed("WAVE " + h.wave + " CLEARED  +" + h.bonus, "wave"),
+          A.waveClear(),
+          (A.intensity = 1));
+        break;
+      case EV.EV_PICKUP:
+        (H.feed("AMMO RESUPPLY", "wave"),
+          H.hint("AMMO RESUPPLIED"),
+          A.pickup(),
+          this.particles.pickupBurst(h.pos));
+        break;
     }
+  }
+  // Pickup records → meshes (added/removed by id, posed from sim state).
+  _syncPickups() {
+    const live = this.world.pickups,
+      m = this.pickupMeshes;
+    for (const p of live) {
+      let mesh = m.get(p.id);
+      (mesh ||
+        ((mesh = this.pickupProto.clone()), this.scene.add(mesh), m.set(p.id, mesh)),
+        mesh.position.copy(p.pos),
+        (mesh.rotation.y = p.t * 1.2),
+        (mesh.visible = p.visible));
+    }
+    if (m.size !== live.length)
+      for (const [id, mesh] of m)
+        live.some((p) => p.id === id) || (this.scene.remove(mesh), m.delete(id));
   }
   loop(t) {
     let frameDt = Math.min(0.05, (t - this.last) / 1e3);
@@ -576,25 +536,31 @@ export class Game {
       )));
     // Look is applied per frame for aim latency; movement/combat step at a
     // fixed rate and the renderer interpolates between the last two ticks.
-    const playing = this.state === "playing" || this.state === "dead";
-    playing && this.player.applyLook(this.input);
+    const w = this.world,
+      playing = this.state === "playing" || this.state === "dead";
+    playing && w.player.applyLook(this.input);
     const alpha = this.fixed.advance(frameDt, this.timeScale, (dt) => {
       this.time += dt;
       playing ? this.stepGame(dt) : this.stepIdle(dt);
       this.input.endTick();
     });
-    playing
-      ? this.presentGame(alpha, frameDt)
-      : this.presentIdle(alpha, frameDt);
+    (w.slowmoRequest > 0 &&
+      ((this.slowmo = Math.max(this.slowmo, w.slowmoRequest)),
+      (w.slowmoRequest = 0)),
+      this.handleEvents(w.drainEvents()),
+      playing
+        ? this.presentGame(alpha, frameDt)
+        : this.presentIdle(alpha, frameDt));
     // FX are frame-rate driven but still honour slow-mo.
     const s = this.time,
-      fxDt = frameDt * this.timeScale;
-    (this.arena.update(s, fxDt),
+      fxDt = frameDt * this.timeScale,
+      n = w.player;
+    (this.arenaView.update(s, fxDt),
       this.sky.update(s),
       this.particles.update(s, fxDt, this.camera.position),
       this.tracers.update(s),
       this.decals.update(s),
-      this.shells.update(fxDt, (r, a) => this.arena.groundHeight(r, a)),
+      this.shells.update(fxDt, (r, a) => w.arena.groundHeight(r, a)),
       (this.impactLight.intensity *= Math.exp(-28 * frameDt)),
       this.hud.update(frameDt),
       this.audio.setListener(
@@ -603,22 +569,22 @@ export class Game {
           this.camera.position.y,
           this.camera.position.z,
         ],
-        [this.player.forward.x, 0, this.player.forward.z],
-        [this.player.right.x, 0, this.player.right.z],
+        [n.forward.x, 0, n.forward.z],
+        [n.right.x, 0, n.right.z],
       ),
       this.audio.update(
         frameDt,
-        this.state === "playing" ? this.player.hp / this.player.maxHp : 1,
+        this.state === "playing" ? n.hp / n.maxHp : 1,
       ),
       this.render(),
       this.input.endFrame());
   }
   // ---- menu / game-over diorama ------------------------------------------
   stepIdle(dt) {
-    (this.state === "menu" || this.state === "over") &&
-      this.enemies.update(dt, this.player, this.time);
+    (this.state === "menu" || this.state === "over") && this.world.stepIdle(dt);
   }
   presentIdle(alpha, frameDt) {
+    const w = this.world;
     if (this.state === "menu" || this.state === "over") {
       const n = this.time * 0.07;
       (this.camera.position.set(
@@ -629,66 +595,43 @@ export class Game {
         this.camera.lookAt(0, 2.5, 0),
         (this.camera.fov = damp(this.camera.fov, 62, 4, frameDt)),
         this.camera.updateProjectionMatrix(),
-        this.player.forward
-          .set(0, 0, -1)
-          .applyQuaternion(this.camera.quaternion),
-        this.player.right.set(1, 0, 0).applyQuaternion(this.camera.quaternion),
+        w.player.forward.set(0, 0, -1).applyQuaternion(this.camera.quaternion),
+        w.player.right.set(1, 0, 0).applyQuaternion(this.camera.quaternion),
         (this.postfx.u.uDamage.value = 0),
         (this.postfx.u.uRadial.value = 0),
         (this.postfx.u.uCA.value = this.grade.chromatic),
         (this.postfx.u.uFlash.value = 0));
     }
-    this.enemies.render(alpha);
+    (this.enemyView.sync(w.enemies, w.projectiles, alpha, this.time),
+      this._syncPickups());
   }
   // ---- match: fixed-rate simulation step ----------------------------------
   stepGame(dt) {
-    const n = this.player,
-      s = this.input;
-    n.update(dt, s, this.time);
-    for (const h of n.events)
-      h.type === "jump"
-        ? (this.audio.jump(), this.weapons.onJump())
-        : h.type === "land"
-          ? (this.audio.land(h.strength),
-            this.weapons.onLand(h.strength),
-            n.addTrauma(h.strength * 0.12))
-          : h.type === "step"
-            ? this.audio.footstep(h.sprint ? 1.25 : 0.85)
-            : h.type === "slide"
-              ? this.audio.slide()
-              : h.type === "hurt"
-                ? (this.hud.damageFrom(h.angle),
-                  this.audio.playerHurt(h.amount),
-                  (this.hurtFx = 1))
-                : h.type === "dead" && this.onDeath();
-    n.events.length = 0;
-    if (
-      n.dead &&
-      ((this.deadT += dt), this.deadT > 3.2 && this.state === "dead")
-    ) {
+    const w = this.world;
+    w.step(dt, this.input.frame());
+    if (w.player.dead && w.deadT > 3.2 && this.state === "dead") {
       ((this.state = "over"), this.input.unlock());
-      const d = Math.floor(this.time - this.startTime);
+      const d = Math.floor(w.elapsed);
       (this.hud.showMenu(
         !0,
         "K.I.A.",
         "REDEPLOY",
-        `WAVE ${this.wave} REACHED<br>${this.kills} KILLS · ${this.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
+        `WAVE ${w.wave} REACHED<br>${w.kills} KILLS · ${w.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
         "THE SWARM PREVAILS",
       ),
         this.hud.show(!1));
     }
-    (this.weapons.update(dt, s, n, this.time),
-      this.enemies.update(dt, n, this.time),
-      n.dead || (this.updateWaves(dt), this.updatePickups(dt)));
   }
   // ---- match: per-frame presentation ---------------------------------------
   presentGame(alpha, frameDt) {
-    const n = this.player;
+    const w = this.world,
+      n = w.player,
+      W = w.weapons;
     this.hurtFx = Math.max(0, this.hurtFx - frameDt * 2.2);
     (this.camera.position.lerpVectors(n.prevCamPos, n.camPos, alpha),
       this.camera.quaternion.slerpQuaternions(n.prevCamQuat, n.camQuat, alpha));
     if (n.dead) {
-      const h = Math.min(1, this.deadT / 1.4);
+      const h = Math.min(1, w.deadT / 1.4);
       ((this.camera.position.y -= h * 1.05),
         this._e.set(-h * 0.35, 0, h * 0.55),
         this._q.setFromEuler(this._e),
@@ -698,12 +641,15 @@ export class Game {
       this.camera.updateProjectionMatrix(),
       this.weaponCamera.position.copy(this.camera.position),
       this.weaponCamera.quaternion.copy(this.camera.quaternion),
-      this.enemies.render(alpha));
-    const r = this.weapons.flash.intensity;
-    (this.muzzleLight.position.copy(this.weapons.muzzleWorld),
-      (this.muzzleLight.intensity =
-        r * this.weapons.weapon.def.flash.light * 3.5));
-    const a = this.weapons.getSpread(n),
+      this.enemyView.sync(w.enemies, w.projectiles, alpha, this.time),
+      this._syncPickups(),
+      this.weaponView.sync(W, n, this.input, frameDt, this.time));
+    for (const p of w.projectiles.list)
+      p.active && this.particles.trail(p.pos, [0.35, 1, 0.4], 0.16);
+    const r = this.weaponView.flash.intensity;
+    (this.muzzleLight.position.copy(this.weaponView.muzzleWorld),
+      (this.muzzleLight.intensity = r * W.weapon.def.flash.light * 3.5));
+    const a = W.getSpread(n),
       l =
         (Math.tan(a) / Math.tan(MathUtils.degToRad(this.camera.fov / 2))) *
           (window.innerHeight / 2) +
@@ -711,20 +657,18 @@ export class Game {
     if (
       (this.hud.setCrosshair(
         l,
-        this.weapons.adsSmooth < 0.45 &&
-          !n.dead &&
-          this.weapons.sprintBlend < 0.6,
+        W.adsSmooth < 0.45 && !n.dead && W.sprintBlend < 0.6,
       ),
       this.hud.setHealth(n.hp, n.maxHp),
       this.hud.setStats(
-        this.wave,
-        this.enemies.alive + this.queue.length,
-        this.kills,
-        this.score,
+        w.wave,
+        w.enemies.alive + w.queue.length,
+        w.kills,
+        w.score,
       ),
       this.state === "playing")
     ) {
-      const h = this.weapons.weapon;
+      const h = W.weapon;
       h.mag === 0 && h.reserve > 0 && !h.reloading
         ? this.hud.hint("RELOAD  [R]", !0, 0.2)
         : h.mag === 0 &&
@@ -741,8 +685,8 @@ export class Game {
         n.trauma * n.trauma * 0.03),
       (o.uRadial.value = n.slideBlend * 0.5 + n.sprintBlend * 0.12),
       (o.uFlash.value = r * 0.03),
-      (o.uExposure.value = this.grade.exposure + this.weapons.adsSmooth * 0.06),
-      (o.uDesat.value = n.dead ? Math.min(1, this.deadT / 2.5) : 0));
+      (o.uExposure.value = this.grade.exposure + W.adsSmooth * 0.06),
+      (o.uDesat.value = n.dead ? Math.min(1, w.deadT / 2.5) : 0));
   }
   render() {
     this.postfx.render(

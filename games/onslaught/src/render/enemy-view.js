@@ -1,7 +1,26 @@
-import { ConeGeometry, Object3D, SphereGeometry } from "three";
+import {
+  Color,
+  ConeGeometry,
+  DynamicDrawUsage,
+  InstancedBufferAttribute,
+  InstancedMesh,
+  Matrix4,
+  MeshDepthMaterial,
+  MeshStandardMaterial,
+  Object3D,
+  RGBADepthPacking,
+  SphereGeometry,
+} from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { lerpAngle } from "../core/mathx.js";
+import { ENEMIES, MAX_PER_TYPE } from "../data/enemies.js";
+import { rigMetrics } from "../sim/enemies.js";
+import { MAX_PROJECTILES } from "../sim/projectiles.js";
+import { theme } from "../theme/theme.js";
 import { NOISE_GLSL } from "./shaders/noise.glsl.js";
+
+const ZERO_MATRIX = new Matrix4().makeScale(0, 0, 0);
 
 export function buildEnemyRig(i) {
   const t = (M, _, L, R) => {
@@ -146,7 +165,6 @@ export function buildEnemyRig(i) {
       M.translate(0, i.torso[1] * 0.55, i.torso[2] / 2 + 0.12),
       p(r, M, "glow"));
   }
-  const w = n + i.hips[1] * 0.45 + i.torso[1] + 0.02 + i.head * 0.55;
   return {
     root: e,
     n: {
@@ -163,10 +181,7 @@ export function buildEnemyRig(i) {
       knR: g,
     },
     parts: v,
-    hipH: n,
-    headY: w,
-    torsoTop: n + i.hips[1] * 0.45 + i.torso[1],
-    torsoBot: n - i.hips[1] * 0.5,
+    ...rigMetrics(i),
   };
 }
 export function makeEnemyMaterial(i, t, e, n = !1) {
@@ -218,4 +233,162 @@ ${NOISE_GLSL}`,
       "enemy_" + (n ? "depth" : e ? "glow" : "body")),
     i
   );
+}
+
+// Instanced skeletal rigs + projectile pool, posed each frame from sim state.
+export class EnemyView {
+  constructor(scene) {
+    ((this.scene = scene), (this.uTime = { value: 0 }), (this.types = {}));
+    for (const a in ENEMIES) this._buildType(ENEMIES[a]);
+    this._buildProjectiles();
+  }
+  _buildType(t) {
+    const colors = theme.enemies[t.key],
+      e = buildEnemyRig(t.proportions),
+      n = new Float32Array(MAX_PER_TYPE),
+      s = new Float32Array(MAX_PER_TYPE),
+      r = makeEnemyMaterial(
+        new MeshStandardMaterial({
+          color: colors.body,
+          roughness: 0.55,
+          metalness: 0.55,
+        }),
+        this.uTime,
+        !1,
+      ),
+      a = makeEnemyMaterial(
+        new MeshStandardMaterial({
+          color: 0,
+          emissive: new Color(...colors.glow),
+          emissiveIntensity: 2.2,
+          roughness: 0.6,
+          metalness: 0,
+        }),
+        this.uTime,
+        !0,
+      ),
+      l = [];
+    for (const o of e.parts) {
+      const c = o.kind === "glow" || o.kind === "headGlow",
+        h = new InstancedBufferAttribute(n, 1),
+        d = new InstancedBufferAttribute(s, 1);
+      (h.setUsage(DynamicDrawUsage),
+        d.setUsage(DynamicDrawUsage),
+        o.geom.setAttribute("aFlash", h),
+        o.geom.setAttribute("aDissolve", d));
+      const u = new InstancedMesh(o.geom, c ? a : r, MAX_PER_TYPE);
+      (u.instanceMatrix.setUsage(DynamicDrawUsage),
+        (u.frustumCulled = !1),
+        (u.castShadow = !c),
+        (u.receiveShadow = !c),
+        (u.count = 0),
+        (u.customDepthMaterial = makeEnemyMaterial(
+          new MeshDepthMaterial({ depthPacking: RGBADepthPacking }),
+          this.uTime,
+          !1,
+          !0,
+        )),
+        this.scene.add(u),
+        l.push({ mesh: u, part: o, fa: h, da: d }));
+    }
+    this.types[t.key] = { def: t, rig: e, meshes: l, flash: n, dissolve: s };
+  }
+  _buildProjectiles() {
+    const t = new SphereGeometry(0.17, 12, 10),
+      e = new MeshStandardMaterial({
+        color: 1127185,
+        emissive: 5635942,
+        emissiveIntensity: 4.5,
+        roughness: 0.4,
+      });
+    ((this.projMesh = new InstancedMesh(t, e, MAX_PROJECTILES)),
+      this.projMesh.instanceMatrix.setUsage(DynamicDrawUsage),
+      (this.projMesh.frustumCulled = !1),
+      (this.projMesh.count = 0),
+      this.scene.add(this.projMesh),
+      (this._pm = new Matrix4()));
+  }
+  // alpha interpolates prev→current tick for positions and yaw.
+  sync(enemies, projectiles, alpha, time) {
+    this.uTime.value = time;
+    for (const t in this.types) {
+      const e = this.types[t],
+        n = e.rig,
+        s = n.n,
+        r = e.def.proportions;
+      let a = 0;
+      for (const l of enemies.list) {
+        if (l.type !== t || a >= MAX_PER_TYPE) continue;
+        const o = l.scale,
+          c = l.squash;
+        (n.root.position.lerpVectors(l.prevPos, l.pos, alpha),
+          n.root.rotation.set(
+            l.toppleX,
+            lerpAngle(l.prevYaw, l.yaw, alpha),
+            l.toppleZ,
+          ),
+          n.root.scale.set(o * (1 + c * 0.6), o * (1 - c), o * (1 + c * 0.6)));
+        const h = l.phase,
+          d = l.moveBlend,
+          u = Math.sin(h) * 0.95 * d,
+          m = Math.sin(h + Math.PI) * 0.95 * d;
+        ((s.legL.rotation.x = u),
+          (s.legR.rotation.x = m),
+          (s.knL.rotation.x = Math.max(0, -Math.sin(h - 0.9)) * 1.2 * d + 0.1),
+          (s.knR.rotation.x =
+            Math.max(0, -Math.sin(h + Math.PI - 0.9)) * 1.2 * d + 0.1),
+          (s.hips.position.y =
+            n.hipH + Math.abs(Math.sin(h)) * 0.06 * d - (1 - d) * 0.02),
+          (s.hips.rotation.y = Math.sin(h) * 0.14 * d),
+          (s.torso.rotation.x = r.lean * d + l.attackLean + 0.08),
+          (s.torso.rotation.y = -Math.sin(h) * 0.16 * d),
+          (s.neck.rotation.x = -r.lean * 0.75 * d - l.attackLean * 0.6));
+        let g = 0,
+          v = 0;
+        if (l.state === "attack") {
+          const p = l.def;
+          ((g = Math.min(1, l.t / p.windup)),
+            (v = l.t > p.windup ? Math.min(1, (l.t - p.windup) / 0.25) : 0));
+        }
+        (r.armsForward
+          ? ((s.shL.rotation.x =
+              -1.35 + Math.sin(h + Math.PI) * 0.35 * d - g * 1.2 + v * 1.8),
+            (s.shR.rotation.x =
+              -1.35 + Math.sin(h) * 0.35 * d - g * 1.2 + v * 1.8),
+            (s.shL.rotation.z = 0.25 + g * 0.6 - v * 0.5),
+            (s.shR.rotation.z = -0.25 - g * 0.6 + v * 0.5),
+            (s.elL.rotation.x = -0.45 - g * 0.8 + v * 0.6),
+            (s.elR.rotation.x = -0.45 - g * 0.8 + v * 0.6))
+          : ((s.shL.rotation.x =
+              Math.sin(h + Math.PI) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6),
+            (s.shR.rotation.x =
+              Math.sin(h) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6),
+            (s.shL.rotation.z = 0.35 + g * 0.4 - v * 0.6),
+            (s.shR.rotation.z = -0.35 - g * 0.4 + v * 0.6),
+            (s.elL.rotation.x = -0.6 - g * 0.5),
+            (s.elR.rotation.x = -0.6 - g * 0.5)),
+          n.root.updateMatrixWorld(!0));
+        for (const p of e.meshes) {
+          const f =
+            l.headless &&
+            (p.part.kind === "head" || p.part.kind === "headGlow");
+          p.mesh.setMatrixAt(a, f ? ZERO_MATRIX : p.part.node.matrixWorld);
+        }
+        ((e.flash[a] = l.flash), (e.dissolve[a] = l.dissolve), a++);
+      }
+      for (const l of e.meshes)
+        ((l.mesh.count = a),
+          (l.mesh.instanceMatrix.needsUpdate = !0),
+          (l.fa.needsUpdate = !0),
+          (l.da.needsUpdate = !0));
+    }
+    let n = 0;
+    for (const s of projectiles.list) {
+      if (!s.active) continue;
+      (this._pm.makeTranslation(s.pos.x, s.pos.y, s.pos.z),
+        this.projMesh.setMatrixAt(n++, this._pm));
+    }
+    ((this.projMesh.count = n),
+      (this.projMesh.instanceMatrix.needsUpdate = !0));
+  }
 }

@@ -135,9 +135,13 @@ export class Player {
     (this.prevCamPos.copy(this.camPos),
       this.prevCamQuat.copy(this.camQuat),
       this._prevEuler.copy(this._euler));
+    // A headless/replayed input frame carries absolute look angles; the live
+    // game applies look per frame via applyLook and leaves these undefined.
+    typeof e.yaw === "number" && (this.yaw = e.yaw);
+    typeof e.pitch === "number" && (this.pitch = e.pitch);
     this.pitch = MathUtils.clamp(this.pitch, -1.5, 1.5);
-    const r = this.dead ? 0 : (e.key("KeyW") ? 1 : 0) - (e.key("KeyS") ? 1 : 0),
-      a = this.dead ? 0 : (e.key("KeyD") ? 1 : 0) - (e.key("KeyA") ? 1 : 0);
+    const r = this.dead ? 0 : e.move.y,
+      a = this.dead ? 0 : e.move.x;
     this.moveInput.set(a, r);
     const l = Math.sin(this.yaw),
       o = Math.cos(this.yaw),
@@ -149,20 +153,15 @@ export class Player {
     (m.lengthSq() > 1 && m.normalize(),
       (this.sprintBlock = Math.max(0, this.sprintBlock - t)));
     const v =
-      (e.key("ShiftLeft") || e.key("ShiftRight")) &&
+      e.sprint &&
       r > 0.5 &&
       this.sprintBlock <= 0 &&
       this.ads < 0.2 &&
       !this.crouch &&
       !this.dead;
     this.sprinting = v && !this.sliding;
-    const p = e.key("KeyC") || e.key("ControlLeft");
-    if (
-      !this.sliding &&
-      this.sprinting &&
-      this.onGround &&
-      (e.justPressed("KeyC") || e.justPressed("ControlLeft"))
-    ) {
+    const p = e.crouch;
+    if (!this.sliding && this.sprinting && this.onGround && e.crouchPressed) {
       ((this.sliding = !0), (this.slideT = 0.95), (this.sprinting = !1));
       const K = m.lengthSq() > 0.1 ? m : new Vector3(c, 0, h),
         nt = Math.max(10.5, this.speed + 3);
@@ -198,7 +197,7 @@ export class Player {
           (this.vel.z = damp4(this.vel.z, nt, _t, t)));
       }
       !this.dead &&
-        e.justPressed("Space") &&
+        e.jump &&
         ((this.vel.y = 7.9),
         (this.onGround = !1),
         this.sliding &&
