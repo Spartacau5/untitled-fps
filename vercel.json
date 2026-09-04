@@ -1,8 +1,6 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "npx vite build --config games/onslaught/vite.config.js",
-  "outputDirectory": "games/onslaught/dist",
-  "installCommand": "npm install",
-  "rewrites": [{ "source": "/api/:path*", "destination": "/api/:path*" }]
+  "buildCommand": "npx vite build --config games/onslaught/vite.config.js --outDir ../../dist",
+  "outputDirectory": "dist",
+  "installCommand": "npm install"
 }
