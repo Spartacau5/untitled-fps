@@ -90,9 +90,12 @@ export class World {
   }
   step(dt, input) {
     this.time += dt;
-    const p = this.player;
-    (p.update(dt, input, this.time),
-      this.weapons.update(dt, input, p, this.time, this),
+    // Systems see run-relative time so a replay started later in the same
+    // World (menu → play → die → redeploy) evolves identically.
+    const p = this.player,
+      t = this.elapsed;
+    (p.update(dt, input, t),
+      this.weapons.update(dt, input, p, t, this),
       this.enemies.update(dt, p, this),
       this.projectiles.update(dt, p, this),
       p.dead
@@ -156,7 +159,7 @@ export class World {
   }
   onKill(t, e) {
     this.kills++;
-    const n = this.time;
+    const n = this.elapsed;
     ((this.streak = n - this.lastKillT < 1.8 ? this.streak + 1 : 1),
       (this.lastKillT = n));
     const s = Math.min(4, 1 + (this.streak - 1) * 0.25),
@@ -276,7 +279,7 @@ export class World {
       mix(this.score),
       mix(this.kills),
       mix(this.wave),
-      mix(this.time));
+      mix(this.elapsed));
     for (const e of this.enemies.list)
       (mix(e.pos.x), mix(e.pos.z), mix(e.hp), mix(e.yaw));
     for (const w of this.weapons.weapons) (mix(w.mag), mix(w.reserve));

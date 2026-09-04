@@ -39,6 +39,7 @@ export class WeaponState {
       (this.reload = null),
       (this.bloom = 0),
       (this.burst = 0),
+      (this.lastShot = -10),
       (this.pumping = !1),
       (this.boltDelayT = -1));
   }
