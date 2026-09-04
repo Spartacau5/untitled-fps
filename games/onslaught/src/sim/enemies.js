@@ -15,7 +15,6 @@ import {
   _rayTmp,
   damp,
   lerpAngle,
-  rand,
   rayCapsule,
   raySphere,
 } from "../core/mathx.js";
@@ -25,12 +24,13 @@ import { buildEnemyRig, makeEnemyMaterial } from "../render/enemy-view.js";
 
 export const ZERO_MATRIX = new Matrix4().makeScale(0, 0, 0);
 export class Enemies {
-  constructor(t, e, n, s, r) {
+  constructor(t, e, n, s, r, rng) {
     ((this.scene = t),
       (this.arena = e),
       (this.particles = n),
       (this.audio = s),
       (this.cb = r),
+      (this.rng = rng),
       (this.uTime = { value: 0 }),
       (this.list = []),
       (this.types = {}),
@@ -133,8 +133,8 @@ export class Enemies {
     this.types[t];
     const r = -e.dir.z,
       a = e.dir.x,
-      l = rand(-2.4, 2.4),
-      o = s.scale * rand(0.92, 1.08),
+      l = this.rng.range(-2.4, 2.4),
+      o = s.scale * this.rng.range(0.92, 1.08),
       c = {
         id: this.nextId++,
         type: t,
@@ -142,9 +142,9 @@ export class Enemies {
         scale: o,
         radius: s.radius * (o / s.scale),
         pos: new Vector3(
-          e.pos.x + r * l + e.dir.x * rand(0, 1.5),
+          e.pos.x + r * l + e.dir.x * this.rng.range(0, 1.5),
           0,
-          e.pos.z + a * l + e.dir.z * rand(0, 1.5),
+          e.pos.z + a * l + e.dir.z * this.rng.range(0, 1.5),
         ),
         vel: new Vector3(),
         kb: new Vector3(),
@@ -154,7 +154,7 @@ export class Enemies {
         maxHp: s.hp * n,
         state: "spawn",
         t: 0,
-        phase: Math.random() * 6,
+        phase: this.rng.float() * 6,
         moveBlend: 0,
         flash: 0,
         dissolve: 1,
@@ -166,10 +166,10 @@ export class Enemies {
         toppleTZ: 0,
         sink: 0,
         attackDone: !1,
-        cooldown: rand(0.4, 1.2),
-        steerBias: Math.random() > 0.5 ? 1 : -1,
+        cooldown: this.rng.range(0.4, 1.2),
+        steerBias: this.rng.chance(0.5) ? 1 : -1,
         blockedT: 0,
-        growlT: rand(0.5, 3),
+        growlT: this.rng.range(0.5, 3),
         lunge: 0,
         attackLean: 0,
         headBob: 0,
@@ -258,8 +258,8 @@ export class Enemies {
     const r = -Math.sin(t.yaw),
       a = -Math.cos(t.yaw),
       l = e.x * r + e.z * a;
-    ((t.toppleTX = (l < 0 ? 1 : -1) * (Math.PI / 2) * rand(0.85, 1)),
-      (t.toppleTZ = rand(-0.5, 0.5)));
+    ((t.toppleTX = (l < 0 ? 1 : -1) * (Math.PI / 2) * this.rng.range(0.85, 1)),
+      (t.toppleTZ = this.rng.range(-0.5, 0.5)));
     const o = ((s ? s.kbForce : 2) * 1.6) / t.def.mass;
     ((t.kb.x += e.x * o),
       (t.kb.z += e.z * o),
@@ -427,7 +427,7 @@ export class Enemies {
             (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-7 * t))),
           (o.growlT -= t),
           o.growlT < 0 &&
-            ((o.growlT = rand(3, 9)),
+            ((o.growlT = this.rng.range(3, 9)),
             this.audio.enemyGrowl([o.pos.x, o.pos.y, o.pos.z], c.big)),
           (o.attackLean = damp(o.attackLean, 0, 8, t)));
       } else if (o.state === "attack") {
@@ -440,7 +440,7 @@ export class Enemies {
               ((o.attackDone = !0), this._fireProjectile(o, e)),
             o.t >= c.windup + c.swing &&
               ((o.state = "chase"),
-              (o.cooldown = c.cooldown * rand(0.8, 1.25)),
+              (o.cooldown = c.cooldown * this.rng.range(0.8, 1.25)),
               (o.attackLean = 0)));
         else {
           if (

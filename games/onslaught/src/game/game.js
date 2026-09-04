@@ -25,6 +25,7 @@ import {
 import { Audio } from "../audio/audio.js";
 import { Input } from "../core/input.js";
 import { UP, damp, rand } from "../core/mathx.js";
+import { RNG, parseSeed } from "../core/rng.js";
 import { SUN_DIR } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
 import { Decals } from "../render/fx/decals.js";
@@ -48,6 +49,10 @@ export class Game {
       (this.god = e.has("god")));
     // Mutable copy so the debug panel can tune the grade live.
     this.grade = { ...theme.grade };
+    // One master seed; every system draws from its own forked stream so a run
+    // is reproducible from `?seed=`.
+    this.seed = parseSeed(location.search);
+    this.rng = new RNG(this.seed);
     const n = new WebGLRenderer({
       canvas: t,
       antialias: !1,
@@ -73,7 +78,7 @@ export class Game {
       (this.input = new Input(t)),
       (this.audio = new Audio()),
       (this.hud = new HUD()),
-      (this.arena = new Arena(this.scene)),
+      (this.arena = new Arena(this.scene, this.rng.fork("layout"))),
       (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
@@ -85,13 +90,18 @@ export class Game {
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
       (this.player = new Player(this.arena)),
-      (this.weapons = new Weapons(this.weaponCamera, this.audio, {
-        fireRay: (l, o, c, h, d) => this.fireRay(l, o, c, h, d),
-        ejectShell: (l, o, c) => this.shells.eject(l, o, c),
-        muzzleSmoke: (l, o, c) => this.particles.muzzleSmoke(l, o, c),
-        onAmmoChange: () => this.syncAmmo(),
-        onWeaponChange: () => this.syncWeapon(),
-      })),
+      (this.weapons = new Weapons(
+        this.weaponCamera,
+        this.audio,
+        {
+          fireRay: (l, o, c, h, d) => this.fireRay(l, o, c, h, d),
+          ejectShell: (l, o, c) => this.shells.eject(l, o, c),
+          muzzleSmoke: (l, o, c) => this.particles.muzzleSmoke(l, o, c),
+          onAmmoChange: () => this.syncAmmo(),
+          onWeaponChange: () => this.syncWeapon(),
+        },
+        this.rng.fork("combat"),
+      )),
       (this.enemies = new Enemies(
         this.scene,
         this.arena,
@@ -102,7 +112,9 @@ export class Game {
           onKill: (l, o) => this.onKill(l, o),
           slam: (l, o) => this.onSlam(l, o),
         },
+        this.rng.fork("ai"),
       )),
+      (this.waveRng = this.rng.fork("waves")),
       (this.postfx = new PostFX(n)));
     const r = new DirectionalLight(
       theme.lights.weaponKey.color,
@@ -258,6 +270,12 @@ export class Game {
       ));
   }
   resetGame() {
+    // Re-fork the per-run streams so a replay from the same seed is identical.
+    // The layout stream is not reset: arena geometry is built once.
+    ((this.rng = new RNG(this.seed)),
+      (this.weapons.rng = this.rng.fork("combat")),
+      (this.enemies.rng = this.rng.fork("ai")),
+      (this.waveRng = this.rng.fork("waves")));
     (this.player.reset(), this.weapons.resetAll(), this.enemies.clear());
     for (const t of this.pickups) this.scene.remove(t.mesh);
     ((this.pickups.length = 0),
@@ -430,7 +448,7 @@ export class Game {
           window.innerHeight * 0.36,
           "bonus",
         )),
-      (t.def.big || Math.random() < 0.13) && this.spawnPickup(t.pos),
+      (t.def.big || this.waveRng.chance(0.13)) && this.spawnPickup(t.pos),
       this._v.set(t.pos.x, this.arena.groundHeight(t.pos.x, t.pos.z), t.pos.z),
       this.decals.add(this._v, UP, 1.5 * t.scale, 1, n));
   }
@@ -441,8 +459,9 @@ export class Game {
       s = t >= 2 ? Math.floor(e * 0.18) : 0,
       r = [];
     for (let a = 0; a < e; a++) r.push("runner");
-    for (let a = 0; a < s; a++) r[Math.floor(Math.random() * e)] = "spitter";
-    for (let a = 0; a < n; a++) r[Math.floor(rand(e * 0.2, e * 0.9))] = "brute";
+    for (let a = 0; a < s; a++) r[this.waveRng.int(e)] = "spitter";
+    for (let a = 0; a < n; a++)
+      r[Math.floor(this.waveRng.range(e * 0.2, e * 0.9))] = "brute";
     ((this.queue = r.reverse()),
       (this.maxAlive = Math.min(14 + t * 4, 64)),
       (this.spawnInterval = Math.max(0.2, 1.1 - t * 0.06)),
@@ -467,10 +486,10 @@ export class Game {
     this.spawnTimer -= t;
     const e = this.enemies.alive;
     if (this.queue.length && e < this.maxAlive && this.spawnTimer <= 0) {
-      const n = 1 + Math.floor(Math.random() * Math.min(3, this.wave));
+      const n = 1 + this.waveRng.int(Math.min(3, this.wave));
       for (let s = 0; s < n && this.queue.length; s++) {
         const r = this.arena.gates,
-          a = r[Math.floor(Math.random() * r.length)];
+          a = this.waveRng.pick(r);
         (this.enemies.spawn(this.queue.pop(), a, 1 + (this.wave - 1) * 0.07),
           (a.activity = 1.2));
       }
@@ -503,7 +522,7 @@ export class Game {
       this.pickups.push({
         mesh: e,
         life: 28,
-        t: Math.random() * 6,
+        t: this.waveRng.float() * 6,
         baseY: n + 0.35,
       }));
   }
@@ -647,7 +666,7 @@ export class Game {
           !0,
           "K.I.A.",
           "REDEPLOY",
-          `WAVE ${this.wave} REACHED<br>${this.kills} KILLS · ${this.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED`,
+          `WAVE ${this.wave} REACHED<br>${this.kills} KILLS · ${this.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
           "THE SWARM PREVAILS",
         ),
           this.hud.show(!1));

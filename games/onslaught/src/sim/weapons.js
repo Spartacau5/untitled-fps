@@ -1,5 +1,5 @@
 import { Group, MathUtils, Vector3 } from "three";
-import { DEG, damp, easeOutCubic, rand, smooth01 } from "../core/mathx.js";
+import { DEG, damp, easeOutCubic, smooth01 } from "../core/mathx.js";
 import {
   VM_ADS_OFFSET,
   VM_HIP_OFFSET,
@@ -56,9 +56,10 @@ export class WeaponState {
   }
 }
 export class Weapons {
-  constructor(t, e, n) {
+  constructor(t, e, n, rng) {
     ((this.audio = e),
       (this.cb = n),
+      (this.rng = rng),
       (this.cam = t),
       (this.rig = new Group()),
       t.add(this.rig),
@@ -131,7 +132,7 @@ export class Weapons {
   onLand(t) {
     ((this.swayPosV.y -= t * 0.75),
       (this.swayRotV.x -= t * 3.2),
-      (this.swayRotV.z += rand(-1, 1) * t * 0.8));
+      (this.swayRotV.z += this.rng.range(-1, 1) * t * 0.8));
   }
   onJump() {
     ((this.swayPosV.y += 0.28), (this.swayRotV.x += 0.9));
@@ -251,8 +252,8 @@ export class Weapons {
     for (let f = 0; f < u; f++) {
       const M =
           (u > 1 ? MathUtils.lerp(n.pelletSpread, n.pelletSpreadAds, r) : d) *
-          Math.sqrt(Math.random()),
-        _ = Math.random() * Math.PI * 2,
+          Math.sqrt(this.rng.float()),
+        _ = this.rng.float() * Math.PI * 2,
         L = new Vector3()
           .copy(o)
           .addScaledVector(c, M * Math.cos(_))
@@ -263,15 +264,19 @@ export class Weapons {
     const m = n.pattern
         ? n.pattern[Math.min(t.burst, n.pattern.length - 1)]
         : 0,
-      g = n.recoilPitch * DEG * rand(0.85, 1.15) * (1 - r * n.adsRecoilReduce),
-      v = n.recoilYaw * DEG * (m + rand(-0.6, 0.6)) * (1 - r * 0.3);
+      g =
+        n.recoilPitch *
+        DEG *
+        this.rng.range(0.85, 1.15) *
+        (1 - r * n.adsRecoilReduce),
+      v = n.recoilYaw * DEG * (m + this.rng.range(-0.6, 0.6)) * (1 - r * 0.3);
     (e.addRecoil(g, v, n.recoilPermanent), e.addTrauma(n.trauma));
     const p = 1 - r * 0.4;
     ((this.kickPos.z += n.kickBack * p),
       (this.kickPos.y += n.kickUp * p),
-      (this.kickRot.x += n.kickPitch * p * rand(0.8, 1.2)),
-      (this.kickRot.y += rand(-1, 1) * n.kickYaw),
-      (this.kickRot.z += rand(-1, 1) * n.kickRoll * p),
+      (this.kickRot.x += n.kickPitch * p * this.rng.range(0.8, 1.2)),
+      (this.kickRot.y += this.rng.range(-1, 1) * n.kickYaw),
+      (this.kickRot.z += this.rng.range(-1, 1) * n.kickRoll * p),
       this.flash.fire(n.flash),
       this.cb.muzzleSmoke(a, o, n.smoke),
       this.audio.gunshot(n.sound),
@@ -305,9 +310,9 @@ export class Weapons {
     const s = this._up.copy(n.right).cross(n.forward),
       r = this._v2
         .copy(n.right)
-        .multiplyScalar(rand(1.6, 2.6))
-        .addScaledVector(s, rand(1.3, 2.2))
-        .addScaledVector(n.forward, rand(-0.4, 0.2))
+        .multiplyScalar(this.rng.range(1.6, 2.6))
+        .addScaledVector(s, this.rng.range(1.3, 2.2))
+        .addScaledVector(n.forward, this.rng.range(-0.4, 0.2))
         .add(n.vel);
     this.cb.ejectShell(this._v, r, t.def.shell);
   }

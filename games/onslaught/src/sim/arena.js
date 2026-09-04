@@ -21,7 +21,6 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { mulberry32 } from "../core/rng.js";
 import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { NOISE_GLSL } from "../render/shaders/noise.glsl.js";
 import { applySurfaceGrime } from "../render/shaders/surface.js";
@@ -50,14 +49,14 @@ export class BoxCollider {
   }
 }
 export class Arena {
-  constructor(t) {
+  constructor(t, rng) {
     ((this.scene = t),
       (this.radius = ARENA_RADIUS),
       (this.boxes = []),
       (this.gates = []),
       (this.timeUniform = { value: 0 }),
       (this.portalMats = []),
-      (this.rng = mulberry32(1337)),
+      (this.rng = rng),
       (this._tmp = new Vector3()),
       this._build());
   }
@@ -396,8 +395,8 @@ ${NOISE_GLSL}`,
       C = 0;
     for (; A < 16 && C < 400;) {
       C++;
-      const z = 9 + this.rng() * 22,
-        U = this.rng() * Math.PI * 2,
+      const z = 9 + this.rng.float() * 22,
+        U = this.rng.float() * Math.PI * 2,
         H = Math.cos(U) * z,
         k = Math.sin(U) * z;
       let G = !0;
@@ -406,8 +405,8 @@ ${NOISE_GLSL}`,
       for (const _t of this.boxes)
         Math.hypot(H - _t.cx, k - _t.cz) < _t.r + 2.4 && (G = !1);
       if (!G) continue;
-      const q = R[Math.floor(this.rng() * R.length)],
-        O = this.rng() * Math.PI,
+      const q = R[Math.floor(this.rng.float() * R.length)],
+        O = this.rng.float() * Math.PI,
         et = new RoundedBoxGeometry(q[0], q[1], q[2], 2, 0.05);
       (et.translate(0, q[1] / 2, 0), this._place(et, H, k, O), _.push(et));
       const K = new BoxGeometry(q[0] * 0.7, 0.05, 0.03);
@@ -421,7 +420,7 @@ ${NOISE_GLSL}`,
         this.boxes.push(new BoxCollider(H, k, q[0] / 2, q[2] / 2, 0, q[1], O)),
         A++);
     }
-    (v(_, e.crate), v(L, (this.rng() > 0.5, e.emCyanDim), !1));
+    (v(_, e.crate), v(L, (this.rng.float() > 0.5, e.emCyanDim), !1));
     const S = new DirectionalLight(
       theme.lights.sun.color,
       theme.lights.sun.intensity,
