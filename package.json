@@ -9,10 +9,10 @@
     "build": "node scripts/build.mjs",
     "serve": "python3 -m http.server 4176 --directory dist",
     "dev:portal": "npm run build && npm run serve",
-    "lint": "eslint games/onslaught/src",
+    "lint": "eslint games/onslaught/src server api",
     "check:boundary": "node scripts/check-sim-boundary.mjs",
     "test": "npm run lint && npm run check:boundary && node --test \"tests/**/*.test.mjs\"",
-    "deploy:cloudflare": "npm run build && npx wrangler@4 pages deploy dist --project-name bench-portal --branch main"
+    "deploy:vercel": "npx vercel@41 --prod --yes"
   },
   "devDependencies": {
     "acorn": "^8.18.0",

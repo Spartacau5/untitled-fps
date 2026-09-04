@@ -42,6 +42,13 @@ import { WeaponView } from "../render/weapon-view.js";
 import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
+import {
+  fetchBoard,
+  loadPlayerName,
+  renderBoard,
+  savePlayerName,
+  submitRun as postRun,
+} from "../ui/leaderboard.js";
 
 // Presentation shell: owns the renderer, cameras, views, FX, audio and HUD.
 // All gameplay lives in sim/world.js; this class feeds it input frames and
@@ -141,6 +148,10 @@ export class Game {
       (this._q = new Quaternion()),
       (this._e = new Euler()),
       this._bindSettings(),
+      (this._runPosted = !1),
+      this.hud.el.playerName &&
+        (this.hud.el.playerName.value = loadPlayerName()),
+      this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       (this.input.onLockChange = (l) => {
         !l && this.state === "playing" && !this.debug && this.pause();
@@ -173,6 +184,41 @@ export class Game {
     };
     for (const k in this.settings.all()) apply(k, this.settings.get(k));
     this.settings.onChange(apply);
+  }
+  _playerName() {
+    const typed = this.hud.el.playerName && this.hud.el.playerName.value;
+    return savePlayerName(typed || loadPlayerName() || "OPERATOR");
+  }
+  _refreshBoard() {
+    fetchBoard()
+      .then((data) =>
+        renderBoard(this.hud.el.leaderboard, data, this._playerName()),
+      )
+      .catch(() =>
+        renderBoard(
+          this.hud.el.leaderboard,
+          { entries: [] },
+          this._playerName(),
+        ),
+      );
+  }
+  async _submitRun() {
+    if (this._runPosted) return;
+    this._runPosted = true;
+    const w = this.world;
+    try {
+      const data = await postRun({
+        name: this._playerName(),
+        score: w.score,
+        kills: w.kills,
+        wave: w.wave,
+        elapsed: w.elapsed,
+        seed: this.seed,
+      });
+      renderBoard(this.hud.el.leaderboard, data, this._playerName());
+    } catch {
+      this._refreshBoard();
+    }
   }
   // Compatibility accessors for the debug panel and console poking.
   get player() {
@@ -239,6 +285,8 @@ export class Game {
       return;
     }
     (this.resetGame(),
+      (this._runPosted = !1),
+      this._playerName(),
       (this.state = "playing"),
       this.hud.showMenu(!1),
       this.hud.show(!0),
@@ -272,7 +320,8 @@ export class Game {
     ((this.state = "dead"),
       this.audio.gameOver(),
       (this.audio.intensity = 0),
-      this.hud.banner("K.I.A.", "THE SWARM OVERRAN THE ARENA", 6, !0));
+      this.hud.banner("K.I.A.", "THE SWARM OVERRAN THE ARENA", 6, !0),
+      this._submitRun());
   }
   onKey(t) {
     (t === "KeyM" &&

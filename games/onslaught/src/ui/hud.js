@@ -28,6 +28,8 @@ export class HUD {
       menu: t("menu"),
       btnStart: t("btn-start"),
       menuStats: t("menu-stats"),
+      playerName: t("player-name"),
+      leaderboard: t("leaderboard"),
       title: document.querySelector(".title"),
       subtitle: document.querySelector(".subtitle"),
     }),

@@ -5,3 +5,6 @@ node_modules/
 .claude/
 .vite/
 .superpowers/
+.vercel
+.data/
+.env*.local

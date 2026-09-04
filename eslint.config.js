@@ -2,7 +2,7 @@ import globals from "globals";
 
 export default [
   {
-    files: ["games/onslaught/src/**/*.js", "scripts/**/*.mjs"],
+    files: ["games/onslaught/src/**/*.js", "scripts/**/*.mjs", "server/**/*.js", "api/**/*.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",

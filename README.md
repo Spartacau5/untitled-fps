@@ -21,6 +21,9 @@ Open <http://127.0.0.1:4176>.
 - `npm run dev` — Vite dev server at <http://localhost:5173>. Flags: `?debug` (auto-start, no pointer lock, lil-gui grade panel), `?god`, `?nospawn`, `?seed=<n>`.
 - `npm test` — ESLint, sim/view boundary check, unit tests and the headless determinism test.
 - `npm run build` — builds every Vite-based game, then assembles `dist/`.
+- `npm run deploy:vercel` — production deploy of Onslaught to Vercel (game at `/`, API at `/api/leaderboard`).
+
+A top-5 **all-time** leaderboard lives at `/api/leaderboard` (GET list, POST a finished run). Locally it writes `.data/leaderboard.json`. On Vercel, add a Redis integration from the marketplace (Upstash) so `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set. Daily/weekly/monthly resets are not wired yet.
 
 Layout: `src/sim/` is the pure simulation (no DOM, WebGL or audio; runs under Node), `src/render/`, `src/ui/` and `src/audio/` present it, and `src/game/game.js` wires the two through `World.step(dt, inputFrame)` and the event stream it emits. `scripts/check-sim-boundary.mjs` enforces the seam.
 

@@ -4,7 +4,7 @@
 
 **Paste-this prompt**
 
-> Continue Phase 1 slice 1 of untitled-fps from Task 4. Spec: `docs/superpowers/specs/2026-09-04-phase1-slice1-telemetry-settings-design.md`. Plan: `docs/superpowers/plans/2026-09-04-phase1-slice1-telemetry-settings.md`. Handoff: `docs/superpowers/handoffs/2026-09-04-fable51-resume.md`. Tasks 1–3 are committed. Start at Task 4 (settings panel), then Task 5 (run log / death screen), then Task 6 (README). Do not change balance values. Do not import presentation into `sim/`. Origin is `https://github.com/Spartacau5/untitled-fps.git` — never push to `upstream` (Alesha’s bench-portal).
+> Continue Phase 1 slice 1 of untitled-fps from Task 4. Spec: `docs/superpowers/specs/2026-09-04-phase1-slice1-telemetry-settings-design.md`. Plan: `docs/superpowers/plans/2026-09-04-phase1-slice1-telemetry-settings.md`. Handoff: `docs/superpowers/handoffs/2026-09-04-fable51-resume.md`. Tasks 1–3 are committed. Start at Task 4 (settings panel), then Task 5 (run log / death screen), then Task 6 (README). Do not change balance values. Do not import presentation into `sim/`. Origin is `https://github.com/Spartacau5/untitled-fps.git` — never push to `upstream` (Alesha’s bench-portal). The menu already has CALLSIGN (`#player-name`) and TOP OPERATORS (`#leaderboard`) plus `/api/leaderboard` — keep those when adding SETTINGS.
 
 ---
 
@@ -18,6 +18,7 @@
 | Task 2 RunStats in the sim | **Done** `66c3eb8` |
 | Task 3 FOV/shake → presentation; settings wired | **Done** `a25c93f` (browser verify of Task 3 was interrupted — re-check while doing Task 4) |
 | Task 4 Settings panel UI | **Not started — start here** |
+| Leaderboard + Vercel deploy (outside Fable slice) | **Shipped** — keep `#player-name`, `#leaderboard`, `api/leaderboard.js` |
 | Task 5 Run log, death-screen summary, downloads | **Not started** |
 | Task 6 README | **Not started** |
 | HEAD | `a25c93f` on local branch `phase0-own-the-codebase`, tracking `origin/main` |
