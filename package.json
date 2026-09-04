@@ -4,8 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite --config games/onslaught/vite.config.js",
     "build": "node scripts/build.mjs",
     "serve": "python3 -m http.server 4176 --directory dist",
+    "dev:portal": "npm run build && npm run serve",
     "deploy:cloudflare": "npm run build && npx wrangler@4 pages deploy dist --project-name bench-portal --branch main"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "vite": "^6.3.5"
   }
 }

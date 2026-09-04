@@ -28,7 +28,10 @@ await Promise.all([
   cp(path.join(root, "index.html"), path.join(output, "index.html")),
   cp(path.join(root, "styles.css"), path.join(output, "styles.css")),
   cp(path.join(root, "src"), path.join(output, "src"), { recursive: true }),
-  cp(gamesRoot, path.join(output, "games"), { recursive: true }),
+  cp(gamesRoot, path.join(output, "games"), {
+    recursive: true,
+    filter: (src) => !["node_modules", "dist", ".vite"].includes(path.basename(src)),
+  }),
   writeFile(path.join(output, ".nojekyll"), ""),
   writeFile(path.join(output, "games.json"), `${JSON.stringify(games, null, 2)}\n`),
 ]);

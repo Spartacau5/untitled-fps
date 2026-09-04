@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONSLAUGHT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/style.css" />
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hud hidden">
+    <div id="crosshair" class="crosshair">
+      <div class="ch-line ch-t"></div>
+      <div class="ch-line ch-b"></div>
+      <div class="ch-line ch-l"></div>
+      <div class="ch-line ch-r"></div>
+      <div class="ch-dot"></div>
+    </div>
+    <div id="hitmarker" class="hitmarker">
+      <span class="hm hm-1"></span><span class="hm hm-2"></span><span class="hm hm-3"></span><span class="hm hm-4"></span>
+    </div>
+    <div id="dmg-indicators" class="dmg-indicators"></div>
+
+    <div id="hud-bl" class="hud-bl">
+      <div class="hp-wrap">
+        <div class="hp-label">VITALS</div>
+        <div class="hp-bar"><div id="hp-fill" class="hp-fill"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="stat-k">WAVE</span><span id="st-wave" class="stat-v">1</span></div>
+        <div class="stat"><span class="stat-k">HOSTILES</span><span id="st-enemies" class="stat-v">0</span></div>
+        <div class="stat"><span class="stat-k">KILLS</span><span id="st-kills" class="stat-v">0</span></div>
+      </div>
+    </div>
+
+    <div id="hud-br" class="hud-br">
+      <div id="wpn-name" class="wpn-name">VK-7 ASSAULT RIFLE</div>
+      <div class="ammo-row">
+        <span id="ammo-mag" class="ammo-mag">30</span>
+        <span class="ammo-sep">/</span>
+        <span id="ammo-res" class="ammo-res">120</span>
+      </div>
+      <div class="wpn-slots">
+        <span id="slot-1" class="slot active">1</span>
+        <span id="slot-2" class="slot">2</span>
+        <span id="slot-3" class="slot">3</span>
+      </div>
+      <div id="fire-mode" class="fire-mode">AUTO</div>
+    </div>
+
+    <div id="hud-tr" class="hud-tr">
+      <div id="score" class="score">0</div>
+      <div id="feed" class="feed"></div>
+    </div>
+
+    <div id="banner" class="banner"><div id="banner-main" class="banner-main"></div><div id="banner-sub" class="banner-sub"></div></div>
+    <div id="hint" class="hint"></div>
+    <div id="popups" class="popups"></div>
+    <div id="lowhp" class="lowhp"></div>
+  </div>
+
+  <!-- ================= MENUS ================= -->
+  <div id="menu" class="menu">
+    <div class="menu-inner">
+      <div class="title-kicker">ARENA PROTOCOL // SECTOR 7</div>
+      <h1 class="title">ONSLAUGHT</h1>
+      <div class="subtitle">HOLD THE LINE AGAINST THE SWARM</div>
+      <button id="btn-start" class="btn-start">DEPLOY</button>
+      <div class="controls">
+        <div><b>WASD</b> move &nbsp;·&nbsp; <b>SHIFT</b> sprint &nbsp;·&nbsp; <b>SPACE</b> jump &nbsp;·&nbsp; <b>C</b> slide / crouch</div>
+        <div><b>LMB</b> fire &nbsp;·&nbsp; <b>RMB</b> aim down sights &nbsp;·&nbsp; <b>R</b> reload &nbsp;·&nbsp; <b>1 2 3 / WHEEL</b> weapons</div>
+        <div><b>[ ]</b> sensitivity &nbsp;·&nbsp; <b>M</b> music &nbsp;·&nbsp; <b>ESC</b> pause</div>
+      </div>
+      <div id="menu-stats" class="menu-stats hidden"></div>
+      <div class="menu-foot">THREE.JS · WEBGL2 · CUSTOM GLSL PIPELINE · PROCEDURAL AUDIO</div>
+    </div>
+  </div>
+
+</body>
+</html>

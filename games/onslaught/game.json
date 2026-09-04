@@ -1,0 +1,8 @@
+{
+  "slug": "onslaught",
+  "title": "Onslaught",
+  "version": "DEV",
+  "description": "Local working copy of Onslaught for game development. Call of Duty-style arena FPS: VK-7, Hammer-12, Longshot DMR, horde waves, HDR bloom pipeline, and procedural audio.",
+  "accent": "#5ef2ff",
+  "tags": ["Game", "FPS", "Three.js", "GLSL", "Dev"]
+}
