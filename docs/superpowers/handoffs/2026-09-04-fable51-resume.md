@@ -131,7 +131,27 @@ README note: settings persist in `onslaught.settings.v1`; runs in `onslaught.run
 
 ## Later (not this slice)
 
+Do **not** implement these while finishing slice 1 Tasks 4–6.
+
 Phase 1 after slice 1: pause-menu polish, richer death UX if still needed, then **balance from the JSON logs** (wave curve, Behemoth, spitters, 9s break, pickups), then threat readability. Phases 2+ (feel, content, netcode) wait until the loop is fun.
+
+### Gameplay tweaks (parked — do not ship in Tasks 4–6)
+
+**Spitters must shoot more / feel ruthless.** Right now ranged hostiles do not pressure enough. Spitter `cooldown` is **2.4s** in `data/enemies.js`, then multiplied by `rng.range(0.8, 1.25)` after each spit (~1.9–3.0s between shots) plus **0.5s windup**. They only start an attack if `cooldown <= 0` and distance `< 28`; they orbit at `standoff: 14`. Intent: raise fire rate (and/or shorten windup / loosen the 28m gate) so standing still is punished. Exact numbers wait for playtests + run logs — do not invent a new rate in the settings/telemetry slice. File: `games/onslaught/src/data/enemies.js` (`spitter.cooldown`, `windup`) and `sim/enemies.js` (ranged attack gate).
+
+### Wishlist — grenade power-up (discussed 2026-09-04, not a spec)
+
+**Pitch:** Throwable grenade with splash damage. First real power-up; current pickups are ammo only.
+
+**Already in the game:** `World.streak` (1.8s window, score multiplier, HUD every 3 kills). Ammo crate on brute kill or `waveRng.chance(0.13)`. No explosives, no equipment slot, no `G` bind.
+
+**Earn (leaning: hybrid):** streak is the reliable grant (every N kills in the existing streak window → 1 nade). Rare world crate is the bailout so a sloppy run still sees the toy. Do not replace ammo crates.
+
+**Hold (leaning: max 1):** earning another while you already have one is wasted (or only refreshes). Panic button, not a stockpile.
+
+**Still unresolved:** N and crate rate; cook vs instant fuse; throw bind (`G`); self-damage; splash vs brutes.
+
+**Build with Fable 5.1 after slice 1.** Write a real spec when that slice starts. Do not invent numbers or ship this during Tasks 4–6.
 
 ---
 
