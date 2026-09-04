@@ -170,6 +170,7 @@ export class Enemies {
         head: t.head,
         killed,
         kind: r.type,
+        damage: e,
       }),
       killed && this.kill(r, n, t.head, s, world),
       { killed }

@@ -7,13 +7,13 @@ export const EV_JUMP = "jump";
 export const EV_LAND = "land"; // { strength }
 export const EV_STEP = "step"; // { sprint }
 export const EV_SLIDE = "slide";
-export const EV_HURT = "hurt"; // { amount, angle }
+export const EV_HURT = "hurt"; // { amount, angle, by: enemy kind | "spit" }
 export const EV_DEAD = "dead";
 
 // weapons
 export const EV_SHOT = "shot"; // { def, index }
 export const EV_TRACER = "tracer"; // { end, def }
-export const EV_HIT = "hit"; // { point, dir, head, killed, kind }
+export const EV_HIT = "hit"; // { point, dir, head, killed, kind, damage }
 export const EV_IMPACT = "impact"; // { point, normal, def }
 export const EV_DRY_FIRE = "dryFire";
 export const EV_EJECT = "eject"; // { shell }
@@ -35,3 +35,4 @@ export const EV_PROJECTILE_HIT = "projectileHit"; // { pos }
 export const EV_WAVE_START = "waveStart"; // { wave, count, heavy }
 export const EV_WAVE_CLEAR = "waveClear"; // { wave, bonus }
 export const EV_PICKUP = "pickup"; // { pos }
+export const EV_PICKUP_EXPIRE = "pickupExpire";

@@ -33,6 +33,7 @@ function run(seed, ticks) {
     wave: w.wave,
     kills: w.kills,
     eventCounts,
+    stats: w.stats.summary(),
   };
 }
 
@@ -41,8 +42,20 @@ test("world runs headless for 60 s and is deterministic per seed", () => {
     b = run(1, 3600);
   (assert.equal(a.hash, b.hash),
     assert.equal(a.endHash, b.endHash),
+    assert.deepEqual(a.stats, b.stats),
     assert.ok(a.wave >= 1, "a wave should have started"),
     assert.ok(a.kills > 0, "scripted fire should kill something"));
+});
+
+test("run stats track what the event stream reports", () => {
+  const { stats: s, kills, eventCounts: c } = run(1, 3600);
+  const weaponKills = Object.values(s.weapons).reduce((n, w) => n + w.kills, 0),
+    shots = Object.values(s.weapons).reduce((n, w) => n + w.shots, 0);
+  (assert.equal(weaponKills, kills),
+    assert.equal(shots, c.shot),
+    assert.ok(s.accuracy > 0 && s.accuracy <= 1),
+    assert.equal(s.waves.length, c.waveStart),
+    assert.equal(s.result, "alive"));
 });
 
 test("the sim exercises every major event path", () => {

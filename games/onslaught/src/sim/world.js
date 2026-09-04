@@ -5,16 +5,19 @@ import { Arena } from "./arena.js";
 import { Enemies } from "./enemies.js";
 import {
   EV_DEAD,
+  EV_HURT,
   EV_IMPACT,
   EV_KILL,
   EV_LAND,
   EV_PICKUP,
+  EV_PICKUP_EXPIRE,
   EV_TRACER,
   EV_WAVE_CLEAR,
   EV_WAVE_START,
 } from "./events.js";
 import { Player } from "./player.js";
 import { Projectiles } from "./projectiles.js";
+import { RunStats } from "./stats.js";
 import { Weapons } from "./weapons.js";
 
 // The whole game simulation. Math only: no DOM, no WebGL, no audio. Advanced
@@ -32,6 +35,8 @@ export class World {
       (this.enemies = new Enemies(this.arena, this.rng.fork("ai"))),
       (this.projectiles = new Projectiles(this.arena)),
       (this.waveRng = this.rng.fork("waves")),
+      (this.stats = new RunStats()),
+      (this._hurtBy = null),
       (this.events = []),
       (this.time = 0),
       (this.startTime = 0),
@@ -53,7 +58,7 @@ export class World {
       (this._v = new Vector3()));
   }
   emit(type, data) {
-    ((data.type = type), this.events.push(data));
+    ((data.type = type), this.stats.record(data, this), this.events.push(data));
   }
   drainEvents() {
     const e = this.events;
@@ -83,6 +88,8 @@ export class World {
       (this.waveActive = !1),
       (this.wave = 0),
       (this.slowmoRequest = 0),
+      (this._hurtBy = null),
+      this.stats.reset(),
       this.weapons._ammo(this));
   }
   get elapsed() {
@@ -101,12 +108,16 @@ export class World {
       p.dead
         ? (this.deadT += dt)
         : (this.updateWaves(dt), this.updatePickups(dt)),
-      this.arena.update(dt));
+      this.arena.update(dt),
+      this.stats.tick(dt, this));
     // Player events are gameplay-relevant too (landing shakes the camera),
-    // then forwarded to the presentation layer untouched.
+    // then forwarded to the presentation layer. They bypass emit(), so the
+    // stats recorder is fed here; hurt events are tagged with their source.
     for (const ev of p.events) {
       (ev.type === EV_LAND && p.addTrauma(ev.strength * 0.12),
         ev.type === EV_DEAD && (this.slowmoRequest = 2.5),
+        ev.type === EV_HURT && (ev.by = this._hurtBy),
+        this.stats.record(ev, this),
         this.events.push(ev));
     }
     p.events.length = 0;
@@ -139,9 +150,11 @@ export class World {
     else h = t.clone().addScaledVector(e, 240);
     tracer && this.emit(EV_TRACER, { end: h, def: n });
   }
+  // n is the attacking enemy, or null for a spitter projectile.
   onPlayerHit(t, e, n) {
     if (this.player.dead) return;
-    (this.god && (t = 0),
+    ((this._hurtBy = n ? n.type : "spit"),
+      this.god && (t = 0),
       this.player.damage(t, e),
       n &&
         (this._v.subVectors(this.player.pos, n.pos),
@@ -255,7 +268,7 @@ export class World {
             );
           (this.weapons._ammo(this),
             this.emit(EV_PICKUP, { pos: n.pos.clone() }));
-        }
+        } else this.emit(EV_PICKUP_EXPIRE, {});
         this.pickups.splice(e, 1);
       }
     }
