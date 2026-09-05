@@ -623,7 +623,7 @@ canvas#game {
   color: var(--dim);
 }
 .callsign input {
-  width: 180px;
+  width: 210px;
   padding: 8px 10px;
   border: 1px solid #141210;
   background: rgba(245, 238, 225, 0.5);
@@ -651,6 +651,13 @@ canvas#game {
 .lb-empty {
   font: 600 12px/1.4 var(--font-ui);
   letter-spacing: 0.12em;
+  color: var(--dim);
+  text-align: center;
+}
+.lb-count {
+  margin-top: 10px;
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.18em;
   color: var(--dim);
   text-align: center;
 }

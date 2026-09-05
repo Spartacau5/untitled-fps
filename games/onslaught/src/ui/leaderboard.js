@@ -1,6 +1,13 @@
 const NAME_KEY = "onslaught.playerName";
 const API = "/api/leaderboard";
 
+export function isPlaceholderName(name) {
+  return (
+    !String(name || "").trim() ||
+    /^OPERATOR(?: #\d+)?$/i.test(String(name).trim())
+  );
+}
+
 export function loadPlayerName() {
   try {
     return localStorage.getItem(NAME_KEY) || "";
@@ -21,12 +28,29 @@ export function savePlayerName(name) {
   return n;
 }
 
+export function applyAssignedCallsign(input, assigned) {
+  if (!assigned) return;
+  if (input) {
+    if (isPlaceholderName(input.value)) input.value = assigned;
+    savePlayerName(input.value);
+    return;
+  }
+  if (isPlaceholderName(loadPlayerName())) savePlayerName(assigned);
+}
+
+function visitorLine(payload) {
+  const n = Math.floor(Number(payload && payload.visitors) || 0);
+  if (n <= 0) return "";
+  return `<div class="lb-count">${n} UNIQUE OPERATOR${n === 1 ? "" : "S"}</div>`;
+}
+
 export function renderBoard(el, payload, youName) {
   if (!el) return;
   const entries = (payload && payload.entries) || [];
+  const foot = visitorLine(payload);
   if (!entries.length) {
     el.innerHTML =
-      '<div class="lb-title">TOP OPERATORS</div><div class="lb-empty">NO RUNS RECORDED</div>';
+      `<div class="lb-title">TOP OPERATORS</div><div class="lb-empty">NO RUNS RECORDED</div>${foot}`;
     return;
   }
   const rows = entries
@@ -37,7 +61,7 @@ export function renderBoard(el, payload, youName) {
     })
     .join("");
   el.innerHTML = `<div class="lb-title">TOP OPERATORS</div>
-    <table class="lb-table"><thead><tr><th>#</th><th>CALLSIGN</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    <table class="lb-table"><thead><tr><th>#</th><th>CALLSIGN</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>${foot}`;
 }
 
 export async function fetchBoard() {
@@ -46,12 +70,26 @@ export async function fetchBoard() {
   return res.json();
 }
 
-export async function submitRun(entry) {
+export async function submitRun(entry, opts = {}) {
+  const body = JSON.stringify(entry);
+  const keepalive = !!opts.keepalive;
+  if (keepalive && typeof navigator !== "undefined" && navigator.sendBeacon) {
+    try {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon(API, blob)) return { ok: true };
+    } catch {
+      /* fall through */
+    }
+  }
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(entry),
+    body,
+    keepalive,
   });
+  if (keepalive) {
+    return { ok: res.ok };
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "submit failed");
   return data;

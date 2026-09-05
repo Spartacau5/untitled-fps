@@ -7,8 +7,19 @@ export function sanitizeName(raw) {
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, 16)
-    .replace(/[^\w \-]/g, "");
+    .replace(/[^\w #\-]/g, "");
   return s || "OPERATOR";
+}
+
+export function isPlaceholderName(name) {
+  return (
+    !String(name || "").trim() ||
+    /^OPERATOR(?: #\d+)?$/i.test(String(name).trim())
+  );
+}
+
+export function shouldRecordRun({ score = 0, kills = 0 } = {}) {
+  return score > 0 || kills > 0;
 }
 
 export function sanitizeEntry(body) {
@@ -27,6 +38,10 @@ export function sanitizeEntry(body) {
   check(elapsed, "elapsed");
   if (!Number.isFinite(seed)) throw new Error("invalid seed");
   if (score > MAX_SCORE) throw new Error("invalid score");
+  const runId = String(body.runId ?? "")
+    .trim()
+    .replace(/[^\w\-]/g, "")
+    .slice(0, 64);
   return {
     name: sanitizeName(body.name),
     score,
@@ -34,13 +49,28 @@ export function sanitizeEntry(body) {
     wave,
     elapsed,
     seed,
+    runId,
     at: Date.now(),
   };
 }
 
+function beats(next, prev) {
+  if (next.score !== prev.score) return next.score > prev.score;
+  return next.kills > prev.kills;
+}
+
 export function insertRun(records, entry) {
   const list = Array.isArray(records) ? records.slice() : [];
-  list.push(entry);
+  if (entry?.runId) {
+    const i = list.findIndex((r) => r.runId && r.runId === entry.runId);
+    if (i >= 0) {
+      if (beats(entry, list[i])) list[i] = entry;
+    } else {
+      list.push(entry);
+    }
+  } else {
+    list.push(entry);
+  }
   list.sort((a, b) => b.score - a.score || b.kills - a.kills || a.at - b.at);
   return list.slice(0, KEEP);
 }

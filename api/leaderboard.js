@@ -10,7 +10,7 @@ function send(res, status, body) {
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      send(res, 200, await listTop());
+      send(res, 200, await listTop(req));
       return;
     }
     if (req.method === "POST") {
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
         send(res, 400, { error: "invalid json" });
         return;
       }
-      send(res, 200, await submitRun(body));
+      send(res, 200, await submitRun(body, req));
       return;
     }
     send(res, 405, { error: "method not allowed" });

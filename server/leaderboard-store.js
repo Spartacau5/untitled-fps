@@ -1,7 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { insertRun, sanitizeEntry, topN } from "./leaderboard-core.js";
+import {
+  insertRun,
+  sanitizeEntry,
+  shouldRecordRun,
+  topN,
+} from "./leaderboard-core.js";
+import { assignVisitor } from "./visitor-store.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const filePath = path.join(root, ".data", "leaderboard.json");
@@ -60,19 +66,36 @@ export function backend() {
   return redisEnv() ? "redis" : "file";
 }
 
-export async function listTop() {
-  const records = redisEnv() ? await redisGet() : await fileGet();
-  return { backend: backend(), entries: topN(records) };
+async function withVisitor(req, payload) {
+  try {
+    const visitor = await assignVisitor(req);
+    return {
+      ...payload,
+      callsign: visitor.name,
+      visitors: visitor.visitors,
+    };
+  } catch {
+    return { ...payload, callsign: "", visitors: 0 };
+  }
 }
 
-export async function submitRun(body) {
+export async function listTop(req) {
+  const records = redisEnv() ? await redisGet() : await fileGet();
+  return withVisitor(req, { backend: backend(), entries: topN(records) });
+}
+
+export async function submitRun(body, req) {
   const entry = sanitizeEntry(body);
-  if (redisEnv()) {
-    const records = insertRun(await redisGet(), entry);
-    await redisSet(records);
-    return { backend: "redis", entries: topN(records), you: entry };
+  const load = () => (redisEnv() ? redisGet() : fileGet());
+  const save = (records) => (redisEnv() ? redisSet(records) : fileSet(records));
+  let records = await load();
+  if (shouldRecordRun(entry)) {
+    records = insertRun(records, entry);
+    await save(records);
   }
-  const records = insertRun(await fileGet(), entry);
-  await fileSet(records);
-  return { backend: "file", entries: topN(records), you: entry };
+  return withVisitor(req, {
+    backend: backend(),
+    entries: topN(records),
+    you: entry,
+  });
 }

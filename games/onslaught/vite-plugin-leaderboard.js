@@ -23,7 +23,7 @@ export function leaderboardPlugin() {
         if (req.method !== "GET" && req.method !== "POST") return next();
         try {
           if (req.method === "GET") {
-            send(res, 200, await listTop());
+            send(res, 200, await listTop(req));
             return;
           }
           const raw = (await readBody(req)) || "{}";
@@ -34,7 +34,7 @@ export function leaderboardPlugin() {
             send(res, 400, { error: "invalid json" });
             return;
           }
-          send(res, 200, await submitRun(body));
+          send(res, 200, await submitRun(body, req));
         } catch (err) {
           const msg = err && err.message ? err.message : "leaderboard error";
           send(res, msg.startsWith("invalid") ? 400 : 500, { error: msg });

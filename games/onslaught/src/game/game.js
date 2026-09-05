@@ -47,6 +47,7 @@ import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import {
+  applyAssignedCallsign,
   fetchBoard,
   loadPlayerName,
   renderBoard,
@@ -94,6 +95,8 @@ export class Game {
       this.weaponScene.add(this.weaponCamera),
       (this.input = new Input(t)),
       (this.audio = new Audio()),
+      this.debug &&
+        ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD()),
       (this.arenaView = new ArenaView(this.scene, this.world.arena)),
       (this.sky = createSky(SUN_DIR)),
@@ -164,6 +167,7 @@ export class Game {
       (this.lastRun = null),
       (this.runStartedAt = null),
       (this._runPosted = !1),
+      (this.runId = ""),
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
       this._refreshBoard(),
@@ -202,7 +206,9 @@ export class Game {
       window.addEventListener("resize", () => this.resize()),
       document.addEventListener("visibilitychange", () => {
         this.last = performance.now();
+        if (document.visibilityState === "hidden") this._flushRun();
       }),
+      window.addEventListener("pagehide", () => this._flushRun()),
       (window.game = this),
       this.syncWeapon(),
       this.debug &&
@@ -233,9 +239,10 @@ export class Game {
   }
   _refreshBoard() {
     fetchBoard()
-      .then((data) =>
-        renderBoard(this.hud.el.leaderboard, data, this._playerName()),
-      )
+      .then((data) => {
+        applyAssignedCallsign(this.hud.el.playerName, data.callsign);
+        renderBoard(this.hud.el.leaderboard, data, this._playerName());
+      })
       .catch(() =>
         renderBoard(
           this.hud.el.leaderboard,
@@ -244,21 +251,39 @@ export class Game {
         ),
       );
   }
-  async _submitRun() {
-    if (this._runPosted) return;
-    this._runPosted = true;
+  _newRunId() {
+    return typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${this.seed}-${Date.now()}`;
+  }
+  _flushRun() {
+    if (this.state === "menu" || !this.runId) return;
+    this._submitRun({ keepalive: true });
+  }
+  async _submitRun(opts = {}) {
+    if (!this.runId || this.state === "menu") return;
+    if (this._runPosted && !opts.keepalive) return;
     const w = this.world;
+    const entry = {
+      name: this._playerName(),
+      score: w.score,
+      kills: w.kills,
+      wave: w.wave,
+      elapsed: w.elapsed,
+      seed: this.seed,
+      runId: this.runId,
+    };
+    if (opts.keepalive) {
+      postRun(entry, { keepalive: true }).catch(() => {});
+      return;
+    }
+    if (opts.final) this._runPosted = true;
     try {
-      const data = await postRun({
-        name: this._playerName(),
-        score: w.score,
-        kills: w.kills,
-        wave: w.wave,
-        elapsed: w.elapsed,
-        seed: this.seed,
-      });
+      const data = await postRun(entry);
+      applyAssignedCallsign(this.hud.el.playerName, data.callsign);
       renderBoard(this.hud.el.leaderboard, data, this._playerName());
     } catch {
+      if (opts.final) this._runPosted = false;
       this._refreshBoard();
     }
   }
@@ -330,6 +355,7 @@ export class Game {
     (this.resetGame(),
       (this._runPosted = !1),
       (this.runStartedAt = new Date().toISOString()),
+      (this.runId = this._newRunId()),
       this._playerName(),
       (this.state = "playing"),
       this.hud.showMenu(!1),
@@ -348,7 +374,8 @@ export class Game {
         "RESUME",
         null,
         `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
-      ));
+      ),
+      this._submitRun());
   }
   resetGame() {
     (this.world.startRun(),
@@ -380,7 +407,7 @@ export class Game {
         },
       }),
       this.runLog.append(this.lastRun),
-      this._submitRun());
+      this._submitRun({ final: true }));
   }
   onKey(t) {
     if (t === "Escape" && this.settingsPanel && this.settingsPanel.isOpen()) {
