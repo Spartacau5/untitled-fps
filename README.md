@@ -64,6 +64,19 @@ On death the client POSTs `{ name, score, kills, wave, elapsed, seed }` to `/api
 
 Callsign is typed in `#player-name` on the menu. The board renders in `#leaderboard`.
 
+## Player feedback
+
+Intro, pause, and death share one menu. **PROVIDE FEEDBACK** opens a panel (optional name, long message) and `POST`s to `/api/feedback`.
+
+- **Local / Vite:** `.data/feedback.json`. `GET /api/feedback` lists notes (newest first).
+- **Vercel:** same Redis as the leaderboard. `GET` requires `FEEDBACK_ADMIN_TOKEN` (header `x-feedback-token` or `Authorization: Bearer …`).
+
+```bash
+curl -s https://untitled-fps.vercel.app/api/feedback -H "x-feedback-token: $FEEDBACK_ADMIN_TOKEN"
+```
+
+Add `FEEDBACK_ADMIN_TOKEN` in the Vercel project env (any long secret). Without it, production GET stays locked so the inbox is not public.
+
 ## Leaderboard env vars (Upstash Redis)
 
 On Vercel, connect an Upstash Redis / KV store to the project so production persists the board. Either pair works:

@@ -521,6 +521,96 @@ canvas#game {
   transform: translate(-2px, -2px);
   box-shadow: 8px 8px 0 var(--accent);
 }
+.btn-feedback {
+  margin: 18px auto 0;
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.btn-feedback:hover {
+  background: rgba(255, 90, 31, 0.12);
+}
+.feedback-panel {
+  width: min(420px, 86vw);
+  margin: 14px auto 0;
+  text-align: left;
+  border: 1px solid #141210;
+  background: rgba(245, 238, 225, 0.5);
+  padding: 14px 16px;
+}
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.16em;
+  color: var(--dim);
+}
+.feedback-field em {
+  font-style: normal;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.feedback-field input,
+.feedback-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #141210;
+  background: rgba(245, 238, 225, 0.7);
+  color: #141210;
+  font: 600 14px/1.4 var(--font-ui);
+  letter-spacing: 0.04em;
+  resize: vertical;
+  outline: none;
+}
+.feedback-field input:focus,
+.feedback-field textarea:focus {
+  border-color: var(--accent);
+}
+.feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.btn-feedback-ghost,
+.btn-feedback-send {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 1px solid #141210;
+}
+.btn-feedback-ghost {
+  background: transparent;
+  color: var(--dim);
+}
+.btn-feedback-send {
+  background: #141210;
+  color: #f5eee1;
+}
+.btn-feedback-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.feedback-status {
+  min-height: 1.2em;
+  margin: 10px 0 0;
+  font: 700 12px/1.4 var(--font-ui);
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  text-align: right;
+}
 .callsign {
   display: flex;
   align-items: center;

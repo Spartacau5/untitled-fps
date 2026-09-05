@@ -42,6 +42,7 @@ import { WeaponView } from "../render/weapon-view.js";
 import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
+import { mountFeedback } from "../ui/feedback.js";
 import {
   fetchBoard,
   loadPlayerName,
@@ -153,6 +154,9 @@ export class Game {
         (this.hud.el.playerName.value = loadPlayerName()),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
+      mountFeedback(() =>
+        this.hud.el.playerName ? this.hud.el.playerName.value : "",
+      ),
       (this.input.onLockChange = (l) => {
         !l && this.state === "playing" && !this.debug && this.pause();
       }),

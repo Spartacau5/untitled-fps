@@ -82,6 +82,22 @@
         <div><b>LMB</b> fire &nbsp;·&nbsp; <b>RMB</b> aim down sights &nbsp;·&nbsp; <b>R</b> reload &nbsp;·&nbsp; <b>1 2 3 / WHEEL</b> weapons</div>
         <div><b>[ ]</b> sensitivity &nbsp;·&nbsp; <b>M</b> music &nbsp;·&nbsp; <b>ESC</b> pause</div>
       </div>
+      <button type="button" id="btn-feedback" class="btn-feedback">PROVIDE FEEDBACK</button>
+      <div id="feedback-panel" class="feedback-panel hidden">
+        <label class="feedback-field">
+          <span>NAME <em>(optional)</em></span>
+          <input id="feedback-name" type="text" maxlength="16" autocomplete="nickname" />
+        </label>
+        <label class="feedback-field">
+          <span>WHAT SHOULD I FIX OR ADD?</span>
+          <textarea id="feedback-body" maxlength="2000" rows="5"></textarea>
+        </label>
+        <div class="feedback-actions">
+          <button type="button" id="feedback-cancel" class="btn-feedback-ghost">CANCEL</button>
+          <button type="button" id="feedback-send" class="btn-feedback-send">SEND</button>
+        </div>
+        <p id="feedback-status" class="feedback-status"></p>
+      </div>
       <div id="menu-stats" class="menu-stats hidden"></div>
       <div class="menu-foot">THREE.JS · WEBGL2 · CUSTOM GLSL PIPELINE · PROCEDURAL AUDIO</div>
     </div>
