@@ -5,11 +5,9 @@ export const GAME_TITLE = "UNTITLED ARENA";
 export const theme = {
   strings: {
     title: GAME_TITLE,
-    kicker: "PROVING GROUND // SITE 04",
     subtitle: "HOLD THE LINE",
     deploy: "DEPLOY",
     deployingBanner: ["DEPLOYING", "HOLD THE ARENA"],
-    footer: "THREE.JS · WEBGL2 · CUSTOM GLSL PIPELINE · PROCEDURAL AUDIO",
   },
   sky: {
     horizon: 0xeadfcb,
@@ -100,9 +98,7 @@ export function applyThemeStrings(doc = document) {
     const el = doc.querySelector(sel);
     if (el) el.textContent = text;
   };
-  set(".title-kicker", s.kicker);
   set(".title", s.title);
   set(".subtitle", s.subtitle);
   set("#btn-start", s.deploy);
-  set(".menu-foot", s.footer);
 }

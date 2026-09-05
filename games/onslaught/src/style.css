@@ -617,7 +617,7 @@ canvas#game {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin: -8px 0 18px;
+  margin: 0 0 18px;
   font: 700 13px/1 var(--font-ui);
   letter-spacing: 0.16em;
   color: var(--dim);
@@ -713,8 +713,7 @@ canvas#game {
 }
 #btn-settings {
   display: block;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 10px auto 28px;
 }
 .btn-secondary:hover {
   border-color: var(--accent);
