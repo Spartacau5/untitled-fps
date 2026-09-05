@@ -331,6 +331,10 @@ export class Game {
     (t === "KeyM" &&
       ((this.audio.musicOn = !this.audio.musicOn),
       this.hud.hint(this.audio.musicOn ? "MUSIC ON" : "MUSIC OFF")),
+      t === "KeyN" &&
+        ((this.audio.ambienceOn = !this.audio.ambienceOn),
+        this.audio.setVolumes({}),
+        this.hud.hint(this.audio.ambienceOn ? "AMBIENT ON" : "AMBIENT OFF")),
       (t === "BracketLeft" || t === "BracketRight") &&
         (this.settings.set(
           "sensitivity",

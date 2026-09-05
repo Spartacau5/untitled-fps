@@ -27,6 +27,7 @@ export class Audio {
     ((this.ctx = null),
       (this.ready = !1),
       (this.musicOn = !0),
+      (this.ambienceOn = !0),
       (this.masterVol = 0.9),
       (this.musicVol = 1),
       (this.sfxVol = 1),
@@ -89,7 +90,9 @@ export class Audio {
     if (!this.ready) return;
     ((this.master.gain.value = this.masterVol),
       (this.dry.gain.value = this.sfxVol),
-      (this.revGain.gain.value = 0.55 * this.sfxVol));
+      (this.revGain.gain.value = 0.55 * this.sfxVol),
+      this.ambBus &&
+        (this.ambBus.gain.value = this.ambienceOn ? 1 : 0));
   }
   resume() {
     this.ctx && this.ctx.state === "suspended" && this.ctx.resume();
@@ -782,6 +785,7 @@ export class Audio {
     );
   }
   waveStart() {
+    if (!this.ready || !this.ambienceOn) return;
     const t = this.now;
     (this.tone(t, {
       type: "sawtooth",
@@ -812,6 +816,7 @@ export class Audio {
       }));
   }
   waveClear() {
+    if (!this.ready || !this.ambienceOn) return;
     const t = this.now;
     [57, 64, 69, 76].forEach((e, n) => {
       (this.tone(t + n * 0.12, {
@@ -855,8 +860,12 @@ export class Audio {
   }
   _startAmbience() {
     const t = this.ctx,
-      e = t.createGain();
-    ((e.gain.value = 0.11), e.connect(this.master));
+      bus = t.createGain();
+    ((bus.gain.value = this.ambienceOn ? 1 : 0),
+      bus.connect(this.master),
+      (this.ambBus = bus));
+    const e = t.createGain();
+    ((e.gain.value = 0.11), e.connect(bus));
     const n = t.createBiquadFilter();
     ((n.type = "lowpass"),
       (n.frequency.value = 180),
@@ -885,7 +894,7 @@ export class Audio {
       l.start(),
       s.connect(r),
       r.connect(a),
-      a.connect(this.master),
+      a.connect(bus),
       s.start(),
       (this.ambGain = e));
   }
