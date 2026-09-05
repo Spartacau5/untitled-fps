@@ -28,6 +28,8 @@ Vite serves the game at [http://localhost:5173](http://localhost:5173). Query fl
 - `?nospawn` — empty arena
 - `?seed=<n>` — replay a specific run
 
+Settings (sensitivity, FOV, volumes, shake) persist in `localStorage["onslaught.settings.v1"]`; finished runs accumulate in `onslaught.runs.v1` (last 30) and can be downloaded from the death screen for balance analysis.
+
 Other commands:
 
 ```bash
