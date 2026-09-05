@@ -1,8 +1,0 @@
-{
-  "slug": "highrise-protocol-5.6-luna",
-  "title": "Highrise Protocol",
-  "version": "5.6 LUNA",
-  "description": "A procedural Three.js FPS benchmark focused on weapon motion, recoil, ADS and close-range combat.",
-  "accent": "#ff6538",
-  "tags": ["FPS", "Three.js", "WebGL"]
-}

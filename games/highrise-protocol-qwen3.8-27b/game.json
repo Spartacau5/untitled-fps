@@ -1,8 +1,0 @@
-{
-  "slug": "highrise-protocol-qwen3.8-27b",
-  "title": "Highrise Protocol",
-  "version": "QWEN3.8-27B",
-  "description": "A procedural Three.js FPS benchmark built by Qwen3.8-27B running locally on 4x RTX 3090, focused on gunfeel: solved red-dot ADS, spring recoil, blood impact and wave survival.",
-  "accent": "#8b5cf6",
-  "tags": ["FPS", "Three.js", "WebGL", "Qwen3.8-27B", "Local"]
-}
