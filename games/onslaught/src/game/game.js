@@ -43,6 +43,7 @@ import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
+import { mountSettingsPanel } from "../ui/settings-panel.js";
 import {
   fetchBoard,
   loadPlayerName,
@@ -149,6 +150,14 @@ export class Game {
       (this._q = new Quaternion()),
       (this._e = new Euler()),
       this._bindSettings(),
+      (this.settingsPanel = mountSettingsPanel(this.settings, {
+        panel: this.hud.el.settings,
+        rows: this.hud.el.settingsRows,
+        btnOpen: this.hud.el.btnSettings,
+        btnBack: this.hud.el.settingsBack,
+        btnReset: this.hud.el.settingsReset,
+        menuMain: this.hud.el.menuMain,
+      })),
       (this._runPosted = !1),
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
@@ -281,6 +290,7 @@ export class Game {
     ((n.position.y = 0.19), t.add(n), (this.pickupProto = t));
   }
   start() {
+    this.settingsPanel && this.settingsPanel.close();
     if ((this.audio.init(), this.audio.resume(), this.state === "paused")) {
       ((this.state = "playing"),
         this.hud.showMenu(!1),
@@ -328,6 +338,10 @@ export class Game {
       this._submitRun());
   }
   onKey(t) {
+    if (t === "Escape" && this.settingsPanel && this.settingsPanel.isOpen()) {
+      this.settingsPanel.close();
+      return;
+    }
     (t === "KeyM" &&
       ((this.audio.musicOn = !this.audio.musicOn),
       this.hud.hint(this.audio.musicOn ? "MUSIC ON" : "MUSIC OFF")),
