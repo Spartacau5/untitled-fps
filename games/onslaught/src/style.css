@@ -44,7 +44,7 @@ canvas#game {
   overflow: hidden;
 }
 
-/* ---- crosshair / hitmarker: ink with a thin paper outline so it reads on both sky and shadow ---- */
+/* ---- crosshair / hitmarker: Fable motion (white ticks + black halo), our accent on kills ---- */
 .crosshair {
   position: absolute;
   left: 50%;
@@ -55,8 +55,10 @@ canvas#game {
 }
 .ch-line {
   position: absolute;
-  background: #141210;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+  background: #fff;
+  box-shadow:
+    0 0 4px #000000e6,
+    0 0 1px #000;
   border-radius: 1px;
 }
 .ch-t,
@@ -89,9 +91,9 @@ canvas#game {
   top: -1.5px;
   width: 3px;
   height: 3px;
-  background: #141210;
+  background: #fff;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 3px #000;
 }
 .hitmarker {
   position: absolute;
@@ -105,17 +107,17 @@ canvas#game {
   position: absolute;
   width: 2.5px;
   height: 11px;
-  background: #141210;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+  background: #fff;
+  box-shadow: 0 0 4px #000000e6;
   border-radius: 1px;
 }
 .hitmarker.kill .hm {
   background: var(--accent);
-  box-shadow: none;
+  box-shadow: 0 0 6px #ff5a1fe6;
 }
 .hitmarker.head .hm {
   background: var(--warn);
-  box-shadow: none;
+  box-shadow: 0 0 6px #d9771be6;
 }
 .hm-1 {
   transform: translate(-9px, -16px) rotate(-45deg);
@@ -144,8 +146,9 @@ canvas#game {
   height: 120px;
   border-radius: 50%;
   border: 6px solid transparent;
-  border-top-color: #b8231cf2;
+  border-top-color: #ff2828f2;
   opacity: 0.95;
+  filter: drop-shadow(0 0 6px rgba(255, 0, 0, 0.8));
 }
 
 /* ---- HUD panels: paper cards with an accent rule ---- */
@@ -172,18 +175,21 @@ canvas#game {
   height: 7px;
   background: rgba(20, 18, 16, 0.12);
   border: 1px solid rgba(20, 18, 16, 0.4);
+  transform: skew(-18deg);
   overflow: hidden;
 }
 .hp-fill {
   height: 100%;
   width: 100%;
-  background: var(--ui);
+  background: linear-gradient(90deg, var(--accent), #ffe8d6);
+  box-shadow: 0 0 10px #ff5a1fb3;
   transition:
     width 0.12s linear,
     background 0.3s;
 }
 .hp-fill.low {
-  background: var(--danger);
+  background: linear-gradient(90deg, var(--danger), #ff8a5c);
+  box-shadow: 0 0 12px #b8231ccc;
 }
 .stat-row {
   display: flex;
@@ -204,6 +210,7 @@ canvas#game {
   font-size: 24px;
   font-weight: 800;
   line-height: 1;
+  text-shadow: 0 0 12px rgba(255, 90, 31, 0.35);
 }
 .hud-br {
   position: absolute;
@@ -232,6 +239,7 @@ canvas#game {
   font-weight: 900;
   line-height: 1;
   letter-spacing: -1px;
+  text-shadow: 0 0 18px rgba(255, 90, 31, 0.35);
   transition: color 0.2s;
 }
 .ammo-mag.low {
@@ -274,6 +282,7 @@ canvas#game {
   border-color: var(--accent);
   color: var(--accent);
   background: rgba(255, 90, 31, 0.12);
+  box-shadow: 0 0 8px #ff5a1f80;
 }
 .fire-mode {
   font-size: 11px;
@@ -300,6 +309,7 @@ canvas#game {
   font-size: 30px;
   font-weight: 800;
   letter-spacing: 1px;
+  text-shadow: 0 0 14px rgba(255, 90, 31, 0.4);
 }
 .feed {
   display: flex;
@@ -320,6 +330,7 @@ canvas#game {
 }
 .feed-item.head {
   border-right-color: var(--warn);
+  color: #c45a12;
 }
 .feed-item.wave {
   border-right-color: var(--danger);
@@ -361,9 +372,11 @@ canvas#game {
   background: var(--paper);
   display: inline-block;
   padding: 6px 28px;
+  text-shadow: 0 0 30px rgba(255, 90, 31, 0.45);
 }
 .banner-main.danger {
   color: var(--danger);
+  text-shadow: 0 0 30px rgba(184, 35, 28, 0.55);
 }
 .banner-sub {
   font-size: 20px;
@@ -407,12 +420,13 @@ canvas#game {
   font-family: var(--font-title);
   font-weight: 800;
   font-size: 18px;
-  color: #141210;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
   animation: popup 0.9s ease-out forwards;
   transform: translate(-50%);
 }
 .popup.head {
-  color: var(--warn);
+  color: #ffc857;
 }
 .popup.kill {
   color: var(--accent);
