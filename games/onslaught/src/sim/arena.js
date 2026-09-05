@@ -14,13 +14,14 @@ export class BoxCollider {
       (this.s = Math.sin(l)),
       (this.r = Math.hypot(n, s)));
   }
+  // Inverse of Three.js makeRotationY: local X/Z from a world XZ offset.
   toLocal(t, e) {
     const n = t - this.cx,
       s = e - this.cz;
-    return [n * this.c + s * this.s, -n * this.s + s * this.c];
+    return [n * this.c - s * this.s, n * this.s + s * this.c];
   }
   toWorldDir(t, e) {
-    return [t * this.c - e * this.s, t * this.s + e * this.c];
+    return [t * this.c + e * this.s, -t * this.s + e * this.c];
   }
 }
 
@@ -70,6 +71,45 @@ export class Arena {
         O = z % 2 === 0 ? 4.2 : 5.5;
       this.boxes.push(new BoxCollider(k, G, O / 2, 0.28, 0, 2.1, q));
     }
+    // Perimeter: one collider per visible wall segment so the player meets
+    // the mesh, not a circle that stops 0.7 m in front of it. Gate slots
+    // keep a gap; jambs match the view's ±3.4 posts.
+    for (let z = 0; z < g; z++) {
+      const U = (z / g) * Math.PI * 2,
+        k = Math.cos(U) * (ARENA_RADIUS + 0.6),
+        G = Math.sin(U) * (ARENA_RADIUS + 0.6),
+        q = -U + Math.PI / 2,
+        c = Math.cos(q),
+        s = Math.sin(q);
+      if (z % 4 === 2) {
+        for (const side of [-3.4, 3.4])
+          this.boxes.push(
+            new BoxCollider(
+              k + c * side,
+              G - s * side,
+              1.3 / 2,
+              1.6 / 2,
+              0,
+              WALL_HEIGHT + 0.6,
+              q,
+            ),
+          );
+        this.boxes.push(
+          new BoxCollider(
+            k + s * 4.6,
+            G + c * 4.6,
+            8.2 / 2,
+            8 / 2,
+            0,
+            WALL_HEIGHT + 1,
+            q,
+          ),
+        );
+      } else
+        this.boxes.push(
+          new BoxCollider(k, G, 9.7 / 2, 1.2 / 2, 0, WALL_HEIGHT, q),
+        );
+    }
     // Sixteen random crates from the layout stream.
     const R = [
       [1.6, 1.6, 1.6],
@@ -104,23 +144,32 @@ export class Arena {
     return 0.5 * MathUtils.clamp((8.5 - n) / 1.5, 0, 1);
   }
   resolveCircle(t, e, n, s = 0, r = 1.8, a = 0.35) {
-    for (const c of this.boxes) {
-      if (s >= c.y1 - a || s + r <= c.y0) continue;
-      const h = t - c.cx,
-        d = e - c.cz;
-      if (h * h + d * d > (c.r + n) * (c.r + n)) continue;
-      const [u, m] = c.toLocal(t, e),
-        g = c.hx + n - Math.abs(u),
-        v = c.hz + n - Math.abs(m);
-      if (g <= 0 || v <= 0) continue;
-      let p = 0,
-        f = 0;
-      g < v ? (p = g * Math.sign(u || 1)) : (f = v * Math.sign(m || 1));
-      const [w, M] = c.toWorldDir(p, f);
-      ((t += w), (e += M));
+    // Several passes: resolving one box can shove you into another, and a
+    // single axis push at a corner can leave you overlapping the slab.
+    for (let pass = 0; pass < 3; pass++) {
+      for (const c of this.boxes) {
+        // Capsule must overlap the box in Y. Skip side collision when feet
+        // are within a step of the top of a vaultable box (crates ≤1.6 m,
+        // plinths) so a jump can clear them. Barriers and walls sit at 2.1 m+
+        // and stay solid even from the hex pad.
+        if (s + r <= c.y0 || s >= c.y1) continue;
+        if (c.y1 <= 1.7 + 1e-4 && s >= c.y1 - a) continue;
+        const h = t - c.cx,
+          d = e - c.cz;
+        if (h * h + d * d > (c.r + n) * (c.r + n)) continue;
+        const [u, m] = c.toLocal(t, e),
+          g = c.hx + n - Math.abs(u),
+          v = c.hz + n - Math.abs(m);
+        if (g <= 0 || v <= 0) continue;
+        let p = 0,
+          f = 0;
+        g < v ? (p = g * Math.sign(u || 1)) : (f = v * Math.sign(m || 1));
+        const [w, M] = c.toWorldDir(p, f);
+        ((t += w), (e += M));
+      }
     }
     const l = Math.hypot(t, e),
-      o = ARENA_RADIUS - n - 0.3;
+      o = ARENA_RADIUS + 4 - n;
     return (l > o && ((t *= o / l), (e *= o / l)), [t, e]);
   }
   floorAt(t, e, n, s) {
@@ -158,8 +207,8 @@ export class Arena {
     }
     for (const c of this.boxes) {
       const [h, d] = c.toLocal(t.x, t.z),
-        u = e.x * c.c + e.z * c.s,
-        m = -e.x * c.s + e.z * c.c;
+        u = e.x * c.c - e.z * c.s,
+        m = e.x * c.s + e.z * c.c;
       let g = 0,
         v = s,
         p = -1,
