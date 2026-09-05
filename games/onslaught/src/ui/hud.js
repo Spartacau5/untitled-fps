@@ -34,6 +34,10 @@ export class HUD {
       settingsReset: t("btn-settings-reset"),
       menuMain: t("menu-main"),
       menuStats: t("menu-stats"),
+      runSummary: t("run-summary"),
+      runActions: t("run-actions"),
+      btnDlRun: t("btn-dl-run"),
+      btnDlAll: t("btn-dl-all"),
       playerName: t("player-name"),
       leaderboard: t("leaderboard"),
       title: document.querySelector(".title"),
@@ -63,7 +67,9 @@ export class HUD {
     s = null,
     r = theme.strings.subtitle,
   ) {
-    (this.el.menu.classList.toggle("hidden", !t),
+    (this.el.runSummary && this.el.runSummary.classList.add("hidden"),
+      this.el.runActions && this.el.runActions.classList.add("hidden"),
+      this.el.menu.classList.toggle("hidden", !t),
       t &&
         ((this.el.title.textContent = e),
         (this.el.btnStart.textContent = n),
@@ -72,6 +78,40 @@ export class HUD {
           ? ((this.el.menuStats.innerHTML = s),
             this.el.menuStats.classList.remove("hidden"))
           : this.el.menuStats.classList.add("hidden")));
+  }
+  runSummary(record) {
+    const s = record.summary,
+      pct = (x) => Math.round(x * 100) + "%",
+      secs = (x) => (x == null ? "—" : x.toFixed(0) + "s");
+    const weapons = Object.entries(s.weapons)
+      .filter(([, w]) => w.shots > 0)
+      .map(
+        ([k, w]) =>
+          `<tr><td>${k.toUpperCase()}</td><td>${pct(w.pellets ? w.hits / w.pellets : 0)}</td><td>${w.kills}</td><td>${secs(w.timeHeldS)}</td></tr>`,
+      )
+      .join("");
+    const enemies = Object.entries(s.enemies)
+      .filter(([, e]) => e.spawned > 0)
+      .map(
+        ([k, e]) =>
+          `<tr><td>${k.toUpperCase()}</td><td>${e.killed}/${e.spawned}</td><td>${Math.round(e.damageDealt)}</td></tr>`,
+      )
+      .join("");
+    const waves = s.waves
+      .map(
+        (w) =>
+          `<tr><td>W${w.wave}</td><td>${w.count}</td><td>${secs(w.durationS)}</td></tr>`,
+      )
+      .join("");
+    this.el.runSummary.innerHTML = `
+    <div class="rs-head">ACCURACY ${pct(s.accuracy)} · HEADSHOTS ${pct(s.headshotRate)} · DAMAGE TAKEN ${Math.round(s.damageTaken)}${s.killedBy ? ` · KILLED BY ${s.killedBy.kind.toUpperCase()}` : ""}</div>
+    <div class="rs-grid">
+      <table><thead><tr><th>WEAPON</th><th>ACC</th><th>KILLS</th><th>HELD</th></tr></thead><tbody>${weapons}</tbody></table>
+      <table><thead><tr><th>HOSTILE</th><th>KILLED</th><th>DMG TO YOU</th></tr></thead><tbody>${enemies}</tbody></table>
+      <table><thead><tr><th>WAVE</th><th>COUNT</th><th>TIME</th></tr></thead><tbody>${waves}</tbody></table>
+    </div>`;
+    (this.el.runSummary.classList.remove("hidden"),
+      this.el.runActions.classList.remove("hidden"));
   }
   setCrosshair(t, e) {
     const n = t.toFixed(1) + "px";

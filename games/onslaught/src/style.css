@@ -768,6 +768,44 @@ canvas#game {
   justify-content: flex-end;
   margin-top: 12px;
 }
+.run-summary {
+  margin-top: 14px;
+  font: 500 12px/1.5 var(--font-ui);
+  letter-spacing: 0.08em;
+  color: #141210;
+  text-align: left;
+  width: min(720px, 92vw);
+}
+.rs-head {
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.rs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.rs-grid table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.rs-grid th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--dim);
+  border-bottom: 1px solid rgba(20, 18, 16, 0.25);
+  padding: 2px 4px;
+}
+.rs-grid td {
+  padding: 2px 4px;
+  border-bottom: 1px solid rgba(20, 18, 16, 0.1);
+}
+.run-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
 .menu-foot {
   margin-top: 26px;
   font-size: 11px;

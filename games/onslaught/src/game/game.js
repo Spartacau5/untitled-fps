@@ -28,7 +28,9 @@ import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
 import { Settings } from "../core/settings.js";
+import { RunLog } from "../core/runlog.js";
 import { SUN_DIR } from "../data/tuning.js";
+import { GAME_VERSION } from "../data/version.js";
 import { theme } from "../theme/theme.js";
 import { ArenaView } from "../render/arena-view.js";
 import { EnemyView } from "../render/enemy-view.js";
@@ -158,11 +160,38 @@ export class Game {
         btnReset: this.hud.el.settingsReset,
         menuMain: this.hud.el.menuMain,
       })),
+      (this.runLog = new RunLog()),
+      (this.lastRun = null),
+      (this.runStartedAt = null),
       (this._runPosted = !1),
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
+      (() => {
+        const download = (name, data) => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(
+            new Blob([JSON.stringify(data, null, 2)], {
+              type: "application/json",
+            }),
+          );
+          a.download = name;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        };
+        const stamp = () =>
+          new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
+        this.hud.el.btnDlRun.addEventListener(
+          "click",
+          () =>
+            this.lastRun &&
+            download(`run-${this.seed}-${stamp()}.json`, this.lastRun),
+        );
+        this.hud.el.btnDlAll.addEventListener("click", () =>
+          download(`runs-${stamp()}.json`, this.runLog.list()),
+        );
+      })(),
       mountFeedback(() =>
         this.hud.el.playerName ? this.hud.el.playerName.value : "",
       ),
@@ -300,6 +329,7 @@ export class Game {
     }
     (this.resetGame(),
       (this._runPosted = !1),
+      (this.runStartedAt = new Date().toISOString()),
       this._playerName(),
       (this.state = "playing"),
       this.hud.showMenu(!1),
@@ -335,6 +365,21 @@ export class Game {
       this.audio.gameOver(),
       (this.audio.intensity = 0),
       this.hud.banner("K.I.A.", "THE SWARM OVERRAN THE ARENA", 6, !0),
+      (this.lastRun = {
+        v: 1,
+        game: GAME_VERSION,
+        seed: this.seed,
+        startedAt: this.runStartedAt,
+        endedAt: new Date().toISOString(),
+        settings: this.settings.all(),
+        summary: {
+          ...this.world.stats.summary(),
+          wave: this.world.wave,
+          score: this.world.score,
+          kills: this.world.kills,
+        },
+      }),
+      this.runLog.append(this.lastRun),
       this._submitRun());
   }
   onKey(t) {
@@ -701,6 +746,7 @@ export class Game {
         `WAVE ${w.wave} REACHED<br>${w.kills} KILLS · ${w.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
         "THE SWARM PREVAILS",
       ),
+        this.lastRun && this.hud.runSummary(this.lastRun),
         this.hud.show(!1));
     }
   }
