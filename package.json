@@ -1,14 +1,13 @@
 {
-  "name": "bench-portal",
+  "name": "untitled-fps",
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Untitled Arena — a browser arena FPS. Seeded horde waves, three guns, and a top-5 leaderboard.",
   "scripts": {
     "dev": "vite --config games/onslaught/vite.config.js",
-    "build:game": "vite build --config games/onslaught/vite.config.js",
-    "build": "node scripts/build.mjs",
+    "build": "vite build --config games/onslaught/vite.config.js",
     "serve": "python3 -m http.server 4176 --directory dist",
-    "dev:portal": "npm run build && npm run serve",
     "lint": "eslint games/onslaught/src server api",
     "check:boundary": "node scripts/check-sim-boundary.mjs",
     "test": "npm run lint && npm run check:boundary && node --test \"tests/**/*.test.mjs\"",

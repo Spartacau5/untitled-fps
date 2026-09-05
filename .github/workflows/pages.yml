@@ -1,5 +1,8 @@
 name: Deploy GitHub Pages
 
+# Vite builds games/onslaught into dist/. The game is served at / — same
+# layout as Vercel (API lives on Vercel only, at /api/leaderboard).
+
 on:
   push:
     branches: [main]

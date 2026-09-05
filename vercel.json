@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": "npx vite build --config games/onslaught/vite.config.js --outDir ../../dist",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install"
 }
