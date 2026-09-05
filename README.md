@@ -1,43 +1,78 @@
-# Bench Portal
+# Untitled Arena
 
-Static catalog for playable browser-game benchmarks.
+## Credits
 
-- Cloudflare Pages: <https://bench-portal.pages.dev>
-- GitHub Pages: <https://alesha-pro.github.io/bench-portal/>
+The base game is **Onslaught** by [alesha-pro](https://github.com/alesha-pro), originally generated with Fable 5.1, from [github.com/alesha-pro/bench-portal](https://github.com/alesha-pro/bench-portal).
 
-## Local preview
+This repo is a fork of that catalog, stripped down to a single game. I am building on top of Onslaught; I did not write the original arena FPS.
+
+---
+
+Browser arena FPS. Placeholder title **UNTITLED ARENA**. Horde waves in a brutalist ring, three guns (VK-7 assault rifle, Hammer-12 shotgun, Longshot DMR), sprint / slide / ADS, and a top-5 all-time leaderboard.
+
+Live: [untitled-fps.vercel.app](https://untitled-fps.vercel.app)
+
+`games/onslaught-fable-5.1/` is a frozen copy of the original one-shot build, kept for before/after comparison. It is not part of the production build — open that folder on its own if you want the pristine version.
+
+## Local development
 
 ```bash
-npm run build
-npm run serve
+npm install
+npm run dev
 ```
 
-Open <http://127.0.0.1:4176>.
+Vite serves the game at [http://localhost:5173](http://localhost:5173). Query flags:
 
-## Onslaught dev workspace
+- `?debug` — auto-start, skip pointer lock, lil-gui grade panel
+- `?god` — no damage
+- `?nospawn` — empty arena
+- `?seed=<n>` — replay a specific run
 
-`games/onslaught` is the actively developed game (Vite + ES modules, unbundled Three.js).
+Other commands:
 
-- `npm run dev` — Vite dev server at <http://localhost:5173>. Flags: `?debug` (auto-start, no pointer lock, lil-gui grade panel), `?god`, `?nospawn`, `?seed=<n>`.
-- `npm test` — ESLint, sim/view boundary check, unit tests and the headless determinism test.
-- `npm run build` — builds every Vite-based game, then assembles `dist/`.
-- `npm run deploy:vercel` — production deploy of Onslaught to Vercel (game at `/`, API at `/api/leaderboard`).
+```bash
+npm test              # lint, sim/view boundary check, unit tests
+npm run build         # Vite → dist/ (game at /)
+npm run serve         # python http.server on dist/ at :4176
+```
 
-A top-5 **all-time** leaderboard lives at `/api/leaderboard` (GET list, POST a finished run). Locally it writes `.data/leaderboard.json`. On Vercel, add a Redis integration from the marketplace (Upstash) so `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set. Daily/weekly/monthly resets are not wired yet.
+The leaderboard API is the same locally as in production: Vite proxies `/api/leaderboard` during `npm run dev`. Local scores write to `.data/leaderboard.json`.
 
-Layout: `src/sim/` is the pure simulation (no DOM, WebGL or audio; runs under Node), `src/render/`, `src/ui/` and `src/audio/` present it, and `src/game/game.js` wires the two through `World.step(dt, inputFrame)` and the event stream it emits. `scripts/check-sim-boundary.mjs` enforces the seam.
+## Architecture
 
-## Add a game
+`games/onslaught/src/` is split so the simulation can run headless in Node:
 
-1. Create `games/<slug>/` with a self-contained `index.html` and relative asset paths, or a Vite project with a `vite.config.js` (its `dist/` is what ships).
-2. Add `games/<slug>/game.json`.
-3. Run `npm run build` to validate the manifest and regenerate the catalog.
+| Path | Role |
+| --- | --- |
+| `sim/` | Pure game step. Arena, player, weapons, enemies, projectiles, stats. No DOM, WebGL, audio, or theme. |
+| `data/` | Tuning tables (weapons, enemies, waves). Same rules as `sim/`. |
+| `core/` | RNG, fixed-step loop, input, settings store. Math-only Three.js types allowed. |
+| `render/` `ui/` `audio/` `theme/` | Presentation. The `Game` shell ticks the world and plays back the event stream. |
 
-Cloudflare Pages settings:
+Advance the world with `World.step(dt, inputFrame)`. Side effects come out as events (`EV_HIT`, `EV_KILL`, …). `World.hash()` plus `tests/sim-determinism.test.mjs` lock a seeded run.
 
-- Build command: `npm run build`
-- Build output directory: `dist`
-- Node.js version: `22`
+`scripts/check-sim-boundary.mjs` (via `npm run check:boundary` / `npm test`) fails the build if `sim/`, `data/`, or `core/` import presentation code, browser globals, or `Math.random`. Settings live in presentation so they cannot change what a seed produces.
 
-Cloudflare is connected to the GitHub `main` branch and deploys automatically.
-For a manual fallback deployment, run `npm run deploy:cloudflare`.
+## Seeded runs and leaderboard
+
+Every match starts from an integer seed (`?seed=` or the clock). The same seed replays the same layout, spawns, and combat stream.
+
+On death the client POSTs `{ name, score, kills, wave, elapsed, seed }` to `/api/leaderboard`. GET returns the top 5 by score, then kills. The store keeps 50 runs; the menu shows five.
+
+- **Local / Vite:** file backend at `.data/leaderboard.json`
+- **Vercel:** Redis when the env vars below are set, otherwise the function has no durable store
+
+Callsign is typed in `#player-name` on the menu. The board renders in `#leaderboard`.
+
+## Leaderboard env vars (Upstash Redis)
+
+On Vercel, connect an Upstash Redis / KV store to the project so production persists the board. Either pair works:
+
+| URL | Token |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL` | `UPSTASH_REDIS_REST_TOKEN` |
+| `KV_REST_API_URL` | `KV_REST_API_TOKEN` |
+
+Redeploy after connecting so the function sees the vars. Local play does not need Redis.
+
+Production layout: static game at `/`, API at `/api/leaderboard` (`api/leaderboard.js`).
