@@ -162,9 +162,9 @@ export class World {
         this._v.normalize(),
         this.player.knock(this._v, n.def.big ? 7 : 2.2)));
   }
-  onSlam(t, e) {
+  onSlam(t, e, n = 5) {
     (this.player.addTrauma(MathUtils.clamp(1 - e / 14, 0, 0.8)),
-      e < 5 &&
+      e < n &&
         (this._v.subVectors(this.player.pos, t),
         (this._v.y = 0),
         this._v.normalize(),

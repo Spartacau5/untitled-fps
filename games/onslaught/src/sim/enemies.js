@@ -138,11 +138,20 @@ export class Enemies {
       (this._a.set(d, r.pos.y + 0.08, u),
         this._b.set(d, r.pos.y + a.torsoBot * o, u));
       const f = rayCapsule(t, e, this._a, this._b, l.hips[0] * 0.5 * o);
+      let sac = -1;
+      if (l.sac) {
+        const sacZ = (l.torso[2] * 0.5 + 0.12) * o,
+          sacY =
+            r.pos.y + (a.hipH + l.hips[1] * 0.45 + l.torso[1] * 0.55) * o;
+        this._headC.set(d - c * sacZ, sacY, u - h * sacZ);
+        sac = raySphere(t, e, this._headC, 0.26 * o);
+      }
       let w = -1,
         M = !1;
       (v >= 0 && ((w = v), (M = !0)),
         p >= 0 && (w < 0 || p < w - 0.02) && ((w = p), (M = !1)),
         f >= 0 && (w < 0 || f < w) && ((w = f), (M = !1)),
+        sac >= 0 && (w < 0 || sac < w) && ((w = sac), (M = !1)),
         !(w < 0 || w > n) &&
           (!s || w < s.t) &&
           (s = {
@@ -250,6 +259,12 @@ export class Enemies {
             u < 28 &&
             !e.dead &&
             ((o.state = "attack"), (o.t = 0), (o.attackDone = !1));
+        } else if (c.big) {
+          if (o.cooldown <= 0 && !e.dead)
+            if (u <= c.slamCommit)
+              ((o.state = "attack"), (o.t = 0), (o.attackDone = !1));
+            else if (u <= c.chargeRange)
+              ((o.state = "charge"), (o.t = 0), (o.attackDone = !1));
         } else
           u < c.range &&
             o.cooldown <= 0 &&
@@ -270,22 +285,49 @@ export class Enemies {
         const _ = v * f + o.push.x * 4,
           L = p * f + o.push.z * 4;
         ((o.vel.x = damp(o.vel.x, _, 5, t)),
-          (o.vel.z = damp(o.vel.z, L, 5, t)),
-          (o.yaw = lerpAngle(
-            o.yaw,
-            Math.atan2(-o.vel.x, -o.vel.z),
-            1 - Math.exp(-7 * t),
-          )),
-          (c.ranged || u < 6) &&
-            (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-7 * t))),
-          (o.growlT -= t),
+          (o.vel.z = damp(o.vel.z, L, 5, t)));
+        // Face the move they just chose so a strafe or reverse turns the body.
+        // Melee in close still squares up. Attack (below) is what aims at you.
+        const faceYaw =
+          !c.ranged && u < 6 ? m : Math.atan2(-v, -p);
+        o.yaw = lerpAngle(o.yaw, faceYaw, 1 - Math.exp(-7 * t));
+        ((o.growlT -= t),
           o.growlT < 0 &&
             ((o.growlT = this.rng.range(3, 9)),
             world.emit(EV_GROWL, { pos: o.pos.clone(), big: c.big })),
           (o.attackLean = damp(o.attackLean, 0, 8, t)));
+      } else if (o.state === "charge") {
+        o.t += t;
+        let v = h / u,
+          p = d / u;
+        const w = o.pos.x + v * (o.radius + 1),
+          M = o.pos.z + p * (o.radius + 1);
+        if (this._blocked(w, M, o.radius)) {
+          const R = -p * o.steerBias,
+            A = v * o.steerBias;
+          ((v = v * 0.25 + R), (p = p * 0.25 + A));
+          const C = Math.hypot(v, p) || 1;
+          ((v /= C),
+            (p /= C),
+            (o.blockedT += t),
+            o.blockedT > 0.9 && ((o.steerBias *= -1), (o.blockedT = 0)));
+        } else o.blockedT = Math.max(0, o.blockedT - t);
+        const _ = v * c.chargeSpeed + o.push.x * 4,
+          L = p * c.chargeSpeed + o.push.z * 4;
+        ((o.vel.x = damp(o.vel.x, _, 5, t)),
+          (o.vel.z = damp(o.vel.z, L, 5, t)),
+          (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-10 * t))),
+          (o.attackLean = damp(o.attackLean, -0.15, 8, t)));
+        if (e.dead) o.state = "chase";
+        else if (u <= c.slamCommit)
+          ((o.state = "attack"), (o.t = 0), (o.attackDone = !1));
+        else if (o.t >= c.chargeMaxS)
+          u > c.slamRadius
+            ? (o.state = "chase")
+            : ((o.state = "attack"), (o.t = 0), (o.attackDone = !1));
       } else if (o.state === "attack") {
         ((o.t += t), (o.yaw = lerpAngle(o.yaw, m, 1 - Math.exp(-12 * t))));
-        const v = Math.exp(-8 * t);
+        const v = Math.exp((c.slam && o.t < c.windup ? -3 : -8) * t);
         if (((o.vel.x *= v), (o.vel.z *= v), c.ranged))
           ((o.attackLean = o.t < c.windup ? -0.35 * (o.t / c.windup) : 0.4),
             !o.attackDone &&
@@ -300,18 +342,18 @@ export class Enemies {
           if (
             (o.t < c.windup
               ? ((o.attackLean = -0.3 * (o.t / c.windup)),
-                !c.big &&
-                  o.t > c.windup - 0.12 &&
-                  ((o.vel.x += (h / u) * 40 * t),
-                  (o.vel.z += (d / u) * 40 * t)))
+                o.t > c.windup - 0.12 &&
+                  ((o.vel.x += (h / u) * (c.big ? 80 : 40) * t),
+                  (o.vel.z += (d / u) * (c.big ? 80 : 40) * t)))
               : (o.attackLean = 0.55),
             !o.attackDone && o.t >= c.windup)
           ) {
             o.attackDone = !0;
-            const p = u < c.range * 1.3 && Math.abs(e.pos.y - o.pos.y) < 1.8;
+            const reach = c.slam ? c.slamRadius : c.range * 1.3,
+              p = u < reach && Math.abs(e.pos.y - o.pos.y) < 1.8;
             (c.slam &&
               (world.emit(EV_SLAM, { pos: o.pos.clone(), dist: u }),
-              world.onSlam(o.pos, u)),
+              world.onSlam(o.pos, u, c.slamRadius)),
               p && !e.dead && world.onPlayerHit(c.damage, o.pos, o));
           }
           o.t >= c.windup + c.swing &&
@@ -340,7 +382,9 @@ export class Enemies {
       const g = Math.hypot(o.vel.x, o.vel.z);
       ((o.moveBlend = damp(
         o.moveBlend,
-        o.state === "chase" ? Math.min(1, g / (c.speed * 0.6)) : 0,
+        o.state === "chase" || o.state === "charge"
+          ? Math.min(1, g / (c.speed * 0.6))
+          : 0,
         8,
         t,
       )),
