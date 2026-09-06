@@ -48,13 +48,17 @@ export const theme = {
     accentHotVec: "vec3(1.0, 0.353, 0.122)",
     hazardVec: "vec3(1.0, 0.69, 0.125)",
   },
+  // Polished steel bodies with lit faces. Glow hue is still the thing that
+  // tells the three apart at range -- the art pass leans on it -- so they are
+  // kept distinct rather than all going sentry-blue: cold blue for the
+  // pursuit units, Ultron-Prime red for the heavy, teal for the ranged one.
   enemies: {
-    runner: { name: "PURSUIT UNIT", body: 0xbac3c5, glow: [1.0, 0.2, 0.06] },
-    brute: { name: "BREACH UNIT", body: 0x77858c, glow: [1.0, 0.52, 0.08] },
+    runner: { name: "PURSUIT UNIT", body: 0xc9d1d6, glow: [0.5, 0.82, 1.0] },
+    brute: { name: "BREACH UNIT", body: 0x9aa4ab, glow: [1.0, 0.3, 0.1] },
     spitter: {
       name: "SUPPRESSION UNIT",
-      body: 0x8d9d98,
-      glow: [0.18, 0.7, 1.0],
+      body: 0xa9b3b1,
+      glow: [0.2, 0.92, 0.9],
     },
   },
   fx: {

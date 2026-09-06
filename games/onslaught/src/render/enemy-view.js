@@ -108,18 +108,75 @@ export function buildEnemyRig(i) {
       "body",
     ),
     p(a, f(i.head, i.head * 1.05, i.head, 0, i.head * 0.55, 0, 0.045), "head"),
+    // The face. A brow ridge, two angled eye slots and a vertical grille for a
+    // mouth -- the Ultron read. Multi-box features are merged into one
+    // geometry each so a face costs three instanced meshes, not nine.
     p(
       a,
       f(
-        i.head * 0.76,
-        i.head * 0.16,
-        0.03,
+        i.head * 0.92,
+        i.head * 0.13,
+        0.026,
         0,
-        i.head * 0.66,
-        -i.head / 2 - 0.008,
-        0.006,
+        i.head * 0.83,
+        -i.head / 2 - 0.004,
+        0.005,
+      ),
+      "head",
+    ),
+    p(
+      a,
+      mergeGeometries(
+        [-1, 1].map((sx) => {
+          const eye = f(
+            i.head * 0.3,
+            i.head * 0.12,
+            0.028,
+            sx * i.head * 0.25,
+            i.head * 0.63,
+            -i.head / 2 - 0.01,
+            0.004,
+          );
+          // Cant the slots inward at the nose, which is what makes a face made
+          // of boxes read as a scowl rather than a pair of headlights.
+          eye.rotateZ(sx * 0.22);
+          eye.translate(0, 0, 0);
+          return eye;
+        }),
+        !1,
       ),
       "headGlow",
+    ),
+    p(
+      a,
+      f(
+        i.head * 0.52,
+        i.head * 0.24,
+        0.02,
+        0,
+        i.head * 0.3,
+        -i.head / 2 - 0.006,
+        0.004,
+      ),
+      "headGlow",
+    ),
+    p(
+      a,
+      mergeGeometries(
+        [0, 1, 2, 3, 4].map((n) =>
+          f(
+            i.head * 0.045,
+            i.head * 0.28,
+            0.028,
+            (n - 2) * i.head * 0.115,
+            i.head * 0.3,
+            -i.head / 2 - 0.012,
+            0.002,
+          ),
+        ),
+        !1,
+      ),
+      "head",
     ),
     p(l, f(i.armW, i.armUL, i.armW, 0, -i.armUL / 2, 0), "body"),
     p(o, f(i.armW, i.armUL, i.armW, 0, -i.armUL / 2, 0), "body"),
@@ -336,7 +393,10 @@ export class EnemyView {
         new MeshStandardMaterial({
           color: 0,
           emissive: new Color(...colors.glow),
-          emissiveIntensity: 1.2,
+          // Above the 1.6 bloom threshold, so the eye slots actually throw
+          // light instead of just being pale paint. A lit face in a dark head
+          // is most of the read.
+          emissiveIntensity: 2.1,
           roughness: 0.6,
           metalness: 0,
         }),
