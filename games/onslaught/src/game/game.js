@@ -63,6 +63,10 @@ import {
 
 // Graphics tiers, indexed by the `quality` setting. Render scale is capped
 // rather than fixed, so a 1x display never renders above its own resolution.
+// The bed the menu and the loading reveal play under. The scheduler is silent
+// below 1; a fight raises it to 2.
+const MENU_MUSIC = 1;
+
 const QUALITY_TIERS = [
   { pixelRatio: 1, samples: 0, shadow: 1024, enemyShadows: !1 },
   { pixelRatio: 1.25, samples: 2, shadow: 2048, enemyShadows: !0 },
@@ -286,6 +290,15 @@ export class Game {
         !l && this.state === "playing" && !this.debug && this.pause();
       }),
       (this.input.onKeyDown = (l) => this.onKey(l)),
+      // Autoplay policy holds the context suspended until the player interacts.
+      // Waking on the first gesture anywhere means the menu has sound as soon
+      // as they touch the page, rather than staying silent until DEPLOY.
+      window.addEventListener("pointerdown", () => this.audio.resume(), {
+        once: true,
+      }),
+      window.addEventListener("keydown", () => this.audio.resume(), {
+        once: true,
+      }),
       window.addEventListener("resize", () => this.resize()),
       document.addEventListener("visibilitychange", () => {
         this.last = performance.now();
@@ -327,7 +340,13 @@ export class Game {
   }
   // Held back until warmup resolves so nothing renders mid-compile.
   startLoop() {
-    ((this.last = performance.now()), requestAnimationFrame(this._raf));
+    ((this.last = performance.now()),
+      // The music scheduler emits nothing below intensity 1, so a menu left at
+      // 0 got ambience only and the music arrived late, on DEPLOY. It comes up
+      // with the reveal now; the wave handlers still take it to 2 in a fight.
+      this.audio.resume(),
+      (this.audio.intensity = MENU_MUSIC),
+      requestAnimationFrame(this._raf));
   }
   // Persisted preferences. Every consumer is presentation-side; FOV and shake
   // are read each frame in presentGame, the rest are pushed on change.
