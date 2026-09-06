@@ -1,6 +1,6 @@
 import { MathUtils, Vector3 } from "three";
 import { DEG, damp, smooth01 } from "../core/mathx.js";
-import { WEAPONS } from "../data/weapons.js";
+import { DEFAULT_LOADOUT, WEAPONS } from "../data/weapons.js";
 import {
   EV_AMMO,
   EV_DRY_FIRE,
@@ -45,12 +45,25 @@ export class WeaponState {
   }
 }
 
+// Weapon defs for the keys the player carries, in slot order. Unknown keys
+// are dropped; an empty or fully unknown loadout falls back to the default
+// rather than leaving the player holding nothing.
+const BY_KEY = new Map(WEAPONS.map((w) => [w.key, w]));
+export function resolveLoadout(loadout) {
+  const keys = loadout && loadout.length ? loadout : DEFAULT_LOADOUT;
+  const picked = keys.map((k) => BY_KEY.get(k)).filter(Boolean);
+  return picked.length ? picked : DEFAULT_LOADOUT.map((k) => BY_KEY.get(k));
+}
+
 export class Weapons {
-  constructor(rng) {
+  constructor(rng, loadout = null) {
     ((this.rng = rng),
-      (this.weapons = WEAPONS.map((r) => new WeaponState(r))),
+      (this.loadout = resolveLoadout(loadout)),
+      (this.weapons = this.loadout.map((r) => new WeaponState(r))),
       (this.current = 0),
-      (this.lastWeapon = 1),
+      // Quick-swap target. Clamped so a single-weapon loadout cannot point
+      // the swap at a slot that does not exist.
+      (this.lastWeapon = Math.min(1, this.weapons.length - 1)),
       (this.switching = null),
       (this.ads = 0),
       (this.adsSmooth = 0),
@@ -103,8 +116,11 @@ export class Weapons {
       a = r.def;
     ((r.cooldown -= t), (r.bloom = Math.max(0, r.bloom - a.bloomDecay * t)));
     let o = e.switchTo;
-    (e.wheel !== 0 && (o = (this.current + (e.wheel > 0 ? 1 : 2)) % 3),
+    const n1 = this.weapons.length;
+    (e.wheel !== 0 &&
+      (o = (this.current + (e.wheel > 0 ? 1 : n1 - 1)) % n1),
       e.swapLast && (o = this.lastWeapon),
+      o >= n1 && (o = -1),
       o >= 0 &&
         o !== this.current &&
         !this.switching &&
@@ -188,7 +204,10 @@ export class Weapons {
       h = this._up.copy(c).cross(o),
       d = this.getSpreadForShot(e);
     t.bloom = Math.min(n.bloomMax, t.bloom + n.bloomPerShot);
-    const u = n.pellets;
+    const u = n.fire === "cone" ? 0 : n.pellets;
+    // A stream weapon has no ray to trace and no aim spread: it burns
+    // everything standing in the cone in front of the muzzle this tick.
+    if (n.fire === "cone") world.fireCone(l, o, n);
     for (let f = 0; f < u; f++) {
       const M =
           (u > 1 ? MathUtils.lerp(n.pelletSpread, n.pelletSpreadAds, r) : d) *
@@ -211,15 +230,17 @@ export class Weapons {
         (1 - r * n.adsRecoilReduce),
       v = n.recoilYaw * DEG * (m + this.rng.range(-0.6, 0.6)) * (1 - r * 0.3);
     (e.addRecoil(g, v, n.recoilPermanent), e.addTrauma(n.trauma));
+    // What the action does between shots: eject on the spot, run a pump
+    // stroke, or throw the bolt after a short delay.
     (world.emit(EV_SHOT, { def: n, index: this.current, ads: r }),
-      n.key === "ar"
+      n.action === "eject"
         ? world.emit(EV_EJECT, { shell: n.shell })
-        : n.key === "shotgun"
+        : n.action === "pump"
           ? ((t.pumping = !0),
             (t.pumpT = 0),
             (t.pumpSounded = !1),
             (t.pumpShell = !1))
-          : n.key === "dmr" && (t.boltDelayT = n.boltDelay),
+          : n.action === "bolt" && (t.boltDelayT = n.boltDelay),
       (e.sprintBlock = Math.max(e.sprintBlock, 0.25)),
       this._ammo(world));
   }
@@ -256,7 +277,7 @@ export class Weapons {
     }
   }
   startReload(t, world) {
-    (t.def.key === "shotgun"
+    (t.def.reload === "shells"
       ? (t.reload = {
           t: 0,
           phase: "intro",
@@ -271,7 +292,7 @@ export class Weapons {
   updateReload(t, e, n, world) {
     const s = t.reload,
       r = t.def;
-    if (r.key === "shotgun") {
+    if (r.reload === "shells") {
       s.t += e;
       if (s.phase === "intro")
         s.t >= r.reloadIntro && ((s.phase = "shells"), (s.shellT = 0));

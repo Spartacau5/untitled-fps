@@ -24,14 +24,17 @@ import { Weapons } from "./weapons.js";
 // with step(dt, inputFrame); side effects come out as events for the Game to
 // present. Runs identically in the browser and under node.
 export class World {
-  constructor({ seed = 1, god = !1, noSpawn = !1 } = {}) {
+  constructor({ seed = 1, god = !1, noSpawn = !1, loadout = null } = {}) {
     ((this.seed = seed),
       (this.god = god),
       (this.noSpawn = noSpawn),
+      // Which guns the player brought. Part of the run, not a setting: the
+      // same seed with a different loadout is a different run.
+      (this.loadout = loadout),
       (this.rng = new RNG(seed)),
       (this.arena = new Arena(this.rng.fork("layout"))),
       (this.player = new Player(this.arena)),
-      (this.weapons = new Weapons(this.rng.fork("combat"))),
+      (this.weapons = new Weapons(this.rng.fork("combat"), loadout)),
       (this.enemies = new Enemies(this.arena, this.rng.fork("ai"))),
       (this.projectiles = new Projectiles(this.arena)),
       (this.waveRng = this.rng.fork("waves")),
@@ -55,7 +58,11 @@ export class World {
       (this.pickups = []),
       (this.nextPickupId = 1),
       (this.deadT = 0),
-      (this._v = new Vector3()));
+      (this._v = new Vector3()),
+      // Scratch for the stream-weapon cone, reused per tick.
+      (this._cone = []),
+      (this._cv = new Vector3()),
+      (this._cp = new Vector3()));
   }
   emit(type, data) {
     ((data.type = type), this.stats.record(data, this), this.events.push(data));
@@ -109,6 +116,12 @@ export class World {
       (this._hurtBy = null),
       this.stats.reset(),
       this.weapons._ammo(this));
+  }
+  // Swap the carried guns between runs. startRun() re-forks the combat
+  // stream, so rebuilding the weapons here cannot desync a seeded replay.
+  setLoadout(keys) {
+    ((this.loadout = keys),
+      (this.weapons = new Weapons(this.rng.fork("combat"), keys)));
   }
   get elapsed() {
     return this.time - this.startTime;
@@ -167,6 +180,45 @@ export class World {
         this.emit(EV_IMPACT, { point: o.point, normal: o.normal, def: n }));
     else h = t.clone().addScaledVector(e, 240);
     tracer && this.emit(EV_TRACER, { end: h, def: n });
+  }
+  // Stream weapons: damage everything in a cone this tick rather than tracing
+  // one ray. Walls stop the stream, so a target behind cover stays safe.
+  fireCone(origin, dir, def) {
+    const hits = this.enemies.coneCast(
+      origin,
+      dir,
+      def.coneRange,
+      def.coneAngle,
+      this._cone,
+    );
+    for (const h of hits) {
+      const e = h.enemy;
+      this._cv
+        .set(e.pos.x - origin.x, e.pos.y - origin.y, e.pos.z - origin.z)
+        .normalize();
+      if (this.arena.raycast(origin, this._cv, h.dist)) continue;
+      const falloff =
+        1 -
+        (1 - def.falloffMin) *
+          MathUtils.clamp(
+            (h.dist - def.falloffStart) /
+              (def.falloffEnd - def.falloffStart),
+            0,
+            1,
+          );
+      this._cp.set(
+        origin.x + this._cv.x * h.dist,
+        origin.y + this._cv.y * h.dist,
+        origin.z + this._cv.z * h.dist,
+      );
+      this.enemies.damage(
+        { enemy: e, t: h.dist, head: !1, point: this._cp.clone() },
+        def.damage * falloff,
+        this._cv,
+        def,
+        this,
+      );
+    }
   }
   // n is the attacking enemy, or null for a spitter projectile.
   onPlayerHit(t, e, n) {

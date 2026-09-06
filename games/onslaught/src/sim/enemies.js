@@ -163,6 +163,35 @@ export class Enemies {
     }
     return s;
   }
+  // Every live enemy whose body intersects the cone, nearest first. Stream
+  // weapons use this where hitscan uses raycast() above: there is no single
+  // ray to trace, so bodies are tested as spheres against the cone instead.
+  // Results are written into `out` so a per-tick stream allocates nothing.
+  coneCast(origin, dir, range, halfAngle, out) {
+    out.length = 0;
+    for (const r of this.list) {
+      if (r.state === "die" || r.state === "spawn") continue;
+      const a = this.metrics[r.type],
+        o = r.scale,
+        // Aim at mid-torso rather than the origin, so a stream levelled at
+        // chest height does not miss over a crouching target's feet.
+        dx = r.pos.x - origin.x,
+        dy = r.pos.y + a.torsoBot * o - origin.y,
+        dz = r.pos.z - origin.z,
+        dist = Math.hypot(dx, dy, dz);
+      if (dist > range || dist < 1e-4) continue;
+      const cos = (dx * dir.x + dy * dir.y + dz * dir.z) / dist;
+      if (cos <= 0) continue;
+      // Widen the cone by the angle the body subtends at this distance, so a
+      // wide target at the edge of the stream still catches.
+      const radius = Math.max(r.def.radius, a.headY * o * 0.32),
+        widen = Math.asin(Math.min(1, radius / dist));
+      if (Math.acos(Math.min(1, cos)) > halfAngle + widen) continue;
+      out.push({ enemy: r, dist });
+    }
+    out.sort((p, q) => p.dist - q.dist);
+    return out;
+  }
   damage(t, e, n, s, world) {
     const r = t.enemy;
     if (r.state === "die") return { killed: !1 };
