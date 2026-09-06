@@ -53,12 +53,12 @@ export const theme = {
   // kept distinct rather than all going sentry-blue: cold blue for the
   // pursuit units, Ultron-Prime red for the heavy, teal for the ranged one.
   enemies: {
-    runner: { name: "PURSUIT UNIT", body: 0xc9d1d6, glow: [0.5, 0.82, 1.0] },
-    brute: { name: "BREACH UNIT", body: 0x9aa4ab, glow: [1.0, 0.3, 0.1] },
+    runner: { name: "PURSUIT UNIT", body: 0xc9d1d6, glow: [1.0, 0.48, 0.13] },
+    brute: { name: "BREACH UNIT", body: 0x9aa4ab, glow: [1.0, 0.13, 0.07] },
     spitter: {
       name: "SUPPRESSION UNIT",
       body: 0xa9b3b1,
-      glow: [0.2, 0.92, 0.9],
+      glow: [0.3, 0.58, 1.0],
     },
   },
   fx: {
