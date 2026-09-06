@@ -67,12 +67,15 @@ export class Weapons {
       (this.ads = 0),
       (this.adsSmooth = 0),
       (this.sprintBlend = 0),
+      // Quick-swap target and the clock both carry into the next run
+      // otherwise, and Q would swap somewhere the original run never did.
+      (this.lastWeapon = 1),
+      (this.time = 0),
       this.selectImmediate(0, world, !0));
   }
   // `quiet` marks a programmatic select (run start) vs. a player switch.
   selectImmediate(t, world, quiet = !1) {
-    ((this.current = t),
-      world && world.emit(EV_SWITCH, { index: t, quiet }));
+    ((this.current = t), world && world.emit(EV_SWITCH, { index: t, quiet }));
   }
   _ammo(world) {
     const t = this.weapon;
@@ -302,9 +305,15 @@ export class Weapons {
     s.t += e;
     const l = s.t / s.dur;
     if (
-      (!s.s1 && l > 0.16 && ((s.s1 = !0), world.emit(EV_RELOAD_STAGE, { stage: "magOut" })),
-      !s.s2 && l > 0.6 && ((s.s2 = !0), world.emit(EV_RELOAD_STAGE, { stage: "magIn" })),
-      !s.s3 && l > 0.82 && ((s.s3 = !0), world.emit(EV_RELOAD_STAGE, { stage: "bolt" })),
+      (!s.s1 &&
+        l > 0.16 &&
+        ((s.s1 = !0), world.emit(EV_RELOAD_STAGE, { stage: "magOut" })),
+      !s.s2 &&
+        l > 0.6 &&
+        ((s.s2 = !0), world.emit(EV_RELOAD_STAGE, { stage: "magIn" })),
+      !s.s3 &&
+        l > 0.82 &&
+        ((s.s3 = !0), world.emit(EV_RELOAD_STAGE, { stage: "bolt" })),
       l >= 1)
     ) {
       const u = Math.min(r.magSize - t.mag, t.reserve);

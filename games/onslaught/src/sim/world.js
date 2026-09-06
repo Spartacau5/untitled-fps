@@ -39,7 +39,7 @@ export class World {
       (this._hurtBy = null),
       (this.events = []),
       (this.time = 0),
-      (this.startTime = 0),
+      (this.elapsed = 0),
       (this.slowmoRequest = 0),
       (this.score = 0),
       (this.kills = 0),
@@ -101,7 +101,7 @@ export class World {
       (this.lastKillT = -10),
       (this.queue.length = 0),
       (this.deadT = 0),
-      (this.startTime = this.time),
+      (this.elapsed = 0),
       (this.breakT = 4),
       (this.waveActive = !1),
       (this.wave = 0),
@@ -110,11 +110,13 @@ export class World {
       this.stats.reset(),
       this.weapons._ammo(this));
   }
-  get elapsed() {
-    return this.time - this.startTime;
-  }
   step(dt, input) {
-    this.time += dt;
+    // Run time is accumulated, not derived as `time - startTime`. `time` keeps
+    // growing for the whole life of the World, so that subtraction carried a
+    // different rounding error on a second run than it did on the first -
+    // enough to land a kill on the other side of the 1.8 s streak cutoff and
+    // score it differently on a supposedly identical replay.
+    ((this.time += dt), (this.elapsed += dt));
     // Systems see run-relative time so a replay started later in the same
     // World (menu → play → die → redeploy) evolves identically.
     const p = this.player,
