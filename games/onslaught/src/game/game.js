@@ -46,6 +46,7 @@ import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
+import { mountControls } from "../ui/controls.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import {
   applyAssignedCallsign,
@@ -164,6 +165,13 @@ export class Game {
         btnOpen: this.hud.el.btnSettings,
         btnBack: this.hud.el.settingsBack,
         btnReset: this.hud.el.settingsReset,
+        menuMain: this.hud.el.menuMain,
+      })),
+      (this.controlsPanel = mountControls({
+        panel: this.hud.el.controlsPanel,
+        body: this.hud.el.controlsBody,
+        btnOpen: this.hud.el.btnControls,
+        btnBack: this.hud.el.controlsBack,
         menuMain: this.hud.el.menuMain,
       })),
       (this.runLog = new RunLog()),
@@ -369,6 +377,7 @@ export class Game {
   }
   start() {
     this.settingsPanel && this.settingsPanel.close();
+    this.controlsPanel && this.controlsPanel.close();
     this.hud.setPauseActions(false);
     if ((this.audio.init(), this.audio.resume(), this.state === "paused")) {
       ((this.state = "playing"),
@@ -444,6 +453,17 @@ export class Game {
   onKey(t) {
     if (t === "Escape" && this.settingsPanel && this.settingsPanel.isOpen()) {
       this.settingsPanel.close();
+      return;
+    }
+    if (t === "Escape" && this.controlsPanel && this.controlsPanel.isOpen()) {
+      this.controlsPanel.close();
+      return;
+    }
+    // H opens how-to-play from the menu or pause. Mid-run it would need a
+    // pause first, so it is ignored while the pointer is locked.
+    if (t === "KeyH" && this.controlsPanel && this.state !== "playing") {
+      this.settingsPanel && this.settingsPanel.close();
+      this.controlsPanel.toggle();
       return;
     }
     (t === "KeyM" &&

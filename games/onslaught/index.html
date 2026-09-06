@@ -76,7 +76,10 @@
           <button type="button" id="btn-restart" class="btn-secondary">RESTART</button>
           <button type="button" id="btn-exit-menu" class="btn-secondary">EXIT TO MENU</button>
         </div>
-        <button id="btn-settings" class="btn-secondary">SETTINGS</button>
+        <div class="menu-buttons">
+          <button id="btn-controls" class="btn-secondary">HOW TO PLAY</button>
+          <button id="btn-settings" class="btn-secondary">SETTINGS</button>
+        </div>
         <label class="callsign">
           <span>PLAYER NAME</span>
           <input id="player-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="nickname" />
@@ -88,9 +91,7 @@
         </div>
         <div id="leaderboard" class="leaderboard"></div>
         <div class="controls">
-          <div><b>WASD</b> move &nbsp;·&nbsp; <b>SHIFT</b> sprint &nbsp;·&nbsp; <b>SPACE</b> jump &nbsp;·&nbsp; <b>C</b> slide / crouch</div>
-          <div><b>LMB</b> fire &nbsp;·&nbsp; <b>RMB</b> aim down sights &nbsp;·&nbsp; <b>R</b> reload &nbsp;·&nbsp; <b>1 2 3 / WHEEL</b> weapons</div>
-          <div><b>[ ]</b> sensitivity &nbsp;·&nbsp; <b>M</b> music &nbsp;·&nbsp; <b>N</b> ambient &nbsp;·&nbsp; <b>ESC</b> pause</div>
+          <div><b>WASD</b> move &nbsp;·&nbsp; <b>LMB</b> fire &nbsp;·&nbsp; <b>RMB</b> aim &nbsp;·&nbsp; <b>R</b> reload &nbsp;·&nbsp; <b>H</b> how to play</div>
         </div>
         <button type="button" id="btn-feedback" class="btn-feedback">PROVIDE FEEDBACK</button>
         <div id="feedback-panel" class="feedback-panel hidden">
@@ -113,6 +114,13 @@
         <div id="run-actions" class="run-actions hidden">
           <button id="btn-dl-run" class="btn-secondary">DOWNLOAD RUN LOG</button>
           <button id="btn-dl-all" class="btn-secondary">DOWNLOAD ALL RUNS</button>
+        </div>
+      </div>
+      <div id="controls-panel" class="settings controls-panel hidden">
+        <div class="settings-title">HOW TO PLAY</div>
+        <div id="controls-body" class="controls-body"></div>
+        <div class="settings-actions">
+          <button type="button" id="btn-controls-back" class="btn-secondary">BACK</button>
         </div>
       </div>
       <div id="settings" class="settings hidden">

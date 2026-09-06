@@ -899,3 +899,110 @@ canvas#game {
 .hud-tr {
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
 }
+
+/* ---- how to play ---- */
+.menu-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 10px 0 28px;
+}
+.menu-buttons #btn-settings,
+.menu-buttons #btn-controls {
+  display: inline-block;
+  margin: 0;
+}
+.controls-panel {
+  width: min(820px, 94vw);
+}
+.controls-body {
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.ctrl-brief {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.14);
+}
+.ctrl-brief-row {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 14px;
+  align-items: baseline;
+}
+.ctrl-brief-row b {
+  font: 700 12px/1.4 var(--font-ui);
+  letter-spacing: 0.16em;
+  color: var(--accent);
+}
+.ctrl-brief-row span {
+  font: 400 14px/1.5 var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--dim);
+}
+.ctrl-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px 28px;
+  align-items: start;
+}
+.ctrl-heading {
+  margin: 0 0 6px;
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+.ctrl-group + .ctrl-group .ctrl-heading {
+  margin-top: 0;
+}
+.ctrl-row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.08);
+}
+.ctrl-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+.ctrl-key {
+  min-width: 24px;
+  padding: 4px 6px;
+  text-align: center;
+  background: rgba(243, 246, 248, 0.08);
+  border: 1px solid rgba(243, 246, 248, 0.34);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.1em;
+  color: #fff;
+}
+.ctrl-key-mouse {
+  background: rgba(255, 90, 31, 0.12);
+  border-color: rgba(255, 90, 31, 0.55);
+  color: var(--accent);
+}
+.ctrl-or {
+  font: 500 10px/1 var(--font-ui);
+  letter-spacing: 0.08em;
+  color: rgba(243, 246, 248, 0.45);
+}
+.ctrl-label {
+  font: 600 12px/1.35 var(--font-ui);
+  letter-spacing: 0.12em;
+  color: var(--ui);
+}
+.ctrl-hint {
+  display: block;
+  font: 400 11px/1.35 var(--font-ui);
+  letter-spacing: 0.04em;
+  font-style: normal;
+  color: rgba(243, 246, 248, 0.5);
+}
