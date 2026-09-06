@@ -19,6 +19,7 @@ import { rigMetrics } from "../sim/enemies.js";
 import { MAX_PROJECTILES } from "../sim/projectiles.js";
 import { theme } from "../theme/theme.js";
 import { NOISE_GLSL } from "./shaders/noise.glsl.js";
+import { wearSnippet } from "./shaders/gunwear.js";
 
 const ZERO_MATRIX = new Matrix4().makeScale(0, 0, 0);
 
@@ -232,12 +233,12 @@ export function makeEnemyMaterial(i, t, e, n = !1) {
           .replace(
             "#include <common>",
             `#include <common>
-attribute float aFlash; attribute float aDissolve; varying float vFlash; varying float vDissolve; varying vec3 vWPos;`,
+attribute float aFlash; attribute float aDissolve; varying float vFlash; varying float vDissolve; varying vec3 vWPos; varying vec3 vOPos;`,
           )
           .replace(
             "#include <begin_vertex>",
             `#include <begin_vertex>
-        vFlash = aFlash; vDissolve = aDissolve;
+        vFlash = aFlash; vDissolve = aDissolve; vOPos = position;
         #ifdef USE_INSTANCING
           vWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
         #else
@@ -248,7 +249,7 @@ attribute float aFlash; attribute float aDissolve; varying float vFlash; varying
           .replace(
             "#include <common>",
             `#include <common>
-varying float vFlash; varying float vDissolve; varying vec3 vWPos; uniform float uTime;
+varying float vFlash; varying float vDissolve; varying vec3 vWPos; varying vec3 vOPos; uniform float uTime;
 ${NOISE_GLSL}`,
           )
           .replace(
@@ -259,6 +260,28 @@ ${NOISE_GLSL}`,
         if (dn < dEdge) discard;
         float dBurn = smoothstep(dEdge + 0.14, dEdge, dn) * step(0.001, vDissolve);`,
           )),
+        // Alloy wear on the body parts only: the glow panels are emissive
+        // screens and the depth pass has no albedo to modulate. A single flat
+        // roughness across a three-metre robot is the loudest untextured tell
+        // there is, so the roughness term matters more than the tint.
+        n ||
+          e ||
+          (s.fragmentShader = s.fragmentShader
+            .replace(
+              "#include <map_fragment>",
+              `#include <map_fragment>
+        vec3 op = vOPos;
+        float wy = vWPos.y;
+        float tint = 1.0;
+        float rough = 0.0;
+        ${wearSnippet("alloy")}
+        diffuseColor.rgb *= clamp(tint, 0.0, 2.0);`,
+            )
+            .replace(
+              "#include <roughnessmap_fragment>",
+              `#include <roughnessmap_fragment>
+        roughnessFactor = clamp(roughnessFactor + rough, 0.05, 1.0);`,
+            )),
         n ||
           (s.fragmentShader = s.fragmentShader.replace(
             "#include <emissivemap_fragment>",

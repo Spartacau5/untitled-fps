@@ -52,6 +52,12 @@ export class WeaponView {
     this.models = wanted.map((key) => {
       if (!this.built.has(key)) {
         const model = buildWeaponModel(key, this.redDotMat);
+        // Opt every solid part into the weapon scene's shadow map. The lens
+        // and the flash quads are transparent and would only smear.
+        model.group.traverse((o) => {
+          if (o.isMesh && o !== model.parts.lens)
+            (o.castShadow = !0), (o.receiveShadow = !0);
+        });
         (this.built.set(key, model),
           this.rig.add(model.group),
           (model.group.visible = !1));

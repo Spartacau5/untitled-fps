@@ -19,6 +19,7 @@ import {
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { rand } from "../../core/mathx.js";
 import { NOISE_GLSL } from "../shaders/noise.glsl.js";
+import { applyGunWear } from "../shaders/gunwear.js";
 
 // Shared viewmodel kit: the materials every gun is made of, the handful of
 // primitives the builders assemble, the gloved hands, and the two effects
@@ -89,6 +90,20 @@ export const VIEWMODEL_MATS = {
     side: DoubleSide,
   }),
 };
+// Machining, wear and grain on the viewmodel surfaces. Object-space, so the
+// detail is cut into each part rather than swimming past as the gun moves.
+for (const [name, style] of [
+  ["metal", "metal"],
+  ["metalDark", "metalDark"],
+  ["metalLight", "metal"],
+  ["polymer", "polymer"],
+  ["polymer2", "polymer"],
+  ["glove", "glove"],
+  ["sleeve", "glove"],
+  ["tube", "metalDark"],
+])
+  applyGunWear(VIEWMODEL_MATS[name], style, `vm_${name}`);
+
 export function box(i, t, e, n, s = 0, r = 0, a = 0, l = 0) {
   const o =
       l > 0 ? new RoundedBoxGeometry(i, t, e, 2, l) : new BoxGeometry(i, t, e),

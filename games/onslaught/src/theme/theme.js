@@ -25,7 +25,13 @@ export const theme = {
     weaponKey: { color: 0xfff0df, intensity: 3.0 },
     weaponHemi: { sky: 0xb7ccdf, ground: 0x92999f, intensity: 1.5 },
     weaponFill: { color: 0xc8d9e8, intensity: 1.0 },
-    envIntensity: { world: 0.7, weapon: 0.8 },
+    // The world capture used to be taken from the world origin, which sat on
+    // the floor plane and inside the plinth: its lower hemisphere was the
+    // underside of the floor, which let sky through and made the probe read
+    // far brighter than the district actually is. The capture now happens at
+    // eye height and sees real ground, so this compensates for the light
+    // that was never really there.
+    envIntensity: { world: 1.25, weapon: 0.8 },
   },
   arena: {
     concrete: 0xa5a39c,

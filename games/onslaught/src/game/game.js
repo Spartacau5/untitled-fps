@@ -128,16 +128,33 @@ export class Game {
     );
     // Keep the weapon key in camera space so turning toward a dark facade
     // does not lose the receiver, sight and human-hand silhouettes.
-    (r.position.set(-2, 3, 2),
-      r.target.position.set(0, -0.2, -1),
-      this.weaponCamera.add(r, r.target),
-      this.weaponScene.add(
-        new HemisphereLight(
-          theme.lights.weaponHemi.sky,
-          theme.lights.weaponHemi.ground,
-          theme.lights.weaponHemi.intensity,
-        ),
-      ));
+    r.position.set(-2, 3, 2);
+    r.target.position.set(0, -0.2, -1);
+    // Self-shadowing on the viewmodel. Without it the hands, magwell and
+    // trigger guard have no contact darkening and the gun reads as one flat
+    // object. A tight frustum is enough: the subject is under a metre across
+    // and sits a fixed distance from the camera.
+    r.castShadow = true;
+    r.shadow.mapSize.width = r.shadow.mapSize.height = 1024;
+    Object.assign(r.shadow.camera, {
+      left: -0.7,
+      right: 0.7,
+      top: 0.7,
+      bottom: -0.7,
+      near: 0.05,
+      far: 6,
+    });
+    r.shadow.bias = -0.0012;
+    r.shadow.normalBias = 0.006;
+    r.shadow.camera.updateProjectionMatrix();
+    this.weaponCamera.add(r, r.target);
+    this.weaponScene.add(
+      new HemisphereLight(
+        theme.lights.weaponHemi.sky,
+        theme.lights.weaponHemi.ground,
+        theme.lights.weaponHemi.intensity,
+      ),
+    );
     const a = new PointLight(
       theme.lights.weaponFill.color,
       theme.lights.weaponFill.intensity,
@@ -376,7 +393,17 @@ export class Game {
     // Capture the district itself once so steel and glass reflect buildings,
     // billboard colors and the sky instead of the original orange arena ring.
     const generator = new PMREMGenerator(this.renderer);
+    // fromScene captures from the world origin, which here is a point on the
+    // ground plane and inside the granite plinth: the lower half of the
+    // capture was the underside of the floor, so every metal surface in the
+    // game reflected a dark hemisphere. Drop the scene to put the capture at
+    // roughly eye height instead.
+    const CAPTURE_Y = 3.2;
+    this.scene.position.y = -CAPTURE_Y;
+    this.scene.updateMatrixWorld(true);
     const environment = generator.fromScene(this.scene, 0.06, 0.1, 1200);
+    this.scene.position.y = 0;
+    this.scene.updateMatrixWorld(true);
     this.scene.environment = environment.texture;
     // The city capture is intentionally dark between the tall buildings.
     // A separate neutral reflection rig keeps high-metalness weapon surfaces
