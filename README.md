@@ -8,7 +8,7 @@ This repo is a fork of that catalog, stripped down to a single game. I am buildi
 
 ---
 
-Browser arena FPS. Placeholder title **UNTITLED ARENA**. Horde waves in a brutalist ring, three guns (VK-7 assault rifle, Hammer-12 shotgun, Longshot DMR), sprint / slide / ADS, and a top-5 all-time leaderboard.
+Browser arena FPS. Placeholder title **UNTITLED ARENA**. Horde waves in a Times Square-inspired ring, eight guns, sprint / slide / ADS, and a top-5 all-time leaderboard.
 
 Live: [untitled-fps.vercel.app](https://untitled-fps.vercel.app)
 
@@ -28,7 +28,7 @@ Vite serves the game at [http://localhost:5173](http://localhost:5173). Query fl
 - `?nospawn` — empty arena
 - `?seed=<n>` — replay a specific run
 
-Settings (sensitivity, FOV, volumes, shake) persist in `localStorage["onslaught.settings.v1"]`; finished runs accumulate in `onslaught.runs.v1` (last 30) and can be downloaded from the death screen for balance analysis.
+Settings (sensitivity, FOV, volumes, shake) persist in `localStorage["onslaught.settings.v1"]`; finished runs accumulate in `onslaught.runs.v1` (last 30) and can be downloaded from the death screen for balance analysis. XP, level and the chosen loadout live in `onslaught.profile.v1`.
 
 Other commands:
 
@@ -54,6 +54,36 @@ The leaderboard API is the same locally as in production: Vite proxies `/api/lea
 Advance the world with `World.step(dt, inputFrame)`. Side effects come out as events (`EV_HIT`, `EV_KILL`, …). `World.hash()` plus `tests/sim-determinism.test.mjs` lock a seeded run.
 
 `scripts/check-sim-boundary.mjs` (via `npm run check:boundary` / `npm test`) fails the build if `sim/`, `data/`, or `core/` import presentation code, browser globals, or `Math.random`. Settings live in presentation so they cannot change what a seed produces.
+
+## Armory and progression
+
+You carry one **primary** and one **sidearm**, bound to keys 1 and 2. ARMORY on
+the menu picks them; the choice persists and is recorded on the run.
+
+| Slot | Guns |
+| --- | --- |
+| Primary | VK-7 assault rifle, Hammer-12 shotgun, Longshot DMR, Overwatch LMG, Meridian sniper, Cinder-6 incinerator |
+| Sidearm | Sidewinder 9 pistol, Wasp-9 SMG |
+
+Every gun is `unlockLevel: 0` in `src/data/weapons.js` — free right now. Runs pay
+XP (`src/core/progression.js`) and levels are shown in the armory; raising a
+gun's `unlockLevel` turns the gate on without touching the screen.
+
+Weapons are data plus a viewmodel: an entry in `src/data/weapons.js` and a
+builder in `src/render/weapons/` registered in that folder's `index.js`. Guns
+that fire a stream rather than a ray set `fire: "cone"` and are resolved by
+`World.fireCone`.
+
+## Billboards
+
+`src/render/city/ads.js` is the one file to edit for the signage: the campaign
+list, the tower stack, shop names and the news ticker, with the format
+documented at the top. Panels can carry a `motion` (`pulse`, `sweep`,
+`flicker`, `scroll`) driven by `src/render/shaders/led.js`.
+
+To use your own artwork, drop a PNG or JPG in `games/onslaught/public/ads/` and
+point a campaign's `image` at it (e.g. `"ads/my-poster.png"`). The folder ships
+empty; a missing file falls back to the drawn board.
 
 ## Seeded runs and leaderboard
 

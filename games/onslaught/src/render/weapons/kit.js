@@ -138,34 +138,67 @@ export function torus(i, t, e, n, s, r) {
     l = new Mesh(a, e);
   return (l.position.set(n, s, r), l);
 }
+const G = () => VIEWMODEL_MATS.glove;
+
+// A gloved finger wrapping a grip: three phalanges stepping around the front
+// of the hand, each shorter and slightly tucked, so the silhouette curls
+// instead of ending in a flat slab. `len` scales the whole digit, which is
+// how the middle finger ends up longest and the little finger shortest.
+function finger(group, y, len, z0, w = 0.0125) {
+  const seg = [
+    [len * 0.026, 0.0, 0.0],
+    [len * 0.019, -0.0035, -0.010],
+    [len * 0.013, -0.0085, -0.017],
+  ];
+  let z = z0;
+  seg.forEach(([d, dy, dz], i) => {
+    z -= d / 2;
+    group.add(
+      box(w, 0.0135 - i * 0.0012, d, G(), 0, y + dy, z + dz, 0.0045),
+    );
+    z -= d / 2;
+  });
+  // Knuckle over the joint, which is what catches the key light.
+  group.add(box(w * 0.92, 0.014, 0.009, G(), 0, y + 0.001, z0 - 0.004, 0.0055));
+}
+
+// The wrist and glove cuff. The forearm used to leave the hand as one bare
+// cone with no join at all; a cuff and a wrist block give the arm somewhere
+// to start.
+function wrist(group, x, y, z, w = 0.046) {
+  (group.add(box(w, 0.052, 0.03, G(), x, y, z, 0.012)),
+    group.add(
+      box(w * 1.12, 0.02, 0.036, VIEWMODEL_MATS.sleeve, x, y - 0.026, z, 0.008),
+    ));
+}
+
+// Strong hand on the pistol grip. Fingers stack downward from the index and
+// wrap forward around the front strap; the thumb lies along the far side.
 export function makeRightHand(i, t = -0.3) {
   const e = new Group();
-  (e.add(box(0.05, 0.085, 0.052, VIEWMODEL_MATS.glove, 0.004, 0, 0.026, 0.014)),
-    e.add(
-      box(0.05, 0.072, 0.028, VIEWMODEL_MATS.glove, 0, -0.012, -0.022, 0.01),
-    ));
+  // Palm and the back of the hand.
+  (e.add(box(0.048, 0.082, 0.05, G(), 0.004, 0, 0.026, 0.014)),
+    e.add(box(0.05, 0.07, 0.026, G(), 0, -0.01, -0.02, 0.01)));
+  // Four fingers, individually placed with gaps rather than one full-width
+  // bar per finger. Middle longest, little finger shortest.
+  const lens = [0.98, 1.06, 1.0, 0.88];
   for (let n = 0; n < 4; n++)
-    e.add(
-      box(
-        0.05,
-        0.014,
-        0.03,
-        VIEWMODEL_MATS.glove,
-        0,
-        0.02 - n * 0.017,
-        -0.026,
-        0.005,
-      ),
-    );
+    finger(e, 0.021 - n * 0.0172, lens[n], -0.03);
+  // Thumb: two segments angled up and across the back of the grip.
+  const thumb = new Group();
+  (thumb.position.set(-0.026, 0.012, 0.012),
+    (thumb.rotation.z = 0.5),
+    (thumb.rotation.y = -0.35),
+    thumb.add(box(0.016, 0.03, 0.019, G(), 0, 0.012, 0, 0.006)),
+    thumb.add(box(0.014, 0.024, 0.017, G(), -0.001, 0.034, -0.004, 0.006)),
+    e.add(thumb));
   return (
-    e.add(
-      box(0.018, 0.045, 0.02, VIEWMODEL_MATS.glove, -0.03, 0.03, 0.01, 0.006),
-    ),
+    wrist(e, 0.004, -0.052, 0.03),
     e.add(
       tube(
-        [0.01, -0.05, 0.05],
+        [0.01, -0.062, 0.05],
         [0.11, -0.3, 0.38],
-        0.036,
+        0.034,
         0.055,
         VIEWMODEL_MATS.sleeve,
       ),
@@ -175,32 +208,35 @@ export function makeRightHand(i, t = -0.3) {
     e
   );
 }
+
+// Support hand under a handguard. Fingers run along the gun rather than
+// around a grip, so they are laid out front-to-back and reach up and over.
 export function makeLeftHand(i, t = [-0.13, -0.34, 0.24]) {
   const e = new Group();
-  (e.add(
-    box(0.05, 0.048, 0.088, VIEWMODEL_MATS.glove, -0.004, -0.032, 0, 0.014),
-  ),
-    e.add(
-      box(0.02, 0.06, 0.084, VIEWMODEL_MATS.glove, 0.03, -0.004, 0, 0.008),
-    ));
-  for (let n = 0; n < 4; n++)
-    e.add(
-      box(
-        0.016,
-        0.028,
-        0.017,
-        VIEWMODEL_MATS.glove,
-        0.036,
-        0.025,
-        -0.03 + n * 0.02,
-        0.005,
-      ),
-    );
+  (e.add(box(0.048, 0.046, 0.086, G(), -0.004, -0.03, 0, 0.014)),
+    e.add(box(0.02, 0.058, 0.082, G(), 0.029, -0.004, 0, 0.008)));
+  // Four fingers laid front-to-back along the handguard, each reaching up and
+  // curling over the far side. Written out rather than reusing finger(),
+  // which builds a digit wrapping a vertical grip -- the wrong axis here.
+  const lens = [0.92, 1.0, 0.96, 0.84];
+  for (let n = 0; n < 4; n++) {
+    const z = -0.031 + n * 0.0202,
+      L = lens[n];
+    (e.add(box(0.019, 0.03 * L, 0.0165, G(), 0.033, 0.014, z, 0.005)),
+      e.add(box(0.017, 0.024 * L, 0.0155, G(), 0.03, 0.038 * L, z - 0.002, 0.005)),
+      // Knuckle over the first joint.
+      e.add(box(0.017, 0.011, 0.017, G(), 0.034, 0.001, z, 0.0055)));
+  }
+  // Thumb across the near side.
+  const thumb = new Group();
+  (thumb.position.set(-0.03, 0.004, 0.022),
+    (thumb.rotation.z = -0.42),
+    thumb.add(box(0.017, 0.028, 0.021, G(), 0, 0.008, 0, 0.006)),
+    thumb.add(box(0.015, 0.022, 0.019, G(), 0.001, 0.03, 0.004, 0.006)),
+    e.add(thumb));
   return (
-    e.add(
-      box(0.02, 0.05, 0.028, VIEWMODEL_MATS.glove, -0.034, -0.002, 0.02, 0.007),
-    ),
-    e.add(tube([-0.01, -0.05, 0.02], t, 0.036, 0.055, VIEWMODEL_MATS.sleeve)),
+    wrist(e, -0.006, -0.052, 0.026, 0.044),
+    e.add(tube([-0.01, -0.062, 0.02], t, 0.034, 0.055, VIEWMODEL_MATS.sleeve)),
     e.position.set(i[0], i[1], i[2]),
     e
   );
