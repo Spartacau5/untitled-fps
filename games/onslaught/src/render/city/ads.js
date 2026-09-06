@@ -13,6 +13,7 @@
 //     bg: "#123456",                // panel colour
 //     fg: "#ffffff",                // text and artwork colour
 //     art: true,                    // adds the glowing radial artwork
+//     art: "gem",                   // draws a faceted stone instead (advertisers)
 //     motion: "pulse",              // see MOTION below, or omit for a still board
 //     image: "ads/my-poster.png",   // optional, see IMAGES below
 //   }
@@ -32,6 +33,21 @@
 // ============================================================================
 
 export const CAMPAIGNS = [
+  // ---- ADVERTISER --------------------------------------------------------
+  // Tashvi (tashvi.ai) -- AI-native jewelry design studio. Their mark is a
+  // diamond, so the board draws a cut stone rather than the generic radial
+  // art panel. Dark ground, lit stone: how a jewelry brand actually buys a
+  // screen in a square like this.
+  {
+    id: "tashvi",
+    headline: "TASHVI",
+    subline: "AI JEWELRY DESIGN STUDIO  ·  TASHVI.AI",
+    bg: "#141019",
+    fg: "#f6eef5",
+    art: "gem",
+    motion: "pulse",
+  },
+  // ---- HOUSE -------------------------------------------------------------
   {
     id: "after-hours",
     headline: "AFTER\nHOURS",
@@ -91,6 +107,15 @@ export const CAMPAIGNS = [
 // The tall stacked board on the hero tower behind the square. Four panels,
 // bottom to top.
 export const TOWER_CAMPAIGNS = [
+  {
+    id: "tashvi-tower",
+    headline: "TASHVI",
+    subline: "DESIGN THE PIECE. AI CUTS THE REST.",
+    bg: "#141019",
+    fg: "#f6eef5",
+    art: "gem",
+    motion: "sweep",
+  },
   {
     id: "times-square",
     headline: "TIMES\nSQUARE",

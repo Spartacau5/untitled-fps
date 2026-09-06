@@ -7,6 +7,7 @@ import { Enemies } from "./enemies.js";
 import {
   EV_DEAD,
   EV_HURT,
+  EV_EXPLOSION,
   EV_IMPACT,
   EV_KILL,
   EV_LAND,
@@ -234,6 +235,52 @@ export class World {
         this,
       );
     }
+  }
+  // Rocket: trace to whatever it would hit, then damage everything inside a
+  // radius of that point, falling off to the edge. Traced rather than
+  // simulated as a travelling body -- over the ~36 m this arena spans a rocket
+  // is airborne for about a sixth of a second, and a hitscan trace keeps the
+  // damage deterministic and the code small. The presentation still flies a
+  // projectile out to the impact so it reads as a rocket, not a laser.
+  fireRocket(origin, dir, def) {
+    const hit = this.enemies.raycast(origin, dir, 240),
+      wall = this.arena.raycast(origin, dir, hit ? hit.t : 240);
+    const point =
+      hit && (!wall || hit.t < wall.dist)
+        ? hit.point.clone()
+        : wall
+          ? wall.point.clone()
+          : origin.clone().addScaledVector(dir, 240);
+    const r = def.blastRadius;
+    for (const e of this.enemies.list) {
+      if (e.state === "die") continue;
+      const dx = e.pos.x - point.x,
+        dy = e.pos.y + e.radius - point.y,
+        dz = e.pos.z - point.z,
+        dist = Math.hypot(dx, dy, dz);
+      if (dist > r) continue;
+      // Linear falloff to a floor, so the edge of the blast still stings.
+      const falloff = 1 - (1 - def.blastMin) * (dist / r);
+      this._cv.set(dx, 0, dz);
+      this._cv.lengthSq() < 1e-6
+        ? this._cv.copy(dir).setY(0).normalize()
+        : this._cv.normalize();
+      this.enemies.damage(
+        { enemy: e, t: dist, head: !1, point: point.clone() },
+        def.damage * falloff,
+        this._cv,
+        def,
+        this,
+      );
+    }
+    // Close blasts shake the camera. The player takes no self-damage: at this
+    // arena's ranges that would mostly be an accident, not a decision.
+    const own = Math.hypot(
+      this.player.pos.x - point.x,
+      this.player.pos.z - point.z,
+    );
+    own < r * 1.6 && this.player.addTrauma(0.55 * (1 - own / (r * 1.6)));
+    this.emit(EV_EXPLOSION, { point, radius: r, def });
   }
   // n is the attacking enemy, or null for a spitter projectile.
   onPlayerHit(t, e, n) {

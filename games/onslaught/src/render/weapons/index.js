@@ -5,6 +5,7 @@ import { buildM4Model } from "./m4.js";
 import { buildMp5Model } from "./mp5.js";
 import { buildPistolModel } from "./pistol.js";
 import { buildRifleModel } from "./rifle.js";
+import { buildRocketModel } from "./rocket.js";
 import { buildShotgunModel } from "./shotgun.js";
 import { buildSmgModel } from "./smg.js";
 import { buildSniperModel } from "./sniper.js";
@@ -20,6 +21,7 @@ const BUILDERS = {
   lmg: buildLmgModel,
   sniper: buildSniperModel,
   flame: buildFlameModel,
+  rocket: buildRocketModel,
   m4: buildM4Model,
   mp5: buildMp5Model,
 };

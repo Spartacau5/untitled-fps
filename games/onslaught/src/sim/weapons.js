@@ -213,10 +213,12 @@ export class Weapons {
       h = this._up.copy(c).cross(o),
       d = this.getSpreadForShot(e);
     t.bloom = Math.min(n.bloomMax, t.bloom + n.bloomPerShot);
-    const u = n.fire === "cone" ? 0 : n.pellets;
+    const u = n.fire === "cone" || n.fire === "rocket" ? 0 : n.pellets;
     // A stream weapon has no ray to trace and no aim spread: it burns
     // everything standing in the cone in front of the muzzle this tick.
     if (n.fire === "cone") world.fireCone(l, o, n);
+    // A rocket traces once and damages a radius around where it lands.
+    else if (n.fire === "rocket") world.fireRocket(l, o, n);
     for (let f = 0; f < u; f++) {
       const M =
           (u > 1 ? MathUtils.lerp(n.pelletSpread, n.pelletSpreadAds, r) : d) *

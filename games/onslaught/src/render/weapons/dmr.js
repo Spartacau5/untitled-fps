@@ -6,6 +6,8 @@ export function buildDmrModel() {
     t = {};
   (i.add(box(0.07, 0.09, 0.32, VIEWMODEL_MATS.metal, 0, 0.02, -0.05, 0.008)),
     i.add(box(0.024, 0.012, 0.32, VIEWMODEL_MATS.metalDark, 0, 0.071, -0.05)));
+  // Rail teeth start ahead of the eye: at full ADS the camera plane lands
+  // at model z 0.08, and a tooth straddling it renders as a clipped smear.
   for (let l = 0; l < 9; l++)
     i.add(
       box(
@@ -15,7 +17,7 @@ export function buildDmrModel() {
         VIEWMODEL_MATS.metal,
         0,
         0.079,
-        0.08 - l * 0.032,
+        0.055 - l * 0.032,
       ),
     );
   (i.add(

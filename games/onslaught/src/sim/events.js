@@ -15,6 +15,7 @@ export const EV_SHOT = "shot"; // { def, index }
 export const EV_TRACER = "tracer"; // { end, def }
 export const EV_HIT = "hit"; // { point, dir, head, killed, kind, damage }
 export const EV_IMPACT = "impact"; // { point, normal, def }
+export const EV_EXPLOSION = "explosion"; // { point, radius, def }
 export const EV_DRY_FIRE = "dryFire";
 export const EV_EJECT = "eject"; // { shell }
 export const EV_PUMP = "pump";

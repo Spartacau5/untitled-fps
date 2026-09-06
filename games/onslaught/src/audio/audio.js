@@ -29,6 +29,8 @@ const GUN_VOICES = {
   smg: { base: "ar", pitch: 1.12, gain: 0.62 },
   lmg: { base: "dmr", pitch: 0.94, gain: 0.92 },
   sniper: { base: "dmr", pitch: 0.72, gain: 1.35 },
+  // The launch, not the blast: a low whoosh with very little crack.
+  rocket: { base: "shotgun", pitch: 0.55, gain: 1.1 },
   // 5.56 out of a 14.5" barrel: a touch sharper and flatter than the VK-7.
   m4: { base: "ar", pitch: 1.05, gain: 0.9 },
   // 9mm, roller-delayed, suppressed-sounding next to the others.
@@ -256,6 +258,47 @@ export class Audio {
     this.voiceGain = voice.gain;
     this._gunshotBody(t, e, n);
     this.voiceGain = 1;
+  }
+  // Rocket blast: a low body you feel, a mid crack, and a long tail.
+  explosion(at) {
+    if (!this.ready) return;
+    const sp = this.spatial(at, 26, 90),
+      e = this.now,
+      gain = Math.max(0.15, sp.gain);
+    (this.tone(e, {
+      type: "sine",
+      freq: 82,
+      freqEnd: 24,
+      gain: 1.5 * gain,
+      decay: 0.55,
+      pan: sp.pan,
+      send: 0.7,
+    }),
+      this.noise(e, {
+        type: "lowpass",
+        freq: 900,
+        freqEnd: 120,
+        gain: 1.3 * gain,
+        decay: 0.5,
+        pan: sp.pan,
+        send: 0.8,
+      }),
+      this.noise(e, {
+        type: "highpass",
+        freq: 2600,
+        gain: 0.7 * gain,
+        decay: 0.05,
+        pan: sp.pan,
+      }),
+      this.noise(e, {
+        type: "bandpass",
+        freq: 420,
+        Q: 0.5,
+        gain: 0.8 * gain,
+        decay: 1.4,
+        pan: sp.pan,
+        send: 0.9,
+      }));
   }
   // One short filtered puff per sim tick. At the incinerator's rate these
   // overlap into a continuous roar without a looping source to manage.

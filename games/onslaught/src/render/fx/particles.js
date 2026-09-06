@@ -612,63 +612,127 @@ export class ParticleSystem {
       );
     }
   }
-  // Flamethrower stream. Called once per sim tick while the trigger is held,
-  // so each call only needs to add a few particles -- at the incinerator's
-  // rate they overlap into a continuous jet. Particles are pushed out along
-  // the aim vector at a speed that carries them roughly the weapon's cone
-  // range within their lifetime, so the visible flame ends where the damage
-  // does rather than reaching past it.
+  // Flamethrower stream.
+  //
+  // The first version read as tracer fire, not fire: a few hard round glows
+  // (type 2) launched at nearly one speed with little drag, so they flew in a
+  // straight line as discrete pellets. Real burning fuel does the opposite --
+  // it is thrown, decelerates hard against the air, billows outward and rises
+  // as it burns out.
+  //
+  // Three layers, because a particle's colour is fixed for its life and a
+  // flame is not one colour: a short white-hot core at the nozzle, an orange
+  // body that does the billowing, and a sooty tail that lingers. Speeds are
+  // spread widely inside each layer so a tick's worth of particles smears
+  // along the jet instead of travelling as a clump.
   flameJet(origin, dir, range = 9.5, spread = 0.16) {
     const now = this.t,
       d = this._jetDir || (this._jetDir = new Vector3());
+    // Hot core: fast, small, brief. This is the part that looks like a torch.
     for (let i = 0; i < 3; i++) {
-      this.randomInCone(dir, spread, d);
-      const life = rand(0.26, 0.42),
-        speed = (range / life) * rand(0.5, 0.85);
+      this.randomInCone(dir, spread * 0.4, d);
+      const life = rand(0.1, 0.18),
+        speed = (range / life) * rand(0.2, 0.34);
       this.add.emit(
-        origin.x,
-        origin.y,
-        origin.z,
-        d.x * speed,
-        d.y * speed + rand(0.2, 1.1),
-        d.z * speed,
-        now,
-        life,
-        rand(0.06, 0.13),
-        rand(0.55, 0.95),
-        1,
-        rand(0.42, 0.62),
-        0.14,
-        rand(2.2, 3.4),
-        1.6,
-        0.6,
-        2,
-        rand(-2, 2),
+        origin.x, origin.y, origin.z,
+        d.x * speed, d.y * speed, d.z * speed,
+        now, life,
+        rand(0.07, 0.12), rand(0.24, 0.36),
+        1, 0.9, 0.55,
+        rand(2.6, 3.6),
+        -0.4, 5.5, 1, rand(-3, 3),
       );
     }
-    // A little sooty smoke behind the flame front, so the jet leaves a trail
-    // rather than vanishing cleanly.
-    this.randomInCone(dir, spread * 1.6, d);
-    this.alpha.emit(
-      origin.x,
-      origin.y,
-      origin.z,
-      d.x * rand(1.5, 3.5),
-      d.y * rand(1.5, 3.5) + 1.1,
-      d.z * rand(1.5, 3.5),
-      now,
-      rand(0.7, 1.3),
-      0.12,
-      rand(0.8, 1.4),
-      0.22,
-      0.19,
-      0.18,
-      0.34,
-      -0.5,
-      3.4,
-      1,
-      rand(-2, 2),
+    // Body: the flame proper. High drag is what turns a projectile into a
+    // billow -- these travel most of their distance in the first third of
+    // their life and then bloom outward in place.
+    for (let i = 0; i < 9; i++) {
+      this.randomInCone(dir, spread, d);
+      const life = rand(0.3, 0.5),
+        // A wide speed spread is what fills the gaps between ticks. Fast
+        // enough that the flame front reaches most of the damage cone: with
+        // drag k a particle covers v/k * (1 - e^-kt), so the two are tuned
+        // together, and a jet that stops short of its own damage range makes
+        // players misjudge it.
+        speed = (range / life) * rand(0.45, 1.0);
+      this.add.emit(
+        origin.x, origin.y, origin.z,
+        d.x * speed, d.y * speed, d.z * speed,
+        now, life,
+        rand(0.1, 0.2), rand(0.75, 1.35),
+        1, rand(0.34, 0.5), 0.09,
+        rand(1.5, 2.4),
+        // Negative gravity: hot gas rises as it burns out.
+        -1.3, 2.4, 1, rand(-2.5, 2.5),
+      );
+    }
+    // Sooty tail, alpha-blended so it darkens rather than adds. Slower and
+    // longer-lived, so the jet leaves something behind.
+    for (let i = 0; i < 3; i++) {
+      this.randomInCone(dir, spread * 1.5, d);
+      const life = rand(0.6, 1.0),
+        speed = (range / life) * rand(0.22, 0.45);
+      this.alpha.emit(
+        origin.x, origin.y, origin.z,
+        d.x * speed, d.y * speed, d.z * speed,
+        now, life,
+        rand(0.16, 0.28), rand(1.1, 1.9),
+        0.16, 0.13, 0.12,
+        rand(0.16, 0.3),
+        -1.8, 1.9, 1, rand(-1.6, 1.6),
+      );
+    }
+  }
+  // Rocket blast. A flash and a fireball at the impact, debris thrown out of
+  // it, and a ring on the ground so the radius is legible -- a player needs to
+  // see how far the damage reached, not just that something exploded.
+  explosion(pos, radius = 5) {
+    const now = this.t,
+      d = this._jetDir || (this._jetDir = new Vector3()),
+      s = radius / 5;
+    // Core flash.
+    this.add.emit(
+      pos.x, pos.y, pos.z, 0, 0, 0,
+      now, 0.14, 0.6 * s, 2.6 * s,
+      1, 0.95, 0.8, 5, 0, 6, 2, 0,
     );
+    // Fireball: turbulent puffs pushed outward, rising as they burn out.
+    for (let i = 0; i < 26; i++) {
+      this.randomInCone(new Vector3(0, 1, 0), 1.4, d);
+      const life = rand(0.4, 0.8);
+      this.add.emit(
+        pos.x, pos.y, pos.z,
+        d.x * rand(3, 11) * s, Math.abs(d.y) * rand(2, 8) * s, d.z * rand(3, 11) * s,
+        now, life, rand(0.3, 0.6) * s, rand(1.4, 2.6) * s,
+        1, rand(0.36, 0.56), 0.1, rand(1.6, 2.6),
+        -1.6, 3.0, 1, rand(-2, 2),
+      );
+    }
+    // Debris streaks.
+    for (let i = 0; i < 22; i++) {
+      this.randomInCone(new Vector3(0, 1, 0), 1.5, d);
+      const v = rand(9, 22) * s;
+      this.add.emit(
+        pos.x, pos.y, pos.z,
+        d.x * v, Math.abs(d.y) * v * 0.8 + 2, d.z * v,
+        now, rand(0.5, 1.1), rand(0.03, 0.07), 0.01,
+        1, 0.86, 0.6, rand(2, 3.4),
+        11, 0.4, 0, rand(1, 3),
+      );
+    }
+    // Smoke column.
+    for (let i = 0; i < 12; i++) {
+      this.randomInCone(new Vector3(0, 1, 0), 1.1, d);
+      this.alpha.emit(
+        pos.x, pos.y, pos.z,
+        d.x * rand(1.5, 5) * s, Math.abs(d.y) * rand(2, 5) * s, d.z * rand(1.5, 5) * s,
+        now, rand(1.1, 2.0), rand(0.5, 0.9) * s, rand(2.4, 3.8) * s,
+        0.2, 0.18, 0.17, rand(0.24, 0.4),
+        -1.4, 1.2, 1, rand(-1.2, 1.2),
+      );
+    }
+    // Ground ring at the blast radius.
+    this.rings.emit(pos.x, 0.06, pos.z, now, 0.55, radius * 2, 0.5, 1, 0.6, 0.22);
   }
   muzzleSmoke(t, e, n = 1) {
     const s = this.t;

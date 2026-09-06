@@ -20,17 +20,27 @@ export function buildMp5Model() {
   // Slim stamped receiver, with the trunnion block ahead of it.
   g.add(box(0.05, 0.058, 0.24, M.metalDark, 0, 0.028, -0.02, 0.006));
   g.add(box(0.046, 0.042, 0.1, M.metalDark, 0, -0.012, 0.03, 0.005));
-  // Stamped indents down each flank.
+  // Stamped indents down each flank, the mag-well collar, and the receiver
+  // end cap the stock rides on.
   for (const dx of [-0.026, 0.026])
     g.add(box(0.002, 0.022, 0.16, M.metal, dx, 0.03, -0.03));
+  g.add(box(0.052, 0.026, 0.04, M.metalDark, 0, 0.006, -0.062, 0.006));
+  g.add(box(0.048, 0.05, 0.016, M.metalDark, 0, 0.028, 0.104, 0.005));
+  // Sling loop off the left of the receiver.
+  g.add(box(0.004, 0.02, 0.012, M.metalDark, -0.027, 0.05, 0.06, 0.003));
 
   // Cocking-handle tube above the barrel, and the lever kicked up at 45.
   g.add(cyl(0.014, 0.014, 0.3, M.metalDark, 0, 0.058, -0.24, "z", 18));
   const bolt = new Group();
   bolt.position.set(0, 0.058, -0.335);
-  bolt.add(cyl(0.008, 0.008, 0.052, M.metalLight, -0.021, 0.021, 0, "x", 14));
-  bolt.children[0].rotation.z = -0.79;
-  bolt.add(box(0.016, 0.02, 0.016, M.metalLight, -0.04, 0.04, 0, 0.005));
+  // The arm rises to the left at 45 degrees off the tube, ending in the
+  // paddle you slap. Built as one group so the whole assembly travels.
+  const arm = cyl(0.008, 0.008, 0.056, M.metalLight, -0.022, 0.022, 0, "x", 14);
+  arm.rotation.z = -0.79;
+  bolt.add(arm);
+  bolt.add(box(0.02, 0.026, 0.018, M.metalLight, -0.043, 0.043, 0, 0.005));
+  // Collar where the arm meets the tube.
+  bolt.add(cyl(0.017, 0.017, 0.016, M.metalDark, 0, 0, 0, "z", 16));
   g.add(bolt);
   p.bolt = bolt;
   p.boltRest = -0.335;
@@ -87,8 +97,25 @@ export function buildMp5Model() {
   g.add(cyl(0.014, 0.014, 0.03, M.tube, 0, 0.058, -0.375, "z", 18, !0));
   g.add(box(0.005, 0.018, 0.006, M.metalDark, 0, 0.052, -0.375));
   g.add(sphere(0.0026, M.white, 0, 0.063, -0.376));
-  g.add(cyl(0.019, 0.019, 0.022, M.metalDark, 0, 0.066, 0.03, "z", 20));
-  g.add(torus(0.0075, 0.0018, M.metalDark, 0, 0.066, 0.019));
+  // The rotary drum: a knurled cylinder with four aperture bosses around it,
+  // which is the detail that says MP5 more than anything but the handle.
+  g.add(cyl(0.02, 0.02, 0.024, M.metalDark, 0, 0.066, -0.04, "z", 20));
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    g.add(
+      box(
+        0.009,
+        0.009,
+        0.026,
+        M.metal,
+        Math.cos(a) * 0.016,
+        0.066 + Math.sin(a) * 0.016,
+        -0.04,
+      ),
+    );
+  }
+  g.add(box(0.026, 0.012, 0.02, M.metalDark, 0, 0.05, -0.04, 0.004));
+  g.add(torus(0.0075, 0.0018, M.metalDark, 0, 0.066, -0.051));
 
   p.muzzle = new Object3D();
   p.muzzle.position.set(0, 0.022, -0.418);
@@ -98,9 +125,9 @@ export function buildMp5Model() {
   g.add(p.eject);
 
   p.sight = new Object3D();
-  p.sight.position.set(0, 0.066, 0.019);
+  p.sight.position.set(0, 0.066, -0.051);
   g.add(p.sight);
-  p.adsOffset = new Vector3(0, -0.066, -0.27);
+  p.adsOffset = new Vector3(0, -0.066, -0.2);
   p.hipOffset = new Vector3(0.152, -0.152, -0.27);
   p.hipRot = new Euler(0, 0.042, 0.026);
 

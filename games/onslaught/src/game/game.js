@@ -683,12 +683,39 @@ export class Game {
       case EV.EV_SLIDE:
         A.slide();
         break;
-      case EV.EV_HURT:
-        (H.damageFrom(h.angle),
-          A.playerHurt(h.amount),
-          (this.hurtFx = 1),
-          H.setHealth(n.hp, n.maxHp));
+      case EV.EV_HURT: {
+        (H.damageFrom(h.angle), A.playerHurt(h.amount), (this.hurtFx = 1));
+        // A melee blow needs to land, not just tick the health bar down: the
+        // camera takes a kick, the viewmodel is shoved with it, and sparks
+        // come off the point of contact.
+        //
+        // Two things this got wrong first time round. The sim reports the
+        // bearing to the attacker relative to the player's own facing
+        // (player.js hurt()), so the yaw has to come back off to get a world
+        // direction -- rotating it by the camera on top sprayed the sparks
+        // somewhere arbitrary. And the burst was wide, fast and a metre out,
+        // which washed the screen white and hid the robot that threw the
+        // punch. That robot is the whole point, so the burst is now small,
+        // slow, and below the sight line.
+        if (h.by !== "spit") {
+          const bearing = h.angle - n.yaw;
+          this._v.set(Math.sin(bearing), 0, -Math.cos(bearing));
+          this._v2
+            .copy(n.camPos)
+            .addScaledVector(this._v, 0.55)
+            .setY(n.camPos.y - 0.26);
+          // Spray back towards the player, away from the attacker.
+          this.particles.impactSparks(this._v2, this._v.negate(), 5, 0.34);
+          // The sim already adds trauma scaled by damage; this is the extra
+          // snap that says the hit was physical, not a health tick.
+          n.addTrauma(0.16);
+          this.weaponView.kickPos.z += 0.05;
+          this.weaponView.kickRot.x += 0.09;
+          this.weaponView.swayRotV.z += rand(-1, 1) * 2.2;
+        }
+        H.setHealth(n.hp, n.maxHp);
         break;
+      }
       case EV.EV_DEAD:
         this.onDeath();
         break;
@@ -722,6 +749,27 @@ export class Game {
           d ? 9 : 4.5,
           h.def.tracer,
         );
+        break;
+      }
+      case EV.EV_EXPLOSION: {
+        // Fly the rocket out to where it landed before the blast goes off.
+        // The sim traced it instantly; over this arena that is about a sixth
+        // of a second of flight, and showing it keeps the weapon reading as a
+        // rocket rather than a very loud laser.
+        (this.tracers.fire(
+          this.weaponView.muzzleWorld,
+          h.point,
+          c,
+          38,
+          0.09,
+          6,
+          [1, 0.7, 0.3],
+        ),
+          this.particles.explosion(h.point, h.radius),
+          this.decals.add(h.point, UP, h.radius * 0.45, 0, c),
+          this.impactLight.position.copy(h.point).setY(h.point.y + 0.6),
+          (this.impactLight.intensity = 150),
+          A.explosion([h.point.x, h.point.y, h.point.z]));
         break;
       }
       case EV.EV_IMPACT: {

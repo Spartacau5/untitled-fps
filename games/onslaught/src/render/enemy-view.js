@@ -56,7 +56,49 @@ export function buildEnemyRig(i) {
     f = (M, _, L, R, A, C, S = 0.02) => {
       const y = new RoundedBoxGeometry(M, _, L, 1, S);
       return (y.translate(R, A, C), y);
-    };
+    },
+    // A hand: palm, knuckle bar, three fingers and a thumb, merged so the
+    // whole thing still costs one instanced mesh. `mirror` puts the thumb on
+    // the correct side.
+    wrist = -i.armLL,
+    handGeom = (mirror) =>
+      mergeGeometries(
+        [
+          f(i.armW * 0.62, 0.085, i.armW * 0.5, 0, wrist - 0.045, 0, 0.012),
+          f(i.armW * 0.6, 0.03, i.armW * 0.52, 0, wrist - 0.092, 0, 0.008),
+          ...[-1, 0, 1].map((n) =>
+            f(
+              i.armW * 0.15,
+              0.08,
+              i.armW * 0.17,
+              n * i.armW * 0.2,
+              wrist - 0.14,
+              0,
+              0.006,
+            ),
+          ),
+          f(
+            i.armW * 0.14,
+            0.06,
+            i.armW * 0.15,
+            mirror * i.armW * 0.3,
+            wrist - 0.08,
+            0,
+            0.006,
+          ),
+        ],
+        !1,
+      ),
+    palmGlow = () =>
+      f(
+        i.armW * 0.26,
+        0.014,
+        i.armW * 0.2,
+        0,
+        wrist - 0.045,
+        -i.armW * 0.26,
+        0.004,
+      );
   (p(s, f(i.hips[0], i.hips[1], i.hips[2], 0, 0, 0), "body"),
     p(
       r,
@@ -108,33 +150,89 @@ export function buildEnemyRig(i) {
       "body",
     ),
     p(a, f(i.head, i.head * 1.05, i.head, 0, i.head * 0.55, 0, 0.045), "head"),
+    // The face. A brow ridge, two angled eye slots and a vertical grille for a
+    // mouth -- the Ultron read. Multi-box features are merged into one
+    // geometry each so a face costs three instanced meshes, not nine.
     p(
       a,
       f(
-        i.head * 0.76,
-        i.head * 0.16,
-        0.03,
+        i.head * 0.92,
+        i.head * 0.13,
+        0.026,
         0,
-        i.head * 0.66,
-        -i.head / 2 - 0.008,
-        0.006,
+        i.head * 0.83,
+        -i.head / 2 - 0.004,
+        0.005,
+      ),
+      "head",
+    ),
+    p(
+      a,
+      mergeGeometries(
+        [-1, 1].map((sx) => {
+          const eye = f(
+            i.head * 0.3,
+            i.head * 0.12,
+            0.028,
+            sx * i.head * 0.25,
+            i.head * 0.63,
+            -i.head / 2 - 0.01,
+            0.004,
+          );
+          // Cant the slots inward at the nose, which is what makes a face made
+          // of boxes read as a scowl rather than a pair of headlights.
+          eye.rotateZ(sx * 0.22);
+          eye.translate(0, 0, 0);
+          return eye;
+        }),
+        !1,
       ),
       "headGlow",
+    ),
+    p(
+      a,
+      f(
+        i.head * 0.52,
+        i.head * 0.24,
+        0.02,
+        0,
+        i.head * 0.3,
+        -i.head / 2 - 0.006,
+        0.004,
+      ),
+      "headGlow",
+    ),
+    p(
+      a,
+      mergeGeometries(
+        [0, 1, 2, 3, 4].map((n) =>
+          f(
+            i.head * 0.045,
+            i.head * 0.28,
+            0.028,
+            (n - 2) * i.head * 0.115,
+            i.head * 0.3,
+            -i.head / 2 - 0.012,
+            0.002,
+          ),
+        ),
+        !1,
+      ),
+      "head",
     ),
     p(l, f(i.armW, i.armUL, i.armW, 0, -i.armUL / 2, 0), "body"),
     p(o, f(i.armW, i.armUL, i.armW, 0, -i.armUL / 2, 0), "body"),
     p(c, f(i.armW * 0.9, i.armLL, i.armW * 0.9, 0, -i.armLL / 2, 0), "body"),
     p(h, f(i.armW * 0.9, i.armLL, i.armW * 0.9, 0, -i.armLL / 2, 0), "body"),
-    p(
-      c,
-      f(i.armW * 0.55, 0.12, i.armW * 0.55, 0, -i.armLL - 0.04, 0, 0.01),
-      "glow",
-    ),
-    p(
-      h,
-      f(i.armW * 0.55, 0.12, i.armW * 0.55, 0, -i.armLL - 0.04, 0, 0.01),
-      "glow",
-    ),
+    // Hands. These were a single glowing cube on the end of each forearm --
+    // fine as an "emitter" while the glow was dim, but once the face needed a
+    // brighter emissive to read, the cubes lit up like lanterns and the arms
+    // ended in two blazing blocks. Metal hands now, with only a small palm
+    // plate left glowing.
+    p(c, handGeom(-1), "body"),
+    p(c, palmGlow(), "glow"),
+    p(h, handGeom(1), "body"),
+    p(h, palmGlow(), "glow"),
     p(d, f(i.legW, i.legUL, i.legW, 0, -i.legUL / 2, 0), "body"),
     p(u, f(i.legW, i.legUL, i.legW, 0, -i.legUL / 2, 0), "body"),
     p(m, f(i.legW * 0.85, i.legLL, i.legW * 0.85, 0, -i.legLL / 2, 0), "body"),
@@ -336,7 +434,10 @@ export class EnemyView {
         new MeshStandardMaterial({
           color: 0,
           emissive: new Color(...colors.glow),
-          emissiveIntensity: 1.2,
+          // Above the 1.6 bloom threshold, so the eye slots actually throw
+          // light instead of just being pale paint. A lit face in a dark head
+          // is most of the read.
+          emissiveIntensity: 2.1,
           roughness: 0.6,
           metalness: 0,
         }),
@@ -481,8 +582,23 @@ export class EnemyView {
           v = 0;
         if (l.state === "attack") {
           const p = l.def;
-          ((g = Math.min(1, l.t / p.windup)),
-            (v = l.t > p.windup ? Math.min(1, (l.t - p.windup) / 0.25) : 0));
+          // The sim lands the hit at t = windup. The strike therefore has to
+          // be at FULL extension by then, not starting there: the first
+          // version ramped the swing after windup, so the arm was at its most
+          // retracted at the moment of contact and the player took damage and
+          // only then watched the arm move. Purely a presentation fix -- the
+          // sim's timing, damage and determinism are untouched.
+          //
+          // Pull back over the first 62% of the windup, snap through over the
+          // rest so the blow arrives on the beat, then recover over the swing.
+          const pull = p.windup * 0.62;
+          if (l.t < pull) ((g = l.t / pull), (v = 0));
+          else if (l.t < p.windup)
+            ((g = 1 - (l.t - pull) / (p.windup - pull)),
+              (v = (l.t - pull) / (p.windup - pull)));
+          else
+            ((g = 0),
+              (v = Math.max(0, 1 - (l.t - p.windup) / Math.max(0.12, p.swing * 0.7))));
         }
         (r.armsForward
           ? ((s.shL.rotation.x =

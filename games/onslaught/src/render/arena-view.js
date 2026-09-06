@@ -10,6 +10,7 @@ import {
   PlaneGeometry,
   PointLight,
   TorusGeometry,
+  Vector2,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { damp } from "../core/mathx.js";
@@ -17,6 +18,8 @@ import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
 import { createPortalMaterial } from "./portal.js";
 import { applySurfaceGrime } from "./shaders/surface.js";
+import { applyWetGround } from "./shaders/wet.js";
+import { crateProp, hoarding, scaffoldTower } from "./city/props.js";
 import {
   CAMPAIGNS,
   STOREFRONTS,
@@ -76,11 +79,13 @@ export class ArenaView {
       red: mat(0x9a2830, 0.5),
       glass: mat(0x172b37, 0.23, 0.62),
       floor: new MeshStandardMaterial({
-        map: pavementTexture(),
+        ...pavementTexture(),
         color: 0xcccccc,
-        roughness: 0.78,
+        roughness: 1,
+        normalScale: new Vector2(1.15, 1.15),
       }),
       asphalt: mat(0x303639, 0.94),
+      shrub: mat(0x3f5541, 0.92),
       shutter: new MeshStandardMaterial({
         map: shutterTexture(),
         roughness: 0.6,
@@ -103,12 +108,26 @@ export class ArenaView {
         emissiveIntensity: 0.65,
       }),
     };
-    for (const name of ["wall", "barrier", "stone", "asphalt"])
+    for (const name of ["wall", "barrier", "stone"])
       applySurfaceGrime(this.mats[name], {
-        scale: name === "asphalt" ? 4 : 0.8,
-        streaks: name === "asphalt" ? 0 : 0.45,
+        scale: 0.8,
+        streaks: 0.45,
         key: `city-${name}`,
       });
+    // The two surfaces you actually walk on get standing water instead of
+    // grime: puddles at a scale far larger than the texture tile, which both
+    // breaks the thirty-fold repeat and gives the billboards something to
+    // reflect in. Asphalt holds more water than dressed stone.
+    applyWetGround(this.mats.floor, {
+      scale: 0.03,
+      wetness: 0.5,
+      key: "wet-floor",
+    });
+    applyWetGround(this.mats.asphalt, {
+      scale: 0.05,
+      wetness: 0.7,
+      key: "wet-asphalt",
+    });
     this.facades = [0, 1, 2, 3].map(
       (i) =>
         new MeshStandardMaterial({
@@ -124,6 +143,15 @@ export class ArenaView {
     // Campaign bitmaps, shared across every board running that campaign.
     this.boardMaps = new Map();
     this.tickerMap = null;
+  }
+  // Handed to the prop builders in city/props.js so they can draw through the
+  // same batching the rest of the arena uses.
+  get _emitter() {
+    return (this.__em ||= {
+      box: (w, h, d, x, y, z, mat, yaw) => this._box(w, h, d, x, y, z, mat, yaw),
+      geo: (geo, mat) => this._batch(geo, mat),
+      mats: this.mats,
+    });
   }
   _box(w, h, d, x, y, z, material, yaw = 0) {
     const geo = new BoxGeometry(w, h, d);
@@ -247,6 +275,81 @@ export class ArenaView {
     this.tickers.push({ map, speed });
     return mesh;
   }
+  // Street furniture set into the ground. None of it is a collider -- it is
+  // all flush with the paving -- but an empty expanse of slabs reads as
+  // unfinished, and a real street is covered in this stuff.
+  //
+  // Everything lives in two explicit height bands. The first pass at this had
+  // covers and their surrounds sharing a Y range, and flush geometry that
+  // dipped below the floor plane; both z-fought, which showed up as a
+  // shimmering checkerboard once the wet shader made the patches reflective
+  // enough to notice. Nothing here may overlap another band or reach y = 0.
+  _streetSurface() {
+    const m = this.mats,
+      // Surrounds, kerbs, recesses.
+      LOW = { y: 0.007, h: 0.008 }, // spans 0.003 .. 0.011
+      // Lids, grates, patches: strictly above LOW, never touching it.
+      HIGH = { y: 0.019, h: 0.01 }; // spans 0.014 .. 0.024
+    // Manhole covers, off the walking line so they do not look placed.
+    for (const [x, z] of [
+      [-13, 8],
+      [11, -14],
+      [-6, -21],
+      [17, 6],
+      [3, 19],
+      [-19, -4],
+    ]) {
+      const rim = new CylinderGeometry(0.5, 0.5, LOW.h, 18);
+      rim.translate(x, LOW.y, z);
+      this._batch(rim, m.dark);
+      const lid = new CylinderGeometry(0.42, 0.42, HIGH.h, 18);
+      lid.translate(x, HIGH.y, z);
+      this._batch(lid, m.metal);
+    }
+    // Storm drains at the kerb line: a recessed surround with grate bars over.
+    for (const [x, z, yaw] of [
+      [-22.5, 12, 0],
+      [22.5, -9, 0],
+      [-9, 23, Math.PI / 2],
+      [13, -23, Math.PI / 2],
+    ]) {
+      this._box(1.25, LOW.h, 0.6, x, LOW.y, z, m.dark, yaw);
+      for (let i = 0; i < 6; i++) {
+        const o = -0.4 + i * 0.16;
+        this._box(
+          0.1,
+          HIGH.h,
+          0.44,
+          x + Math.cos(yaw) * o,
+          HIGH.y,
+          z - Math.sin(yaw) * o,
+          m.metal,
+          yaw,
+        );
+      }
+    }
+    // Asphalt patches where the road has been cut and filled: a tar-sealed
+    // surround with the fill sitting proud of it.
+    for (const [x, z, w, d, yaw] of [
+      [-15, -10, 3.4, 2.2, 0.2],
+      [9, 15, 4.1, 2.8, -0.14],
+      [20, -18, 2.6, 3.3, 0.35],
+      [-21, 17, 3.0, 2.0, -0.28],
+    ]) {
+      this._box(w + 0.2, LOW.h, d + 0.2, x, LOW.y, z, m.dark, yaw);
+      this._box(w, HIGH.h, d, x, HIGH.y, z, m.asphalt, yaw);
+    }
+    // Utility lids: the small square ones, gas and water.
+    for (const [x, z] of [
+      [-4, 12],
+      [15, 2],
+      [-17, -16],
+      [7, -7],
+    ]) {
+      this._box(0.46, LOW.h, 0.46, x, LOW.y, z, m.dark);
+      this._box(0.36, HIGH.h, 0.36, x, HIGH.y, z, m.metal);
+    }
+  }
   _ground() {
     const m = this.mats;
     const floor = new Mesh(new PlaneGeometry(250, 250), m.floor);
@@ -276,6 +379,7 @@ export class ArenaView {
             m.paint,
           );
     }
+    this._streetSurface();
     const plaque = new Mesh(
       new PlaneGeometry(5, 2.5),
       new MeshStandardMaterial({
@@ -460,14 +564,13 @@ export class ArenaView {
       const a = (i * Math.PI) / 4 + Math.PI / 8,
         x = Math.cos(a) * 19,
         z = Math.sin(a) * 19;
-      // Original 1.7 x 10 x 1.7 pillars become steel billboard supports.
-      this._box(1.7, 10, 1.7, x, 5, z, m.pillar);
-      this._box(2.1, 0.5, 2.1, x, 10.1, z, m.metal);
-      this._box(2.3, 0.35, 2.3, x, 0.17, z, m.wall);
-      for (const dx of [-0.78, 0.78])
-        for (const dz of [-0.78, 0.78])
-          this._box(0.13, 9.6, 0.13, x + dx, 5, z + dz, m.metal);
+      // The original 1.7 x 10 x 1.7 pillar footprint, built as a scaffold
+      // tower. Same collider, but a tube frame with plank decks reads as a
+      // real structure where a smooth column reads as a placeholder.
       const yaw = -a - Math.PI / 2;
+      this._box(2.3, 0.35, 2.3, x, 0.17, z, m.wall);
+      scaffoldTower(this._emitter, x, z, yaw, 10);
+      this._box(2.1, 0.4, 2.1, x, 10.15, z, m.metal);
       this._sign(
         i % 2 ? "W 45 ST" : "BROADWAY",
         "TIMES SQUARE",
@@ -486,7 +589,7 @@ export class ArenaView {
         bz = Math.sin(ca) * radius,
         byaw = -ca + Math.PI / 2,
         width = i % 2 === 0 ? 4.2 : 5.5;
-      this._box(width, 2.1, 0.55, bx, 1.05, bz, m.barrier, byaw);
+      hoarding(this._emitter, bx, bz, byaw, width, 2.1);
       for (const side of [-1, 1]) {
         this._box(
           width - 0.2,
@@ -512,34 +615,13 @@ export class ArenaView {
         );
       }
     }
-    for (const crate of arena.crates) {
+    // Crate footprints become real street objects -- dumpsters, utility
+    // cabinets, planters, pallet stacks -- each built inside its own collider
+    // so cover works exactly as it did when they were boxes.
+    arena.crates.forEach((crate, i) => {
       const [w, h, d] = crate.size;
-      this._box(w, h, d, crate.x, h / 2, crate.z, m.crate, crate.yaw);
-      for (const side of [-1, 1])
-        for (let j = 0; j < 5; j++) {
-          const offset = side * (d / 2 + 0.008);
-          this._box(
-            w * 0.72,
-            0.035,
-            0.018,
-            crate.x + Math.sin(crate.yaw) * offset,
-            h * 0.3 + j * 0.11,
-            crate.z + Math.cos(crate.yaw) * offset,
-            m.metal,
-            crate.yaw,
-          );
-        }
-      this._box(
-        w + 0.025,
-        0.06,
-        d + 0.025,
-        crate.x,
-        h - 0.03,
-        crate.z,
-        m.metal,
-        crate.yaw,
-      );
-    }
+      crateProp(this._emitter, i, crate.x, crate.z, crate.yaw, w, h, d);
+    });
   }
   _skyline() {
     const m = this.mats;
