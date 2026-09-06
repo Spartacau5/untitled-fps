@@ -10,6 +10,7 @@ import {
   PlaneGeometry,
   PointLight,
   TorusGeometry,
+  Vector2,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { damp } from "../core/mathx.js";
@@ -17,6 +18,7 @@ import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
 import { createPortalMaterial } from "./portal.js";
 import { applySurfaceGrime } from "./shaders/surface.js";
+import { applyWetGround } from "./shaders/wet.js";
 import {
   CAMPAIGNS,
   STOREFRONTS,
@@ -76,9 +78,10 @@ export class ArenaView {
       red: mat(0x9a2830, 0.5),
       glass: mat(0x172b37, 0.23, 0.62),
       floor: new MeshStandardMaterial({
-        map: pavementTexture(),
+        ...pavementTexture(),
         color: 0xcccccc,
-        roughness: 0.78,
+        roughness: 1,
+        normalScale: new Vector2(1.15, 1.15),
       }),
       asphalt: mat(0x303639, 0.94),
       shutter: new MeshStandardMaterial({
@@ -103,12 +106,26 @@ export class ArenaView {
         emissiveIntensity: 0.65,
       }),
     };
-    for (const name of ["wall", "barrier", "stone", "asphalt"])
+    for (const name of ["wall", "barrier", "stone"])
       applySurfaceGrime(this.mats[name], {
-        scale: name === "asphalt" ? 4 : 0.8,
-        streaks: name === "asphalt" ? 0 : 0.45,
+        scale: 0.8,
+        streaks: 0.45,
         key: `city-${name}`,
       });
+    // The two surfaces you actually walk on get standing water instead of
+    // grime: puddles at a scale far larger than the texture tile, which both
+    // breaks the thirty-fold repeat and gives the billboards something to
+    // reflect in. Asphalt holds more water than dressed stone.
+    applyWetGround(this.mats.floor, {
+      scale: 0.03,
+      wetness: 0.5,
+      key: "wet-floor",
+    });
+    applyWetGround(this.mats.asphalt, {
+      scale: 0.05,
+      wetness: 0.7,
+      key: "wet-asphalt",
+    });
     this.facades = [0, 1, 2, 3].map(
       (i) =>
         new MeshStandardMaterial({
@@ -247,6 +264,81 @@ export class ArenaView {
     this.tickers.push({ map, speed });
     return mesh;
   }
+  // Street furniture set into the ground. None of it is a collider -- it is
+  // all flush with the paving -- but an empty expanse of slabs reads as
+  // unfinished, and a real street is covered in this stuff.
+  //
+  // Everything lives in two explicit height bands. The first pass at this had
+  // covers and their surrounds sharing a Y range, and flush geometry that
+  // dipped below the floor plane; both z-fought, which showed up as a
+  // shimmering checkerboard once the wet shader made the patches reflective
+  // enough to notice. Nothing here may overlap another band or reach y = 0.
+  _streetSurface() {
+    const m = this.mats,
+      // Surrounds, kerbs, recesses.
+      LOW = { y: 0.007, h: 0.008 }, // spans 0.003 .. 0.011
+      // Lids, grates, patches: strictly above LOW, never touching it.
+      HIGH = { y: 0.019, h: 0.01 }; // spans 0.014 .. 0.024
+    // Manhole covers, off the walking line so they do not look placed.
+    for (const [x, z] of [
+      [-13, 8],
+      [11, -14],
+      [-6, -21],
+      [17, 6],
+      [3, 19],
+      [-19, -4],
+    ]) {
+      const rim = new CylinderGeometry(0.5, 0.5, LOW.h, 18);
+      rim.translate(x, LOW.y, z);
+      this._batch(rim, m.dark);
+      const lid = new CylinderGeometry(0.42, 0.42, HIGH.h, 18);
+      lid.translate(x, HIGH.y, z);
+      this._batch(lid, m.metal);
+    }
+    // Storm drains at the kerb line: a recessed surround with grate bars over.
+    for (const [x, z, yaw] of [
+      [-22.5, 12, 0],
+      [22.5, -9, 0],
+      [-9, 23, Math.PI / 2],
+      [13, -23, Math.PI / 2],
+    ]) {
+      this._box(1.25, LOW.h, 0.6, x, LOW.y, z, m.dark, yaw);
+      for (let i = 0; i < 6; i++) {
+        const o = -0.4 + i * 0.16;
+        this._box(
+          0.1,
+          HIGH.h,
+          0.44,
+          x + Math.cos(yaw) * o,
+          HIGH.y,
+          z - Math.sin(yaw) * o,
+          m.metal,
+          yaw,
+        );
+      }
+    }
+    // Asphalt patches where the road has been cut and filled: a tar-sealed
+    // surround with the fill sitting proud of it.
+    for (const [x, z, w, d, yaw] of [
+      [-15, -10, 3.4, 2.2, 0.2],
+      [9, 15, 4.1, 2.8, -0.14],
+      [20, -18, 2.6, 3.3, 0.35],
+      [-21, 17, 3.0, 2.0, -0.28],
+    ]) {
+      this._box(w + 0.2, LOW.h, d + 0.2, x, LOW.y, z, m.dark, yaw);
+      this._box(w, HIGH.h, d, x, HIGH.y, z, m.asphalt, yaw);
+    }
+    // Utility lids: the small square ones, gas and water.
+    for (const [x, z] of [
+      [-4, 12],
+      [15, 2],
+      [-17, -16],
+      [7, -7],
+    ]) {
+      this._box(0.46, LOW.h, 0.46, x, LOW.y, z, m.dark);
+      this._box(0.36, HIGH.h, 0.36, x, HIGH.y, z, m.metal);
+    }
+  }
   _ground() {
     const m = this.mats;
     const floor = new Mesh(new PlaneGeometry(250, 250), m.floor);
@@ -276,6 +368,7 @@ export class ArenaView {
             m.paint,
           );
     }
+    this._streetSurface();
     const plaque = new Mesh(
       new PlaneGeometry(5, 2.5),
       new MeshStandardMaterial({

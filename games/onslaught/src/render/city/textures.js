@@ -1,5 +1,6 @@
 import {
   CanvasTexture,
+  NoColorSpace,
   RepeatWrapping,
   SRGBColorSpace,
   TextureLoader,
@@ -29,35 +30,166 @@ function texture(c, repeat) {
   }
   return t;
 }
-export function pavementTexture() {
-  const [c, g] = canvas(1024, 1024),
-    rand = random();
-  g.fillStyle = "#737878";
-  g.fillRect(0, 0, 1024, 1024);
-  for (let y = 0; y < 8; y++)
-    for (let x = 0; x < 8; x++) {
-      const v = 112 + Math.floor(rand() * 20);
-      g.fillStyle = `rgb(${v},${v + 3},${v + 4})`;
-      g.fillRect(x * 128 + 2, y * 128 + 2, 124, 124);
-      g.strokeStyle = "#929797";
-      g.strokeRect(x * 128 + 3, y * 128 + 3, 122, 122);
+// Height field -> tangent-space normal map, by Sobel. This is what was
+// missing from the ground: with no normal map a paved plaza is one flat
+// plane to the lighting, so nothing rakes across the slabs and the whole
+// surface reads as a printed photograph rather than stone.
+function heightToNormal(heightCanvas, strength = 2.4) {
+  const w = heightCanvas.width,
+    h = heightCanvas.height,
+    src = heightCanvas.getContext("2d").getImageData(0, 0, w, h).data,
+    [out, og] = canvas(w, h),
+    img = og.createImageData(w, h),
+    dst = img.data;
+  // Wrapping sample, so the normal map tiles as seamlessly as the albedo.
+  const at = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const dx =
+          at(x - 1, y - 1) +
+          2 * at(x - 1, y) +
+          at(x - 1, y + 1) -
+          (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1)),
+        dy =
+          at(x - 1, y - 1) +
+          2 * at(x, y - 1) +
+          at(x + 1, y - 1) -
+          (at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1));
+      // Normalise (dx, dy, 1/strength) into the 0..1 range a normal map wants.
+      const nx = dx * strength,
+        ny = dy * strength,
+        len = Math.hypot(nx, ny, 1),
+        i = (y * w + x) * 4;
+      ((dst[i] = ((nx / len) * 0.5 + 0.5) * 255),
+        (dst[i + 1] = ((ny / len) * 0.5 + 0.5) * 255),
+        (dst[i + 2] = (1 / len) * 0.5 * 255 + 127),
+        (dst[i + 3] = 255));
     }
-  // Aggregate speckle. This used to build a fresh `rgba(...)` string and
-  // assign fillStyle 95,000 times, which cost ~150 ms of the page load on its
-  // own -- the parse, not the fill. Two passes with a fixed colour and a
-  // globalAlpha sweep give the same grain for a fraction of the work.
-  for (const [v, count] of [
-    [225, 16000],
-    [30, 16000],
-  ]) {
-    g.fillStyle = `rgb(${v},${v},${v})`;
-    for (let i = 0; i < count; i++) {
-      g.globalAlpha = rand() * 0.15;
-      g.fillRect(rand() * 1024, rand() * 1024, 1 + rand() * 2, 1);
+  og.putImageData(img, 0, 0);
+  return out;
+}
+
+// Paving: albedo, normal and roughness drawn from one layout so the three
+// agree. Slabs are laid on a half-offset running bond rather than a grid --
+// a perfect 8x8 grid is one of the things that reads as old.
+export function pavementTexture() {
+  const S = 1024,
+    SLAB = 128,
+    [c, g] = canvas(S, S),
+    [hc, hg] = canvas(S, S),
+    [rc, rg] = canvas(S, S),
+    rand = random();
+
+  g.fillStyle = "#6e7375";
+  g.fillRect(0, 0, S, S);
+  // Height: grout is the low point, slab faces sit proud.
+  hg.fillStyle = "#2a2a2a";
+  hg.fillRect(0, 0, S, S);
+  // Roughness: mid by default. Darker = smoother in a roughness map.
+  rg.fillStyle = "#b4b4b4";
+  rg.fillRect(0, 0, S, S);
+
+  for (let row = 0; row < S / SLAB; row++) {
+    // Half-slab offset on alternate courses breaks the grid read.
+    const shift = (row % 2) * (SLAB / 2);
+    for (let col = -1; col < S / SLAB + 1; col++) {
+      const x = col * SLAB + shift + 2,
+        y = row * SLAB + 2,
+        w = SLAB - 4,
+        v = 104 + Math.floor(rand() * 26);
+      g.fillStyle = `rgb(${v},${v + 3},${v + 4})`;
+      g.fillRect(x, y, w, w);
+      // A worn, slightly polished centre on some slabs -- foot traffic.
+      if (rand() > 0.55) {
+        g.fillStyle = `rgba(${v + 16},${v + 18},${v + 18},0.5)`;
+        g.fillRect(x + 12, y + 12, w - 24, w - 24);
+        rg.fillStyle = "#8e8e8e";
+        rg.fillRect(x + 14, y + 14, w - 28, w - 28);
+      }
+      // Height: a proud face with a chamfered edge, so light catches the
+      // bevel the way it does on a real kerbstone.
+      const grad = hg.createLinearGradient(x, y, x, y + w);
+      (grad.addColorStop(0, "#8a8a8a"),
+        grad.addColorStop(0.06, "#d2d2d2"),
+        grad.addColorStop(0.94, "#d2d2d2"),
+        grad.addColorStop(1, "#8a8a8a"));
+      hg.fillStyle = grad;
+      hg.fillRect(x, y, w, w);
+      hg.fillStyle = "rgba(255,255,255,0.10)";
+      hg.fillRect(x + 4, y + 4, w - 8, w - 8);
+      // Chipped corners on a few slabs.
+      if (rand() > 0.82) {
+        const cx = x + (rand() > 0.5 ? w - 10 : 2),
+          cy = y + (rand() > 0.5 ? w - 10 : 2);
+        (hg.fillStyle = "#6a6a6a"), hg.fillRect(cx, cy, 8, 8);
+        (g.fillStyle = "rgba(60,62,64,0.45)"), g.fillRect(cx, cy, 8, 8);
+      }
     }
   }
-  g.globalAlpha = 1;
-  return texture(c, [30, 30]);
+
+  // Cracks. Faint, thin and mostly straight: stone fractures in near-straight
+  // runs that jog at an angle, and a wandering curve reads as a drawn squiggle
+  // rather than a split slab. Most of the effect belongs in the height field,
+  // where the light finds it, not in the albedo.
+  for (let i = 0; i < 22; i++) {
+    let x = rand() * S,
+      y = rand() * S,
+      a = rand() * Math.PI * 2;
+    (g.strokeStyle = "rgba(52,54,56,0.22)"),
+      (hg.strokeStyle = "rgba(52,52,52,0.7)"),
+      (g.lineWidth = 0.9),
+      (hg.lineWidth = 1.4),
+      g.beginPath(),
+      hg.beginPath(),
+      g.moveTo(x, y),
+      hg.moveTo(x, y);
+    for (let seg = 0; seg < 5; seg++) {
+      // Small angular jogs, not smooth turns.
+      ((a += rand() * 0.34 - 0.17),
+        (x += Math.cos(a) * 34),
+        (y += Math.sin(a) * 34));
+      (g.lineTo(x, y), hg.lineTo(x, y));
+    }
+    (g.stroke(), hg.stroke());
+  }
+
+  // Aggregate grain, in albedo and height together so the speckle is felt as
+  // well as seen. Two passes with a fixed colour: building a fresh rgba()
+  // string per speckle cost ~150 ms of page load, and it was the parse.
+  for (const [v, count] of [
+    [225, 14000],
+    [30, 14000],
+  ]) {
+    ((g.fillStyle = `rgb(${v},${v},${v})`),
+      (hg.fillStyle = `rgb(${v},${v},${v})`));
+    for (let i = 0; i < count; i++) {
+      const x = rand() * S,
+        y = rand() * S,
+        w = 1 + rand() * 2;
+      ((g.globalAlpha = rand() * 0.15), g.fillRect(x, y, w, 1));
+      ((hg.globalAlpha = rand() * 0.09), hg.fillRect(x, y, w, 1));
+    }
+  }
+  ((g.globalAlpha = 1), (hg.globalAlpha = 1));
+
+  // Stains and damp patches, on roughness only: a wet or oiled patch is not
+  // a different colour so much as a different gloss.
+  for (let i = 0; i < 34; i++) {
+    const x = rand() * S,
+      y = rand() * S,
+      r = 30 + rand() * 130,
+      grad = rg.createRadialGradient(x, y, 0, x, y, r);
+    (grad.addColorStop(0, `rgba(90,90,90,${0.35 + rand() * 0.3})`),
+      grad.addColorStop(1, "rgba(90,90,90,0)"));
+    ((rg.fillStyle = grad), rg.beginPath(), rg.arc(x, y, r, 0, 7), rg.fill());
+  }
+
+  const map = texture(c, [30, 30]),
+    normalMap = texture(heightToNormal(hc, 2.2), [30, 30]),
+    roughnessMap = texture(rc, [30, 30]);
+  // Only the albedo is colour; the other two are data and must stay linear.
+  ((normalMap.colorSpace = NoColorSpace), (roughnessMap.colorSpace = NoColorSpace));
+  return { map, normalMap, roughnessMap };
 }
 export function facadeTexture(style = 0) {
   const [c, g] = canvas(512, 1024),
