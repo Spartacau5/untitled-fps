@@ -41,6 +41,11 @@ export function buildEnemyRig(i) {
     u = t(s, i.hips[0] * 0.3, -i.hips[1] * 0.3, 0),
     m = t(d, 0, -i.legUL, 0),
     g = t(u, 0, -i.legUL, 0),
+    // Ankles. The feet used to be welded to the shins, so they pointed
+    // wherever the leg swung and the whole rig read as skating. With a joint
+    // here sync() can hold them level through the stride.
+    w2 = t(m, 0, -i.legLL, 0),
+    x2 = t(g, 0, -i.legLL, 0),
     v = [],
     p = (M, _, L) => v.push({ node: M, geom: _, kind: L }),
     f = (M, _, L, R, A, C, S = 0.02) => {
@@ -130,13 +135,13 @@ export function buildEnemyRig(i) {
     p(m, f(i.legW * 0.85, i.legLL, i.legW * 0.85, 0, -i.legLL / 2, 0), "body"),
     p(g, f(i.legW * 0.85, i.legLL, i.legW * 0.85, 0, -i.legLL / 2, 0), "body"),
     p(
-      m,
-      f(i.legW, 0.08, i.legW * 1.7, 0, -i.legLL - 0.01, -i.legW * 0.35, 0.015),
+      w2,
+      f(i.legW, 0.08, i.legW * 1.7, 0, -0.01, -i.legW * 0.35, 0.015),
       "body",
     ),
     p(
-      g,
-      f(i.legW, 0.08, i.legW * 1.7, 0, -i.legLL - 0.01, -i.legW * 0.35, 0.015),
+      x2,
+      f(i.legW, 0.08, i.legW * 1.7, 0, -0.01, -i.legW * 0.35, 0.015),
       "body",
     ),
     p(
@@ -220,6 +225,8 @@ export function buildEnemyRig(i) {
       legR: u,
       knL: m,
       knR: g,
+      ankL: w2,
+      ankR: x2,
     },
     parts: v,
     ...rigMetrics(i),
@@ -406,19 +413,55 @@ export class EnemyView {
           n.root.scale.set(o * (1 + c * 0.6), o * (1 - c), o * (1 + c * 0.6)));
         const h = l.phase,
           d = l.moveBlend,
-          u = Math.sin(h) * 0.95 * d,
-          m = Math.sin(h + Math.PI) * 0.95 * d;
+          // Charge reads off speed rather than a state flag, so it eases in
+          // and out on its own. The sim gives the brute a 10 m/s charge
+          // against a 3.7 m/s walk, but the leg cadence saturates well before
+          // that -- without this a charging three-metre robot animates
+          // exactly like one out for a stroll.
+          chg =
+            l.def.chargeSpeed > l.def.speed
+              ? Math.min(
+                  1,
+                  Math.max(
+                    0,
+                    (Math.hypot(l.vel.x, l.vel.z) - l.def.speed) /
+                      (l.def.chargeSpeed - l.def.speed),
+                  ),
+                )
+              : 0,
+          // Idle. Everything above is gated on moveBlend, so a stopped robot
+          // used to freeze mid-A-pose; a planted spitter was a statue.
+          idle = 1 - d,
+          it = time + l.id * 0.7,
+          stride = 0.95 + chg * 0.5,
+          u = Math.sin(h) * stride * d,
+          m = Math.sin(h + Math.PI) * stride * d;
         ((s.legL.rotation.x = u),
           (s.legR.rotation.x = m),
           (s.knL.rotation.x = Math.max(0, -Math.sin(h - 0.9)) * 1.2 * d + 0.1),
           (s.knR.rotation.x =
             Math.max(0, -Math.sin(h + Math.PI - 0.9)) * 1.2 * d + 0.1),
+          // Hold the feet level against the leg and knee above them instead
+          // of letting them trail the shin.
+          (s.ankL.rotation.x = -(u + s.knL.rotation.x) * 0.72),
+          (s.ankR.rotation.x = -(m + s.knR.rotation.x) * 0.72),
           (s.hips.position.y =
-            n.hipH + Math.abs(Math.sin(h)) * 0.06 * d - (1 - d) * 0.02),
+            n.hipH +
+            Math.abs(Math.sin(h)) * 0.06 * d -
+            (1 - d) * 0.02 +
+            Math.sin(it * 1.7) * 0.008 * idle),
+          // Weight shifting onto the stance leg, and the torso counter-rolling
+          // to keep the head over the feet.
+          (s.hips.position.x = Math.sin(h) * 0.03 * d),
           (s.hips.rotation.y = Math.sin(h) * 0.14 * d),
-          (s.torso.rotation.x = r.lean * d + l.attackLean + 0.08),
-          (s.torso.rotation.y = -Math.sin(h) * 0.16 * d),
-          (s.neck.rotation.x = -r.lean * 0.75 * d - l.attackLean * 0.6));
+          (s.torso.rotation.x =
+            r.lean * d + l.attackLean + 0.08 + chg * 0.45),
+          (s.torso.rotation.y = -Math.sin(h) * 0.16 * d + Math.sin(it * 0.8) * 0.05 * idle),
+          (s.torso.rotation.z = -Math.sin(h) * 0.06 * d),
+          (s.neck.rotation.x =
+            -r.lean * 0.75 * d - l.attackLean * 0.6 - chg * 0.3),
+          // A stopped unit sweeps its head, looking for you.
+          (s.neck.rotation.y = Math.sin(it * 0.63) * 0.4 * idle));
         let g = 0,
           v = 0;
         if (l.state === "attack") {
@@ -436,11 +479,11 @@ export class EnemyView {
             (s.elL.rotation.x = -0.45 - g * 0.8 + v * 0.6),
             (s.elR.rotation.x = -0.45 - g * 0.8 + v * 0.6))
           : ((s.shL.rotation.x =
-              Math.sin(h + Math.PI) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6),
+              Math.sin(h + Math.PI) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6 + chg * 0.9),
             (s.shR.rotation.x =
-              Math.sin(h) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6),
-            (s.shL.rotation.z = 0.35 + g * 0.4 - v * 0.6),
-            (s.shR.rotation.z = -0.35 - g * 0.4 + v * 0.6),
+              Math.sin(h) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6 + chg * 0.9),
+            (s.shL.rotation.z = 0.35 + g * 0.4 - v * 0.6 + chg * 0.25),
+            (s.shR.rotation.z = -0.35 - g * 0.4 + v * 0.6 - chg * 0.25),
             (s.elL.rotation.x = -0.6 - g * 0.5),
             (s.elR.rotation.x = -0.6 - g * 0.5)),
           n.root.updateMatrixWorld(!0));
