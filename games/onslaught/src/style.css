@@ -689,6 +689,126 @@ canvas#game {
   color: var(--ui);
   text-align: left;
 }
+/* ---- boot / loading ---------------------------------------------------- */
+/* Sits above everything until the first frame is genuinely ready to draw. */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.boot.hidden {
+  display: none !important;
+}
+/* Two solid halves that part like a shutter to reveal the square. */
+.boot-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50.5%;
+  background: #0d0c0b;
+  transition: transform 460ms cubic-bezier(0.7, 0, 0.2, 1);
+}
+.boot-top {
+  top: 0;
+  border-bottom: 0 solid var(--accent);
+}
+.boot-bottom {
+  bottom: 0;
+  border-top: 0 solid var(--accent);
+}
+/* The parting edge only exists while the panels are moving; a permanent seam
+   ran straight through the subtitle. */
+.boot.is-done .boot-top {
+  border-bottom-width: 2px;
+}
+.boot.is-done .boot-bottom {
+  border-top-width: 2px;
+}
+.boot.is-done .boot-top {
+  transform: translateY(-100%);
+}
+.boot.is-done .boot-bottom {
+  transform: translateY(100%);
+}
+.boot-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  transition: opacity 200ms ease;
+}
+.boot.is-done .boot-inner {
+  opacity: 0;
+}
+.boot-kicker {
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.42em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.boot-title {
+  font-family: var(--font-title);
+  font-size: clamp(34px, 7vw, 68px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #f3ede2;
+  margin: 0;
+  line-height: 1;
+}
+.boot-sub {
+  font: 600 13px/1 var(--font-ui);
+  letter-spacing: 0.3em;
+  color: rgba(243, 237, 226, 0.55);
+  margin-top: 10px;
+}
+.boot-bar {
+  width: min(420px, 68vw);
+  height: 6px;
+  margin-top: 30px;
+  background: rgba(243, 237, 226, 0.12);
+  overflow: hidden;
+}
+.boot-bar > i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.boot-row {
+  width: min(420px, 68vw);
+  margin-top: 9px;
+  display: flex;
+  justify-content: space-between;
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.22em;
+  color: rgba(243, 237, 226, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.boot.is-failed .boot-bar > i {
+  background: var(--danger);
+}
+.boot-by {
+  margin-top: 42px;
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.3em;
+  color: rgba(243, 237, 226, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-panel,
+  .boot-inner,
+  .boot-bar > i {
+    transition-duration: 1ms;
+  }
+}
+
 .prize {
   width: min(420px, 86vw);
   margin: 0 auto 12px;

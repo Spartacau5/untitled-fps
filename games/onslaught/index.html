@@ -13,6 +13,25 @@
 <body>
   <canvas id="game"></canvas>
 
+  <!-- ================= BOOT ================= -->
+  <!-- Static markup so it is on screen at first paint, before the bundle has
+       parsed. The two panels part to reveal the game once loading finishes. -->
+  <div id="boot" class="boot">
+    <div class="boot-panel boot-top"></div>
+    <div class="boot-panel boot-bottom"></div>
+    <div class="boot-inner">
+      <div class="boot-kicker">MIDTOWN MANHATTAN</div>
+      <h1 class="boot-title">MIDTOWN / LOCKDOWN</h1>
+      <div class="boot-sub">TIMES SQUARE &middot; NEW YORK CITY</div>
+      <div class="boot-bar"><i id="boot-fill"></i></div>
+      <div class="boot-row">
+        <span id="boot-step">BOOTING</span>
+        <span id="boot-pct">0%</span>
+      </div>
+      <div class="boot-by">BUILT BY ARPIT AHLUWALIA</div>
+    </div>
+  </div>
+
   <!-- ================= HUD ================= -->
   <div id="hud" class="hud hidden">
     <div id="crosshair" class="crosshair">

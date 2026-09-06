@@ -303,8 +303,31 @@ export class Game {
         }, 300),
       (this._raf = (l) => {
         (requestAnimationFrame(this._raf), this.loop(l));
-      }),
-      requestAnimationFrame(this._raf));
+      }));
+  }
+  // Compile every program the opening frames will need, up front.
+  //
+  // three links a program the first time it is used, and reading back the link
+  // status blocks until the driver is done. Left lazy, that lands as one
+  // multi-second freeze on the first rendered frame. compileAsync goes through
+  // KHR_parallel_shader_compile, so the driver links on its own threads while
+  // the page keeps painting - which is what lets the loading bar actually move.
+  async warmup(onProgress) {
+    const step = (v, label) => onProgress && onProgress(v, label);
+    try {
+      (step(0.5, "COMPILING CITY SHADERS"),
+        await this.renderer.compileAsync(this.scene, this.camera));
+      (step(0.82, "COMPILING WEAPON SHADERS"),
+        await this.renderer.compileAsync(this.weaponScene, this.weaponCamera));
+    } catch {
+      // Best effort. A driver without the extension just pays the old cost on
+      // the first frames rather than failing to start.
+    }
+    step(0.96, "STARTING");
+  }
+  // Held back until warmup resolves so nothing renders mid-compile.
+  startLoop() {
+    ((this.last = performance.now()), requestAnimationFrame(this._raf));
   }
   // Persisted preferences. Every consumer is presentation-side; FOV and shake
   // are read each frame in presentGame, the rest are pushed on change.
