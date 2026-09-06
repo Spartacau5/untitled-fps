@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { captureRun } from "../games/onslaught/src/core/run-record.js";
 import { GAME_VERSION } from "../games/onslaught/src/data/version.js";
 import { RunStats } from "../games/onslaught/src/sim/stats.js";
+import { World } from "../games/onslaught/src/sim/world.js";
 
 const world = (over = {}) => ({
   stats: new RunStats(),
@@ -28,6 +29,8 @@ test("captureRun stores score, wave, and an explicit quit result", () => {
   assert.equal(rec.summary.wave, 6);
   assert.equal(rec.summary.score, 28975);
   assert.equal(rec.summary.kills, 136);
+  // A world stub without weapons still serialises rather than throwing.
+  assert.deepEqual(rec.loadout, []);
   assert.equal(rec.settings.fov, 94);
 });
 
@@ -42,4 +45,18 @@ test("captureRun keeps a death result distinct from a pause quit", () => {
   });
   assert.equal(rec.summary.result, "dead");
   assert.equal(rec.summary.score, 40900);
+});
+
+test("captureRun records the loadout the run was played with", () => {
+  const w = new World({ seed: 3, loadout: ["sniper", "pistol"] });
+  w.startRun();
+  const rec = captureRun({
+    world: w,
+    seed: 3,
+    startedAt: "2026-09-06T00:19:43.236Z",
+    endedAt: "2026-09-06T00:29:25.536Z",
+    settings: {},
+    result: "dead",
+  });
+  assert.deepEqual(rec.loadout, ["sniper", "pistol"]);
 });

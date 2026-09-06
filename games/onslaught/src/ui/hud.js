@@ -16,7 +16,8 @@ export class HUD {
       wpnName: t("wpn-name"),
       ammoMag: t("ammo-mag"),
       ammoRes: t("ammo-res"),
-      slots: [t("slot-1"), t("slot-2"), t("slot-3")],
+      slotRow: t("wpn-slots"),
+      slots: [],
       fireMode: t("fire-mode"),
       score: t("score"),
       feed: t("feed"),
@@ -37,6 +38,16 @@ export class HUD {
       settingsNote: t("settings-note"),
       settingsBack: t("btn-settings-back"),
       settingsReset: t("btn-settings-reset"),
+      btnArmory: t("btn-armory"),
+      armoryPanel: t("armory-panel"),
+      armoryBody: t("armory-body"),
+      armoryBack: t("btn-armory-back"),
+      loadoutStrip: t("loadout-strip"),
+      btnControls: t("btn-controls"),
+      controlsPanel: t("controls-panel"),
+      controlsBody: t("controls-body"),
+      controlsBack: t("btn-controls-back"),
+      controlsSummary: t("controls-summary"),
       menuMain: t("menu-main"),
       menuStats: t("menu-stats"),
       runSummary: t("run-summary"),
@@ -160,6 +171,18 @@ export class HUD {
           : "");
     this.cache.magCls !== s &&
       ((this.cache.magCls = s), (this.el.ammoMag.className = s));
+  }
+  // One pip per carried weapon, rebuilt when the loadout changes rather than
+  // fixed in markup, so the row always matches what the number keys do.
+  setSlots(count) {
+    if (!this.el.slotRow || this.el.slots.length === count) return;
+    this.el.slotRow.innerHTML = "";
+    this.el.slots = [];
+    for (let i = 0; i < count; i++) {
+      const pip = document.createElement("span");
+      ((pip.className = "slot"), (pip.textContent = String(i + 1)));
+      (this.el.slotRow.appendChild(pip), this.el.slots.push(pip));
+    }
   }
   setWeapon(t, e, n) {
     (this._set("wname", this.el.wpnName, t),

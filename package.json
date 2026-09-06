@@ -10,7 +10,7 @@
     "serve": "python3 -m http.server 4176 --directory dist",
     "lint": "eslint games/onslaught/src server api",
     "check:boundary": "node scripts/check-sim-boundary.mjs",
-    "test": "npm run lint && npm run check:boundary && node --test \"tests/**/*.test.mjs\"",
+    "test": "npm run lint && npm run check:boundary && node --test tests/",
     "deploy:vercel": "npx vercel@41 --prod --yes"
   },
   "devDependencies": {

@@ -1,3 +1,94 @@
+// Every binding the player can press, in the order the how-to-play screen
+// lists them. `frame()` below reads the movement/action codes straight out of
+// this table, so the controls screen can never drift from what the game
+// actually does. `codes` are KeyboardEvent.code values; `mouse` entries are
+// button indices. `caps` are the glyphs the UI draws on a key.
+export const BINDINGS = [
+  { id: "look", label: "LOOK / AIM", caps: ["MOUSE"], group: "move" },
+  { id: "forward", label: "MOVE FORWARD", codes: ["KeyW"], group: "move" },
+  { id: "back", label: "MOVE BACK", codes: ["KeyS"], group: "move" },
+  { id: "left", label: "MOVE LEFT", codes: ["KeyA"], group: "move" },
+  { id: "right", label: "MOVE RIGHT", codes: ["KeyD"], group: "move" },
+  {
+    id: "sprint",
+    label: "SPRINT",
+    codes: ["ShiftLeft", "ShiftRight"],
+    caps: ["SHIFT"],
+    group: "move",
+  },
+  { id: "jump", label: "JUMP", codes: ["Space"], caps: ["SPACE"], group: "move" },
+  {
+    id: "crouch",
+    label: "CROUCH / SLIDE",
+    hint: "slides when you crouch at a sprint",
+    codes: ["KeyC", "ControlLeft"],
+    caps: ["C", "CTRL"],
+    group: "move",
+  },
+  { id: "fire", label: "FIRE", mouse: 0, caps: ["LMB"], group: "combat" },
+  {
+    id: "ads",
+    label: "AIM DOWN SIGHTS",
+    mouse: 2,
+    caps: ["RMB"],
+    group: "combat",
+  },
+  { id: "reload", label: "RELOAD", codes: ["KeyR"], group: "combat" },
+  { id: "swapLast", label: "QUICK SWAP", codes: ["KeyQ"], group: "combat" },
+  {
+    id: "slots",
+    label: "SELECT WEAPON",
+    // One key per carried gun. frame(), the how-to-play screen and the HUD
+    // pip row all size themselves off this list, so adding a ninth gun means
+    // adding Digit9 here and nowhere else.
+    codes: [
+      "Digit1",
+      "Digit2",
+      "Digit3",
+      "Digit4",
+      "Digit5",
+      "Digit6",
+      "Digit7",
+      "Digit8",
+    ],
+    caps: ["1", "2", "3", "4", "5", "6", "7", "8"],
+    seq: true,
+    group: "combat",
+  },
+  {
+    id: "wheel",
+    label: "CYCLE WEAPONS",
+    caps: ["WHEEL"],
+    group: "combat",
+  },
+  {
+    id: "sensitivity",
+    label: "SENSITIVITY",
+    hint: "lower / raise",
+    codes: ["BracketLeft", "BracketRight"],
+    caps: ["[", "]"],
+    seq: true,
+    group: "system",
+  },
+  { id: "music", label: "TOGGLE MUSIC", codes: ["KeyM"], group: "system" },
+  { id: "ambient", label: "TOGGLE AMBIENCE", codes: ["KeyN"], group: "system" },
+  { id: "help", label: "HOW TO PLAY", codes: ["KeyH"], group: "system" },
+  {
+    id: "pause",
+    label: "PAUSE",
+    codes: ["Escape"],
+    caps: ["ESC"],
+    group: "system",
+  },
+];
+
+const BIND = {};
+for (const b of BINDINGS) BIND[b.id] = b.codes || [];
+
+// Weapon slot count is whatever the slot binding exposes, so adding a third
+// slot back is a one-line change in the table above.
+export const WEAPON_SLOT_CODES = BIND.slots;
+
 export class Input {
   constructor(t) {
     ((this.canvas = t),
@@ -122,23 +213,30 @@ export class Input {
   // the simulation reads, so a headless run (or a network peer) can feed the
   // same object without a DOM.
   frame() {
-    const k = (c) => this.keys.has(c),
-      jp = (c) => this.pressed.has(c);
+    const any = (codes, set) => codes.some((c) => set.has(c)),
+      k = (id) => any(BIND[id], this.keys),
+      jp = (id) => any(BIND[id], this.pressed);
+    let switchTo = -1;
+    for (let i = 0; i < WEAPON_SLOT_CODES.length; i++)
+      if (this.pressed.has(WEAPON_SLOT_CODES[i])) {
+        switchTo = i;
+        break;
+      }
     return {
       move: {
-        x: (k("KeyD") ? 1 : 0) - (k("KeyA") ? 1 : 0),
-        y: (k("KeyW") ? 1 : 0) - (k("KeyS") ? 1 : 0),
+        x: (k("right") ? 1 : 0) - (k("left") ? 1 : 0),
+        y: (k("forward") ? 1 : 0) - (k("back") ? 1 : 0),
       },
       fire: this.mousePressed[0],
       fireHeld: this.mouseDown[0],
       ads: this.mouseDown[2],
-      reload: jp("KeyR"),
-      sprint: k("ShiftLeft") || k("ShiftRight"),
-      jump: jp("Space"),
-      crouch: k("KeyC") || k("ControlLeft"),
-      crouchPressed: jp("KeyC") || jp("ControlLeft"),
-      switchTo: jp("Digit1") ? 0 : jp("Digit2") ? 1 : jp("Digit3") ? 2 : -1,
-      swapLast: jp("KeyQ"),
+      reload: jp("reload"),
+      sprint: k("sprint"),
+      jump: jp("jump"),
+      crouch: k("crouch"),
+      crouchPressed: jp("crouch"),
+      switchTo,
+      swapLast: jp("swapLast"),
       wheel: this.wheel,
     };
   }

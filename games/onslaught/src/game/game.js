@@ -28,6 +28,7 @@ import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
+import { Progression } from "../core/progression.js";
 import { Settings } from "../core/settings.js";
 import { captureRun } from "../core/run-record.js";
 import { RunLog } from "../core/runlog.js";
@@ -46,6 +47,8 @@ import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
+import { mountArmory } from "../ui/armory.js";
+import { mountControls } from "../ui/controls.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import { Telemetry } from "../ui/telemetry.js";
 import {
@@ -69,10 +72,13 @@ export class Game {
     // Mutable copy so the debug panel can tune the grade live.
     this.grade = { ...theme.grade };
     this.seed = parseSeed(location.search);
+    this.progression = new Progression();
     this.world = new World({
       seed: this.seed,
       god: this.god,
       noSpawn: e.has("nospawn"),
+      loadout: this.progression.loadout,
+      startKey: this.progression.start,
     });
     const n = new WebGLRenderer({
       canvas: t,
@@ -112,7 +118,11 @@ export class Game {
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
       (this.enemyView = new EnemyView(this.scene)),
-      (this.weaponView = new WeaponView(this.weaponCamera)),
+      (this.weaponView = new WeaponView(
+        this.weaponCamera,
+        this.progression.loadout,
+        this.world.weapons.startIndex,
+      )),
       (this.pickupMeshes = new Map()),
       (this.postfx = new PostFX(n)));
     const r = new DirectionalLight(
@@ -121,16 +131,33 @@ export class Game {
     );
     // Keep the weapon key in camera space so turning toward a dark facade
     // does not lose the receiver, sight and human-hand silhouettes.
-    (r.position.set(-2, 3, 2),
-      r.target.position.set(0, -0.2, -1),
-      this.weaponCamera.add(r, r.target),
-      this.weaponScene.add(
-        new HemisphereLight(
-          theme.lights.weaponHemi.sky,
-          theme.lights.weaponHemi.ground,
-          theme.lights.weaponHemi.intensity,
-        ),
-      ));
+    r.position.set(-2, 3, 2);
+    r.target.position.set(0, -0.2, -1);
+    // Self-shadowing on the viewmodel. Without it the hands, magwell and
+    // trigger guard have no contact darkening and the gun reads as one flat
+    // object. A tight frustum is enough: the subject is under a metre across
+    // and sits a fixed distance from the camera.
+    r.castShadow = true;
+    r.shadow.mapSize.width = r.shadow.mapSize.height = 1024;
+    Object.assign(r.shadow.camera, {
+      left: -0.7,
+      right: 0.7,
+      top: 0.7,
+      bottom: -0.7,
+      near: 0.05,
+      far: 6,
+    });
+    r.shadow.bias = -0.0012;
+    r.shadow.normalBias = 0.006;
+    r.shadow.camera.updateProjectionMatrix();
+    this.weaponCamera.add(r, r.target);
+    this.weaponScene.add(
+      new HemisphereLight(
+        theme.lights.weaponHemi.sky,
+        theme.lights.weaponHemi.ground,
+        theme.lights.weaponHemi.intensity,
+      ),
+    );
     const a = new PointLight(
       theme.lights.weaponFill.color,
       theme.lights.weaponFill.intensity,
@@ -172,6 +199,25 @@ export class Game {
       // the panel is told when that resolves rather than being asked up front.
       (this.input.onRawInput = (raw) =>
         this.settingsPanel && this.settingsPanel.setRawInput(raw)),
+      (this.armoryPanel = mountArmory(
+        this.progression,
+        {
+          panel: this.hud.el.armoryPanel,
+          body: this.hud.el.armoryBody,
+          btnOpen: this.hud.el.btnArmory,
+          btnBack: this.hud.el.armoryBack,
+          menuMain: this.hud.el.menuMain,
+        },
+        (loadout, startKey) => this._applyLoadout(loadout, startKey),
+      )),
+      (this.controlsPanel = mountControls({
+        panel: this.hud.el.controlsPanel,
+        body: this.hud.el.controlsBody,
+        btnOpen: this.hud.el.btnControls,
+        btnBack: this.hud.el.controlsBack,
+        summary: this.hud.el.controlsSummary,
+        menuMain: this.hud.el.menuMain,
+      })),
       (this.runLog = new RunLog()),
       (this.telemetry = new Telemetry()),
       (this.lastRun = null),
@@ -181,6 +227,8 @@ export class Game {
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
       this.hud.setContest(Date.now()),
+      this.hud.setSlots(this.world.weapons.weapons.length),
+      this._renderLoadoutStrip(),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       this.hud.el.btnRestart &&
@@ -347,6 +395,12 @@ export class Game {
     });
     this.runLog.append(this.lastRun);
     this.telemetry.run(this.lastRun, this.runId);
+    // Bank the XP before the board round-trip, so a failed POST cannot cost
+    // the player their progress.
+    this.lastXp = this.progression.addRun(this.lastRun.summary);
+    (this.armoryPanel && this.armoryPanel.render(), this._renderLoadoutStrip());
+    this.lastXp.levelsGained > 0 &&
+      this.hud.hint(`LEVEL ${this.lastXp.level} REACHED`, !1, 3);
     await this._submitRun({ final: true });
     this.runId = "";
   }
@@ -367,7 +421,17 @@ export class Game {
     // Capture the district itself once so steel and glass reflect buildings,
     // billboard colors and the sky instead of the original orange arena ring.
     const generator = new PMREMGenerator(this.renderer);
+    // fromScene captures from the world origin, which here is a point on the
+    // ground plane and inside the granite plinth: the lower half of the
+    // capture was the underside of the floor, so every metal surface in the
+    // game reflected a dark hemisphere. Drop the scene to put the capture at
+    // roughly eye height instead.
+    const CAPTURE_Y = 3.2;
+    this.scene.position.y = -CAPTURE_Y;
+    this.scene.updateMatrixWorld(true);
     const environment = generator.fromScene(this.scene, 0.06, 0.1, 1200);
+    this.scene.position.y = 0;
+    this.scene.updateMatrixWorld(true);
     this.scene.environment = environment.texture;
     // The city capture is intentionally dark between the tall buildings.
     // A separate neutral reflection rig keeps high-metalness weapon surfaces
@@ -392,8 +456,34 @@ export class Game {
     const n = new Mesh(new BoxGeometry(0.3, 0.02, 0.2), mats.emWhite);
     ((n.position.y = 0.19), t.add(n), (this.pickupProto = t));
   }
+  // The armory changed what the player carries. The sim rebuilds its weapon
+  // states and the viewmodel rebuilds its rig; both are safe between runs
+  // because startRun() re-forks the combat RNG stream.
+  _applyLoadout(loadout, startKey) {
+    (this.world.setLoadout(loadout, startKey),
+      this.weaponView.setLoadout(loadout, this.world.weapons.startIndex),
+      this.weaponView.reset(),
+      this.world.weapons._ammo(this.world),
+      this.world.drainEvents(),
+      this.hud.setSlots(this.world.weapons.weapons.length),
+      this._renderLoadoutStrip());
+  }
+  _renderLoadoutStrip() {
+    const el = this.hud.el.loadoutStrip;
+    if (!el) return;
+    // Too many guns to name them all on the deploy screen: show which one you
+    // start on, and how many keys are live.
+    const l = this.world.weapons.loadout,
+      start = l[this.world.weapons.startIndex];
+    el.innerHTML =
+      `<span><b>${this.world.weapons.startIndex + 1}</b> ${start.name}</span>` +
+      `<span class="loadout-sep">·</span>` +
+      `<span>KEYS <b>1&ndash;${l.length}</b> CARRIED</span>`;
+  }
   start() {
     this.settingsPanel && this.settingsPanel.close();
+    this.armoryPanel && this.armoryPanel.close();
+    this.controlsPanel && this.controlsPanel.close();
     this.hud.setPauseActions(false);
     if ((this.audio.init(), this.audio.resume(), this.state === "paused")) {
       ((this.state = "playing"),
@@ -470,6 +560,22 @@ export class Game {
   onKey(t) {
     if (t === "Escape" && this.settingsPanel && this.settingsPanel.isOpen()) {
       this.settingsPanel.close();
+      return;
+    }
+    if (t === "Escape" && this.controlsPanel && this.controlsPanel.isOpen()) {
+      this.controlsPanel.close();
+      return;
+    }
+    if (t === "Escape" && this.armoryPanel && this.armoryPanel.isOpen()) {
+      this.armoryPanel.close();
+      return;
+    }
+    // H opens how-to-play from the menu or pause. Mid-run it would need a
+    // pause first, so it is ignored while the pointer is locked.
+    if (t === "KeyH" && this.controlsPanel && this.state !== "playing") {
+      (this.settingsPanel && this.settingsPanel.close(),
+        this.armoryPanel && this.armoryPanel.close(),
+        this.controlsPanel.toggle());
       return;
     }
     (t === "KeyM" &&
@@ -550,11 +656,20 @@ export class Game {
       // weapons
       case EV.EV_SHOT:
         (this.weaponView.onEvent(h, w.weapons),
-          this.particles.muzzleSmoke(
-            this.weaponView.muzzleWorld,
-            n.forward,
-            h.def.smoke,
-          ),
+          // A stream weapon emits no tracer and leaves no impact, so the jet
+          // is the only thing that shows the player where the damage went.
+          h.def.fire === "cone"
+            ? this.particles.flameJet(
+                this.weaponView.muzzleWorld,
+                n.forward,
+                h.def.coneRange,
+                h.def.coneAngle,
+              )
+            : this.particles.muzzleSmoke(
+                this.weaponView.muzzleWorld,
+                n.forward,
+                h.def.smoke,
+              ),
           A.gunshot(h.def.sound));
         break;
       case EV.EV_TRACER: {

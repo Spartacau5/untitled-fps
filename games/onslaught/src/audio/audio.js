@@ -22,6 +22,15 @@ export function reverbImpulse(i, t, e) {
   return s;
 }
 export const midiToHz = (i) => 440 * Math.pow(2, (i - 69) / 12);
+// Which existing chain each new weapon borrows, and how it is retuned.
+// Pitch scales the resonant bands; gain trims the whole voice.
+const GUN_VOICES = {
+  pistol: { base: "ar", pitch: 1.22, gain: 0.78 },
+  smg: { base: "ar", pitch: 1.12, gain: 0.62 },
+  lmg: { base: "dmr", pitch: 0.94, gain: 0.92 },
+  sniper: { base: "dmr", pitch: 0.72, gain: 1.35 },
+};
+
 export class Audio {
   constructor() {
     ((this.ctx = null),
@@ -31,6 +40,7 @@ export class Audio {
       (this.masterVol = 0.9),
       (this.musicVol = 1),
       (this.sfxVol = 1),
+      (this.voiceGain = 1),
       (this.intensity = 0),
       (this.listenerPos = [0, 0, 0]),
       (this.listenerFwd = [0, 0, -1]),
@@ -150,7 +160,7 @@ export class Audio {
     const c = this.ctx,
       h = c.createGain();
     (h.gain.setValueAtTime(1e-4, t),
-      h.gain.linearRampToValueAtTime(s, t + r),
+      h.gain.linearRampToValueAtTime(s * this.voiceGain, t + r),
       h.gain.exponentialRampToValueAtTime(1e-4, t + r + a),
       n.connect(h));
     let d = h;
@@ -229,10 +239,48 @@ export class Audio {
       u.start(t),
       u.stop(t + a + l + 0.05));
   }
-  gunshot(t) {
+  gunshot(key) {
     if (!this.ready) return;
-    const e = this.now,
-      n = 0.94 + Math.random() * 0.12;
+    if (key === "flame") return this.flameLoop();
+    // New weapons borrow the closest existing synthesis chain, retuned by
+    // pitch and weight. The chain's fixed high-frequency crack stays put,
+    // which is what keeps them recognisable as the same family of gun.
+    const voice = GUN_VOICES[key] || { base: key, pitch: 1, gain: 1 };
+    const t = voice.base,
+      e = this.now,
+      n = (0.94 + Math.random() * 0.12) * voice.pitch;
+    this.voiceGain = voice.gain;
+    this._gunshotBody(t, e, n);
+    this.voiceGain = 1;
+  }
+  // One short filtered puff per sim tick. At the incinerator's rate these
+  // overlap into a continuous roar without a looping source to manage.
+  flameLoop() {
+    const e = this.now;
+    (this.noise(e, {
+      type: "bandpass",
+      freq: 620 + Math.random() * 260,
+      Q: 0.7,
+      gain: 0.16,
+      decay: 0.16,
+      send: 0.35,
+    }),
+      this.noise(e, {
+        type: "highpass",
+        freq: 4200,
+        gain: 0.05,
+        decay: 0.06,
+      }),
+      this.noise(e, {
+        type: "lowpass",
+        freq: 200,
+        freqEnd: 90,
+        gain: 0.12,
+        decay: 0.22,
+        send: 0.4,
+      }));
+  }
+  _gunshotBody(t, e, n) {
     t === "ar"
       ? (this.noise(e, {
           type: "highpass",

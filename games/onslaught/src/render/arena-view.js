@@ -18,11 +18,21 @@ import { theme } from "../theme/theme.js";
 import { createPortalMaterial } from "./portal.js";
 import { applySurfaceGrime } from "./shaders/surface.js";
 import {
+  CAMPAIGNS,
+  STOREFRONTS,
+  TICKER,
+  TICKER_SEPARATOR,
+  TOWER_CAMPAIGNS,
+} from "./city/ads.js";
+import {
+  adImageTexture,
   facadeTexture,
   pavementTexture,
   shutterTexture,
   signTexture,
+  tickerTexture,
 } from "./city/textures.js";
+import { applyLedPanel, updateLedPanels } from "./shaders/led.js";
 
 // Gate status lamps: red while the door is sealed, green for exactly as long
 // as it is open. Allocated once at module scope — lerping into a scratch Color
@@ -108,6 +118,9 @@ export class ArenaView {
         }),
     );
     this.signs = new Map();
+    // Materials with a motion shader, advanced together in update().
+    this.ledMats = [];
+    this.tickers = [];
   }
   _box(w, h, d, x, y, z, material, yaw = 0) {
     const geo = new BoxGeometry(w, h, d);
@@ -160,6 +173,59 @@ export class ArenaView {
     geo.rotateY(yaw);
     geo.translate(x, y, z);
     this._batch(geo, this.signs.get(key));
+  }
+  // A board running one of the campaigns from city/ads.js. Unlike _sign these
+  // are not batched: each carries its own motion shader and its own clock, so
+  // they have to stay separate meshes.
+  _board(campaign, w, h, x, y, z, yaw = 0, phase = 0) {
+    const map = signTexture(
+      campaign.headline,
+      campaign.subline || "",
+      campaign.bg,
+      campaign.fg,
+      campaign.art !== false,
+    );
+    const mat = new MeshStandardMaterial({
+      map,
+      emissiveMap: map,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.72,
+      roughness: 0.62,
+      metalness: 0,
+    });
+    // Player artwork replaces the drawn card if the file is there. Swapping
+    // both maps keeps the panel lit by its own image.
+    if (campaign.image)
+      adImageTexture(campaign.image, (tex) => {
+        ((mat.map = tex), (mat.emissiveMap = tex), (mat.needsUpdate = !0));
+      });
+    if (campaign.motion) {
+      applyLedPanel(mat, { motion: campaign.motion, phase });
+      this.ledMats.push(mat);
+    }
+    const mesh = new Mesh(new PlaneGeometry(w, h), mat);
+    (mesh.position.set(x, y, z), (mesh.rotation.y = yaw), this.scene.add(mesh));
+    return mesh;
+  }
+  // The crawling news strip. One wrapped texture per message, scrolled by
+  // offset -- no canvas is ever redrawn.
+  _ticker(w, h, x, y, z, yaw, speed = 0.06) {
+    const map = tickerTexture(TICKER.join(TICKER_SEPARATOR) + TICKER_SEPARATOR);
+    // Repeat so the strip reads at a legible size on a wide panel rather than
+    // stretching one pass of the text across the whole board.
+    map.repeat.set(w / (h * 9), 1);
+    const mat = new MeshStandardMaterial({
+      map,
+      emissiveMap: map,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.95,
+      roughness: 0.55,
+      metalness: 0,
+    });
+    const mesh = new Mesh(new PlaneGeometry(w, h), mat);
+    (mesh.position.set(x, y, z), (mesh.rotation.y = yaw), this.scene.add(mesh));
+    this.tickers.push({ map, speed });
+    return mesh;
   }
   _ground() {
     const m = this.mats;
@@ -222,14 +288,6 @@ export class ArenaView {
   }
   _boundary(arena) {
     const m = this.mats;
-    const shops = [
-      "BROADWAY\nCOFFEE",
-      "MIDTOWN\nMARKET",
-      "NEW YORK\nPIZZA",
-      "THEATRE\nDISTRICT",
-      "SEVENTH\nAVENUE",
-      "CITY\nPHARMACY",
-    ];
     let gateIndex = 0;
     for (let i = 0; i < 24; i++) {
       const a = (i * Math.PI) / 12,
@@ -332,17 +390,22 @@ export class ArenaView {
           box(0.09, 3.65, 0.13, lx, 2.1, -0.72, m.metal);
         box(9.5, 0.28, 0.7, 0, 4.15, -0.83, m.metal);
         box(9.5, 0.1, 0.1, 0, 3.92, -1.1, m.emWhite);
+        const shop = STOREFRONTS[i % STOREFRONTS.length];
         sign(
-          shops[i % shops.length],
+          shop.headline,
           "TIMES SQUARE / NEW YORK",
           8.8,
           2.6,
           0,
           6.25,
           -0.72,
-          i % 3 === 0 ? "#62312b" : "#172d34",
-          "#eee8d5",
+          shop.bg,
+          shop.fg || "#eee8d5",
         );
+        // A news crawl on the fascia below the shop sign. Inside the ring and
+        // at eye level, so it is in frame while you fight rather than being
+        // skyline dressing.
+        this._ticker(9.2, 0.62, ...local(0, 4.62, -0.95), yaw + Math.PI, 0.05);
         // Masonry cornice, not a glowing arena stripe.
         box(9.7, 0.28, 1.42, 0, 8.86, 0, m.stone);
       }
@@ -359,25 +422,14 @@ export class ArenaView {
       );
       box(10, 0.4, depth + 0.5, 0, 9 + height, depth / 2 + 0.5, m.stone);
       if (i % 3 !== 2) {
-        const ads = [
-          ["AFTER\nHOURS", "A NEW BROADWAY ORIGINAL", "#701e33", "#ffd7a2"],
-          ["MAKE IT\nNEW YORK", "THE CITY IS YOURS", "#173e69", "#83def1"],
-          ["SOLSTICE", "SOUND WITHOUT LIMITS", "#58367e", "#f4bce8"],
-          ["EVERY\nMOMENT", "SHOT IN NEW YORK", "#14544c", "#b6f2c8"],
-          ["NORTH\nSTAR", "THE NEXT CHAPTER", "#c55427", "#fff1c8"],
-        ];
-        const ad = ads[i % ads.length];
         box(9.4, 7.2, 0.4, 0, 14, -0.25, m.metal);
-        this._sign(
-          ad[0],
-          ad[1],
+        this._board(
+          CAMPAIGNS[i % CAMPAIGNS.length],
           9,
           6.8,
           ...local(0, 14, -0.48),
           yaw + Math.PI,
-          ad[2],
-          ad[3],
-          true,
+          i * 0.83,
         );
       }
     }
@@ -492,27 +544,9 @@ export class ArenaView {
     const ball = new Mesh(new TorusGeometry(1.25, 0.3, 8, 24), m.emWhite);
     ball.position.set(0, 101, heroZ);
     this.scene.add(ball);
-    const ads = [
-      ["TIMES\nSQUARE", "THE CROSSROADS OF NEW YORK", "#a32a35", "#fff1dc"],
-      ["CITY\nIN MOTION", "SEVEN MILLION STORIES", "#163a69", "#9edfeb"],
-      ["BROADWAY", "LIVE EVERY NIGHT", "#49235b", "#f1c2d9"],
-      ["NYC", "MAKE YOURSELF AT HOME", "#d78931", "#fff0c7"],
-    ];
-    ads.forEach((ad, i) => {
+    TOWER_CAMPAIGNS.forEach((ad, i) => {
       this._box(19, 13, 0.7, 0, 18 + i * 15, heroZ + 9.2, m.metal);
-      this._sign(
-        ad[0],
-        ad[1],
-        18.5,
-        12.5,
-        0,
-        18 + i * 15,
-        heroZ + 9.6,
-        0,
-        ad[2],
-        ad[3],
-        true,
-      );
+      this._board(ad, 18.5, 12.5, 0, 18 + i * 15, heroZ + 9.6, 0, i * 2.1);
     });
     // The red seating landmark is behind the closed perimeter, so it does
     // not introduce climbable geometry without corresponding collision.
@@ -612,6 +646,10 @@ export class ArenaView {
     this.scene.add(this.portalLight);
   }
   update(time, dt = 1 / 60) {
+    // Billboard motion and the news crawl. Both run off the shared clock so
+    // the square keeps moving whether or not anything is being shot.
+    updateLedPanels(this.ledMats, time);
+    for (const t of this.tickers) t.map.offset.x = -time * t.speed;
     let widest = 0;
     let lit = null;
     for (const view of this.gateViews) {

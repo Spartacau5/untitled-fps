@@ -12,6 +12,7 @@ export function captureRun({
     v: 1,
     game: GAME_VERSION,
     seed,
+    loadout: (world.weapons ? world.weapons.loadout : []).map((w) => w.key),
     startedAt,
     endedAt,
     settings,
