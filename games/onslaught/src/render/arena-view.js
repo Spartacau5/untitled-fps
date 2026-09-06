@@ -731,13 +731,12 @@ export class ArenaView {
     this.scene.add(
       new HemisphereLight(a.hemi.sky, a.hemi.ground, a.hemi.intensity),
     );
-    // Only four unshadowed pools of billboard bounce, independent of enemies.
-    for (let i = 0; i < 4; i++) {
-      const angle = (i * Math.PI) / 2;
-      const lamp = new PointLight(i % 2 ? 0xffc7a0 : 0x9dbfe8, 65, 40, 2);
-      lamp.position.set(Math.cos(angle) * 29, 8, Math.sin(angle) * 29);
-      this.scene.add(lamp);
-    }
+    // The four decorative bounce lamps that used to sit here are gone. Every
+    // light is compiled into every standard material's shader and costs
+    // per-fragment work on every frame, whether or not it reaches the surface.
+    // The billboards are emissive and the hemisphere light already carries the
+    // ambient wash, so four extra point lights bought very little for a cost
+    // paid by the whole scene.
     this.scene.fog = new FogExp2(a.fog.color, a.fog.density);
     // A single roaming spill light serves every portal. Six of them (one per
     // gate) would double the scene's point-light count, and every material
