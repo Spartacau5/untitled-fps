@@ -264,9 +264,9 @@ ${NOISE_GLSL}`,
             "#include <emissivemap_fragment>",
             `#include <emissivemap_fragment>
         ${e ? "totalEmissiveRadiance *= 0.75 + 0.35 * sin(uTime * 6.0 + vWPos.x * 3.0 + vWPos.z * 2.0);" : ""}
-        totalEmissiveRadiance += vec3(1.0, 0.45, 0.12) * dBurn * 7.0;
-        totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * vFlash * 3.0;
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), vFlash * 0.85);`,
+        totalEmissiveRadiance += vec3(1.0, 0.45, 0.12) * dBurn * 1.4;
+        totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * vFlash * 0.2;
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), vFlash * 0.12);`,
           )));
     }),
     (i.customProgramCacheKey = () =>

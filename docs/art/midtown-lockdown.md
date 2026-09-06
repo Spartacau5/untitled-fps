@@ -74,3 +74,23 @@ Higher fidelity will require authored facade detail, calibrated material maps,
 rigged character/weapon assets and recorded urban ambience. Billboards are
 fictional graphic campaigns. Street layout remains the original circular arena
 by design; the surrounding city is evocative rather than geographically exact.
+
+## Capture-driven correction (2026-09-06)
+
+The user's screenshots and sampled recording frames show underexposed weapon
+surfaces, repetitive/blocky architecture and excessive hit-flash/color-fringing.
+The next commit addresses the immediate readability issues:
+
+- Give the first-person weapon a neutral RoomEnvironment reflection map while
+  retaining the city reflection capture for world objects.
+- Attach the weapon key light and its target to the weapon camera; improve
+  local fill and hemisphere light without changing the weapon pose or recoil.
+- Reduce robot full-body hit whitening and dissolve glow, world muzzle-light
+  intensity, firing screen flash and movement blur/color-fringing.
+- Match ranged-projectile trails to the suppression unit's blue presentation.
+
+This is a targeted correction, not a solution to the larger art-quality gap.
+Architecture and billboard variety, storefront depth, physically credible
+materials and authored robot assets remain the next substantial work.
+Actual appearance still needs a new local capture; no local browser rendering
+or audio listening was possible in this environment.

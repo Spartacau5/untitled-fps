@@ -22,9 +22,9 @@ export const theme = {
     fog: { color: 0xa9b6c4, density: 0.0045 },
     gate: { color: 0xff5a1f, intensity: 40 },
     perimeter: { color: 0xffc98a, intensity: 10 },
-    weaponKey: { color: 0xfff0d8, intensity: 2.2 },
-    weaponHemi: { sky: 0x8fb3d9, ground: 0xb89c72, intensity: 1.0 },
-    weaponFill: { color: 0xffd9b0, intensity: 0.6 },
+    weaponKey: { color: 0xfff0df, intensity: 3.0 },
+    weaponHemi: { sky: 0xb7ccdf, ground: 0x92999f, intensity: 1.5 },
+    weaponFill: { color: 0xc8d9e8, intensity: 1.0 },
     envIntensity: { world: 0.7, weapon: 0.8 },
   },
   arena: {

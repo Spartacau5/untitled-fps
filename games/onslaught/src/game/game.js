@@ -22,6 +22,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Audio } from "../audio/audio.js";
 import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
@@ -116,9 +117,11 @@ export class Game {
       theme.lights.weaponKey.color,
       theme.lights.weaponKey.intensity,
     );
-    (r.position.copy(SUN_DIR).multiplyScalar(10),
-      this.weaponScene.add(r),
-      this.weaponScene.add(r.target),
+    // Keep the weapon key in camera space so turning toward a dark facade
+    // does not lose the receiver, sight and human-hand silhouettes.
+    (r.position.set(-2, 3, 2),
+      r.target.position.set(0, -0.2, -1),
+      this.weaponCamera.add(r, r.target),
       this.weaponScene.add(
         new HemisphereLight(
           theme.lights.weaponHemi.sky,
@@ -305,7 +308,13 @@ export class Game {
     const generator = new PMREMGenerator(this.renderer);
     const environment = generator.fromScene(this.scene, 0.06, 0.1, 1200);
     this.scene.environment = environment.texture;
-    this.weaponScene.environment = environment.texture;
+    // The city capture is intentionally dark between the tall buildings.
+    // A separate neutral reflection rig keeps high-metalness weapon surfaces
+    // readable without brightening or flattening the entire world.
+    const weaponRoom = new RoomEnvironment();
+    const weaponEnvironment = generator.fromScene(weaponRoom, 0.08);
+    this.weaponScene.environment = weaponEnvironment.texture;
+    weaponRoom.dispose();
     this.scene.environmentIntensity = theme.lights.envIntensity.world;
     this.weaponScene.environmentIntensity = theme.lights.envIntensity.weapon;
     generator.dispose();
@@ -806,10 +815,10 @@ export class Game {
       this._syncPickups(),
       this.weaponView.sync(W, n, this.input, frameDt, this.time));
     for (const p of w.projectiles.list)
-      p.active && this.particles.trail(p.pos, [0.35, 1, 0.4], 0.16);
+      p.active && this.particles.trail(p.pos, theme.enemies.spitter.glow, 0.16);
     const r = this.weaponView.flash.intensity;
     (this.muzzleLight.position.copy(this.weaponView.muzzleWorld),
-      (this.muzzleLight.intensity = r * W.weapon.def.flash.light * 3.5));
+      (this.muzzleLight.intensity = r * W.weapon.def.flash.light * 0.85));
     const a = W.getSpread(n),
       l =
         (Math.tan(a) / Math.tan(MathUtils.degToRad(this.camera.fov / 2))) *
@@ -841,11 +850,10 @@ export class Game {
     ((o.uDamage.value = Math.pow(1 - c, 1.7) * 0.85 + this.hurtFx * 0.4),
       (o.uCA.value =
         this.grade.chromatic +
-        this.hurtFx * 0.02 +
-        r * 0.012 +
-        n.trauma * n.trauma * 0.03),
-      (o.uRadial.value = n.slideBlend * 0.5 + n.sprintBlend * 0.12),
-      (o.uFlash.value = r * 0.03),
+        this.hurtFx * 0.002 +
+        n.trauma * n.trauma * 0.003),
+      (o.uRadial.value = n.slideBlend * 0.1 + n.sprintBlend * 0.025),
+      (o.uFlash.value = r * 0.008),
       (o.uExposure.value = this.grade.exposure + W.adsSmooth * 0.06),
       (o.uDesat.value = n.dead ? Math.min(1, w.deadT / 2.5) : 0));
   }
