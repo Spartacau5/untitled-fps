@@ -13,7 +13,7 @@ import { MuzzleFlash, makeRedDotMaterial, updateRedDot } from "./weapons/kit.js"
 // the pose; reacts to sim events for kicks, flash and bolt motion. Owns every
 // spring and animation value — none of this feeds back into the sim.
 export class WeaponView {
-  constructor(cam, loadout) {
+  constructor(cam, loadout, startIndex = 0) {
     ((this.cam = cam),
       (this.rig = new Group()),
       cam.add(this.rig),
@@ -41,11 +41,11 @@ export class WeaponView {
       (this._v = new Vector3()),
       (this._up = new Vector3()),
       (this.muzzleWorld = new Vector3()));
-    this.setLoadout(loadout);
+    this.setLoadout(loadout, startIndex);
   }
   // Point the rig at a set of weapon keys, in slot order. Called once at
   // construction and again whenever the armory changes what is carried.
-  setLoadout(keys) {
+  setLoadout(keys, startIndex = 0) {
     const wanted = keys && keys.length ? keys : ["ar"];
     this.flash.group.parent && this.flash.group.parent.remove(this.flash.group);
     for (const m of this.models) m.group.visible = !1;
@@ -64,7 +64,7 @@ export class WeaponView {
       }
       return this.built.get(key);
     });
-    ((this.shown = 0),
+    ((this.shown = Math.min(Math.max(0, startIndex), this.models.length - 1)),
       (this.boltT = this.models.map(() => 0)),
       (this.model.group.visible = !0),
       this.parts.muzzle.add(this.flash.group),

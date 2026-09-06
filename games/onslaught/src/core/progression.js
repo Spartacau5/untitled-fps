@@ -1,4 +1,8 @@
-import { DEFAULT_LOADOUT, WEAPONS } from "../data/weapons.js";
+import {
+  DEFAULT_LOADOUT,
+  DEFAULT_START,
+  WEAPONS,
+} from "../data/weapons.js";
 
 export const STORAGE_KEY = "onslaught.profile.v1";
 
@@ -22,7 +26,6 @@ export function xpForRun({ score = 0, kills = 0, wave = 0 } = {}) {
 }
 
 const BY_KEY = new Map(WEAPONS.map((w) => [w.key, w]));
-const slotOf = (key) => (BY_KEY.get(key) || {}).slot;
 
 // Persisted player profile: XP, level and the chosen loadout. Presentation
 // side by design — the sim is handed a loadout, it never reads this. Storage
@@ -41,22 +44,20 @@ export class Progression {
     }
     if (!saved || typeof saved !== "object") saved = {};
     ((this.xp = Number.isFinite(saved.xp) && saved.xp > 0 ? saved.xp : 0),
-      (this.loadout = this._sanitize(saved.loadout)));
+      (this.start = this._sanitizeStart(saved.start)));
   }
-  // A loadout is always one primary then one sidearm, and every gun in it has
-  // to exist and be unlocked. Anything else falls back slot by slot, so an
-  // edited or stale save can never leave the player holding nothing.
-  _sanitize(loadout) {
-    const want = Array.isArray(loadout) ? loadout : [];
-    return DEFAULT_LOADOUT.map((fallback, i) => {
-      const key = want[i];
-      return key &&
-        BY_KEY.has(key) &&
-        slotOf(key) === slotOf(fallback) &&
-        this.isUnlocked(key)
-        ? key
-        : fallback;
-    });
+  // Every unlocked gun is carried, in table order, so each keeps a fixed
+  // number key. Locked guns drop out rather than leaving a dead key.
+  get loadout() {
+    const carried = DEFAULT_LOADOUT.filter((k) => this.isUnlocked(k));
+    return carried.length ? carried : [DEFAULT_LOADOUT[0]];
+  }
+  // The gun a run begins on. Must exist, be unlocked, and be one you carry;
+  // an edited or stale save falls back rather than starting you empty-handed.
+  _sanitizeStart(key) {
+    return key && BY_KEY.has(key) && this.isUnlocked(key)
+      ? key
+      : DEFAULT_START;
   }
   get level() {
     return levelForXp(this.xp);
@@ -83,14 +84,17 @@ export class Progression {
       (a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0),
     );
   }
-  equip(slotIndex, key) {
-    if (!BY_KEY.has(key) || !this.isUnlocked(key)) return this.loadout;
-    if (slotOf(key) !== slotOf(DEFAULT_LOADOUT[slotIndex])) return this.loadout;
-    ((this.loadout = this.loadout.slice()),
-      (this.loadout[slotIndex] = key),
-      this._save(),
-      this._emit());
-    return this.loadout;
+  // Choose the gun you deploy holding. Deliberately does not reorder the
+  // loadout: the number keys stay put so picking a new favourite does not
+  // move every other gun.
+  setStart(key) {
+    if (!BY_KEY.has(key) || !this.isUnlocked(key)) return this.start;
+    ((this.start = key), this._save(), this._emit());
+    return this.start;
+  }
+  // Which key selects a gun mid-run, 1-based, or 0 if it is not carried.
+  slotOf(key) {
+    return this.loadout.indexOf(key) + 1;
   }
   // Bank a finished run. Returns what was earned so the debrief can show it,
   // including any levels crossed.
@@ -101,7 +105,7 @@ export class Progression {
     return { gained, level: this.level, levelsGained: this.level - before };
   }
   reset() {
-    ((this.xp = 0), (this.loadout = DEFAULT_LOADOUT.slice()), this._save(), this._emit());
+    ((this.xp = 0), (this.start = DEFAULT_START), this._save(), this._emit());
   }
   onChange(fn) {
     this.listeners.push(fn);
@@ -114,7 +118,7 @@ export class Progression {
       this.storage &&
         this.storage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ xp: this.xp, loadout: this.loadout }),
+          JSON.stringify({ xp: this.xp, start: this.start }),
         );
     } catch {
       // A blocked or full localStorage must not take the run down with it.

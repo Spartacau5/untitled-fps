@@ -1,4 +1,4 @@
-import { LOADOUT_SLOTS } from "../data/weapons.js";
+import { SLOT_GROUPS } from "../data/weapons.js";
 
 // Bars are relative to the strongest gun in the table for each stat, so they
 // compare weapons against each other rather than against absolute numbers the
@@ -16,33 +16,36 @@ const pct = (v, max) => Math.max(3, Math.round((v / max) * 100));
 export function mountArmory(progression, els, onChange) {
   // Peak value per stat across everything, computed once.
   const peaks = STATS.map(([, read]) =>
-    LOADOUT_SLOTS.flatMap((s) => progression.forSlot(s.slot)).reduce(
+    SLOT_GROUPS.flatMap((s) => progression.forSlot(s.slot)).reduce(
       (m, w) => Math.max(m, read(w)),
       0,
     ),
   );
 
-  function card(weapon, slotIndex, equipped) {
-    const locked = !progression.isUnlocked(weapon.key);
+  function card(weapon) {
+    const locked = !progression.isUnlocked(weapon.key),
+      starts = progression.start === weapon.key,
+      key = progression.slotOf(weapon.key);
     const bars = STATS.map(
       ([label, read], i) =>
         `<div class="arm-stat"><span>${label}</span><i><b style="width:${pct(read(weapon), peaks[i])}%"></b></i></div>`,
     ).join("");
-    return `<button type="button" class="arm-card${equipped ? " equipped" : ""}${
+    return `<button type="button" class="arm-card${starts ? " equipped" : ""}${
       locked ? " locked" : ""
-    }" data-slot="${slotIndex}" data-key="${weapon.key}"${
-      locked ? " disabled" : ""
-    }>
+    }" data-key="${weapon.key}"${locked ? " disabled" : ""}>
       <span class="arm-card-head">
-        <span class="arm-name">${weapon.name}</span>
-        <span class="arm-class">${weapon.class}</span>
+        <span class="arm-key">${key || "—"}</span>
+        <span class="arm-titles">
+          <span class="arm-name">${weapon.name}</span>
+          <span class="arm-class">${weapon.class}</span>
+        </span>
       </span>
       <span class="arm-stats">${bars}</span>
       <span class="arm-tag">${
         locked
           ? `LOCKED · LEVEL ${weapon.unlockLevel}`
-          : equipped
-            ? "EQUIPPED"
+          : starts
+            ? "DEPLOYS EQUIPPED"
             : weapon.mode
       }</span>
     </button>`;
@@ -58,13 +61,15 @@ export function mountArmory(progression, els, onChange) {
           p.span ? `${p.into} / ${p.span} XP` : "MAX LEVEL"
         }</span>
       </div>` +
-      LOADOUT_SLOTS.map(
-        (slot, i) =>
+      `<p class="arm-note">You carry every gun you have unlocked — the number
+        beside each is its key. Pick the one you deploy holding.</p>` +
+      SLOT_GROUPS.map(
+        (group) =>
           `<div class="arm-slot">
-            <h3 class="arm-slot-title">${slot.label}<em>KEY ${i + 1}</em></h3>
+            <h3 class="arm-slot-title">${group.label}</h3>
             <div class="arm-grid">${progression
-              .forSlot(slot.slot)
-              .map((w) => card(w, i, progression.loadout[i] === w.key))
+              .forSlot(group.slot)
+              .map((w) => card(w))
               .join("")}</div>
           </div>`,
       ).join("");
@@ -73,9 +78,9 @@ export function mountArmory(progression, els, onChange) {
   els.body.addEventListener("click", (e) => {
     const card = e.target.closest(".arm-card");
     if (!card || card.disabled) return;
-    progression.equip(+card.dataset.slot, card.dataset.key);
+    progression.setStart(card.dataset.key);
     render();
-    onChange && onChange(progression.loadout);
+    onChange && onChange(progression.loadout, progression.start);
   });
 
   const open = () => {

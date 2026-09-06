@@ -1152,3 +1152,37 @@ canvas#game {
   color: #fff;
   font-weight: 700;
 }
+
+/* ---- armory: carried-key badge ---- */
+.arm-note {
+  margin: 0 0 14px;
+  font: 400 12px/1.5 var(--font-ui);
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.arm-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 9px;
+}
+.arm-key {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(243, 246, 248, 0.34);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font: 700 11px/1 var(--font-ui);
+  color: #fff;
+}
+.arm-card.equipped .arm-key {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.arm-titles {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}

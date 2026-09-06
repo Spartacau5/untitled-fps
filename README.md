@@ -57,17 +57,23 @@ Advance the world with `World.step(dt, inputFrame)`. Side effects come out as ev
 
 ## Armory and progression
 
-You carry one **primary** and one **sidearm**, bound to keys 1 and 2. ARMORY on
-the menu picks them; the choice persists and is recorded on the run.
+You carry every gun you have unlocked, one per number key:
 
-| Slot | Guns |
-| --- | --- |
-| Primary | VK-7 assault rifle, Hammer-12 shotgun, Longshot DMR, Overwatch LMG, Meridian sniper, Cinder-6 incinerator |
-| Sidearm | Sidewinder 9 pistol, Wasp-9 SMG |
+| Key | Gun | Key | Gun |
+| --- | --- | --- | --- |
+| 1 | VK-7 assault rifle | 5 | Wasp-9 SMG |
+| 2 | Hammer-12 shotgun | 6 | Overwatch LMG |
+| 3 | Longshot DMR | 7 | Meridian anti-materiel |
+| 4 | Sidewinder 9 pistol | 8 | Cinder-6 incinerator |
 
-Every gun is `unlockLevel: 0` in `src/data/weapons.js` — free right now. Runs pay
-XP (`src/core/progression.js`) and levels are shown in the armory; raising a
-gun's `unlockLevel` turns the gate on without touching the screen.
+Keys come from a gun's position in `WEAPONS` (`src/data/weapons.js`) and stay
+fixed. ARMORY on the menu picks which gun you **deploy holding** — deliberately
+a separate choice, because reordering the loadout each time you picked a new
+favourite would move every other gun off its key.
+
+Every gun is `unlockLevel: 0` — free right now. Runs pay XP
+(`src/core/progression.js`) and levels show in the armory; raising a gun's
+`unlockLevel` gates it, and it drops out of the key order until you earn it.
 
 Weapons are data plus a viewmodel: an entry in `src/data/weapons.js` and a
 builder in `src/render/weapons/` registered in that folder's `index.js`. Guns

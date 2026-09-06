@@ -501,14 +501,21 @@ export const WEAPONS = [
     smoke: 0,
   },
 ];
-// One primary and one sidearm. What a player carries when they have not
-// been to the armory, and the shape every loadout takes: slot 0 is the
-// primary on key 1, slot 1 the sidearm on key 2.
-export const DEFAULT_LOADOUT = ["ar", "pistol"];
-export const LOADOUT_SLOTS = [
-  { slot: "primary", label: "PRIMARY" },
-  { slot: "sidearm", label: "SIDEARM" },
+// You carry the lot. Each gun keeps a fixed number key -- its position in
+// this list -- so key 4 is always the pistol whatever else changes. Which gun
+// you deploy holding is a separate choice (see core/progression.js): letting
+// that reorder the keys would reshuffle every binding each time you picked a
+// new favourite.
+export const DEFAULT_LOADOUT = WEAPONS.map((w) => w.key);
+
+// Headings the armory groups the guns under.
+export const SLOT_GROUPS = [
+  { slot: "primary", label: "PRIMARY WEAPONS" },
+  { slot: "sidearm", label: "SIDEARMS" },
 ];
+
+// Which gun a fresh profile deploys holding.
+export const DEFAULT_START = "ar";
 
 export const VM_HIP_OFFSET = new Vector3(0.07, -0.085, 0.02);
 export const VM_SPRINT_OFFSET = new Vector3(-0.42, 0.55, 0.3);

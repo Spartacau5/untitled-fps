@@ -56,11 +56,17 @@ export function resolveLoadout(loadout) {
 }
 
 export class Weapons {
-  constructor(rng, loadout = null) {
+  constructor(rng, loadout = null, startKey = null) {
     ((this.rng = rng),
       (this.loadout = resolveLoadout(loadout)),
       (this.weapons = this.loadout.map((r) => new WeaponState(r))),
-      (this.current = 0),
+      // Which slot the run begins on. Separate from key order so choosing a
+      // different opener never moves the other guns off their keys.
+      (this.startIndex = Math.max(
+        0,
+        this.loadout.findIndex((w) => w.key === startKey),
+      )),
+      (this.current = this.startIndex),
       // Quick-swap target. Clamped so a single-weapon loadout cannot point
       // the swap at a slot that does not exist.
       (this.lastWeapon = Math.min(1, this.weapons.length - 1)),
@@ -80,7 +86,7 @@ export class Weapons {
       (this.ads = 0),
       (this.adsSmooth = 0),
       (this.sprintBlend = 0),
-      this.selectImmediate(0, world, !0));
+      this.selectImmediate(this.startIndex, world, !0));
   }
   // `quiet` marks a programmatic select (run start) vs. a player switch.
   selectImmediate(t, world, quiet = !1) {

@@ -38,11 +38,20 @@ export const BINDINGS = [
   {
     id: "slots",
     label: "SELECT WEAPON",
-    // One key per loadout slot: a primary and a sidearm. Adding a third slot
-    // back is adding a third code here -- frame(), the how-to-play screen and
-    // the HUD pip row all size themselves off this.
-    codes: ["Digit1", "Digit2"],
-    caps: ["1", "2"],
+    // One key per carried gun. frame(), the how-to-play screen and the HUD
+    // pip row all size themselves off this list, so adding a ninth gun means
+    // adding Digit9 here and nowhere else.
+    codes: [
+      "Digit1",
+      "Digit2",
+      "Digit3",
+      "Digit4",
+      "Digit5",
+      "Digit6",
+      "Digit7",
+      "Digit8",
+    ],
+    caps: ["1", "2", "3", "4", "5", "6", "7", "8"],
     seq: true,
     group: "combat",
   },

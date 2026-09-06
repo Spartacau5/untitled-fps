@@ -24,17 +24,24 @@ import { Weapons } from "./weapons.js";
 // with step(dt, inputFrame); side effects come out as events for the Game to
 // present. Runs identically in the browser and under node.
 export class World {
-  constructor({ seed = 1, god = !1, noSpawn = !1, loadout = null } = {}) {
+  constructor({
+    seed = 1,
+    god = !1,
+    noSpawn = !1,
+    loadout = null,
+    startKey = null,
+  } = {}) {
     ((this.seed = seed),
       (this.god = god),
       (this.noSpawn = noSpawn),
       // Which guns the player brought. Part of the run, not a setting: the
       // same seed with a different loadout is a different run.
       (this.loadout = loadout),
+      (this.startKey = startKey),
       (this.rng = new RNG(seed)),
       (this.arena = new Arena(this.rng.fork("layout"))),
       (this.player = new Player(this.arena)),
-      (this.weapons = new Weapons(this.rng.fork("combat"), loadout)),
+      (this.weapons = new Weapons(this.rng.fork("combat"), loadout, startKey)),
       (this.enemies = new Enemies(this.arena, this.rng.fork("ai"))),
       (this.projectiles = new Projectiles(this.arena)),
       (this.waveRng = this.rng.fork("waves")),
@@ -119,9 +126,10 @@ export class World {
   }
   // Swap the carried guns between runs. startRun() re-forks the combat
   // stream, so rebuilding the weapons here cannot desync a seeded replay.
-  setLoadout(keys) {
+  setLoadout(keys, startKey = this.startKey) {
     ((this.loadout = keys),
-      (this.weapons = new Weapons(this.rng.fork("combat"), keys)));
+      (this.startKey = startKey),
+      (this.weapons = new Weapons(this.rng.fork("combat"), keys, startKey)));
   }
   get elapsed() {
     return this.time - this.startTime;

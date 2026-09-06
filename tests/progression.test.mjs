@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   DEFAULT_LOADOUT,
+  DEFAULT_START,
   WEAPONS,
 } from "../games/onslaught/src/data/weapons.js";
 import {
@@ -23,11 +24,18 @@ const memStorage = (init = {}) => {
 };
 const saved = (st) => JSON.parse(st.getItem(STORAGE_KEY));
 
-test("a fresh profile starts at level 1 with the default loadout", () => {
+test("a fresh profile starts at level 1 carrying everything", () => {
   const p = new Progression(memStorage());
   assert.equal(p.xp, 0);
   assert.equal(p.level, 1);
   assert.deepEqual(p.loadout, DEFAULT_LOADOUT);
+  assert.equal(p.start, DEFAULT_START);
+});
+
+test("each carried gun reports a stable 1-based key", () => {
+  const p = new Progression(memStorage());
+  DEFAULT_LOADOUT.forEach((key, i) => assert.equal(p.slotOf(key), i + 1));
+  assert.equal(p.slotOf("nonsense"), 0);
 });
 
 test("the level curve is monotonic and levels track cumulative xp", () => {
@@ -73,34 +81,32 @@ test("progress through the current level is reported for the xp bar", () => {
   assert.ok(frac >= 0 && frac < 1);
 });
 
-test("equipping persists, and refuses the wrong slot or a locked gun", () => {
+test("choosing a start weapon persists and never reorders the keys", () => {
   const st = memStorage(),
-    p = new Progression(st);
-  p.equip(0, "sniper");
-  assert.deepEqual(p.loadout, ["sniper", DEFAULT_LOADOUT[1]]);
-  assert.deepEqual(saved(st).loadout, p.loadout);
-  // A sidearm cannot fill the primary slot, nor a primary the sidearm slot.
-  p.equip(0, "pistol");
-  assert.equal(p.loadout[0], "sniper", "primary slot rejected a sidearm");
-  p.equip(1, "lmg");
-  assert.equal(p.loadout[1], DEFAULT_LOADOUT[1], "sidearm slot rejected an lmg");
-  p.equip(0, "nonsense");
-  assert.equal(p.loadout[0], "sniper");
+    p = new Progression(st),
+    before = p.loadout.slice();
+  p.setStart("sniper");
+  assert.equal(p.start, "sniper");
+  assert.equal(saved(st).start, "sniper");
+  // The whole point of a separate start weapon: every gun keeps its key.
+  assert.deepEqual(p.loadout, before);
+  p.setStart("nonsense");
+  assert.equal(p.start, "sniper", "an unknown key is refused");
 });
 
-test("a saved loadout is restored, and a corrupt one falls back per slot", () => {
+test("a saved start weapon is restored, and a corrupt profile falls back", () => {
   const st = memStorage();
-  new Progression(st).equip(0, "flame");
-  assert.deepEqual(new Progression(st).loadout, ["flame", DEFAULT_LOADOUT[1]]);
+  new Progression(st).setStart("flame");
+  assert.equal(new Progression(st).start, "flame");
 
   for (const bad of [
-    '{"loadout":["nonsense","alsonope"]}',
-    '{"loadout":"not an array"}',
+    '{"start":"nonsense"}',
+    '{"start":42}',
     '{"loadout":["pistol","pistol"]}',
     "not json at all",
   ]) {
     const p = new Progression(memStorage({ [STORAGE_KEY]: bad }));
-    assert.equal(p.loadout.length, 2);
+    assert.equal(p.start, DEFAULT_START);
     assert.deepEqual(p.loadout, DEFAULT_LOADOUT);
   }
 });
@@ -137,6 +143,7 @@ test("a profile survives storage that throws", () => {
   };
   const p = new Progression(hostile);
   assert.deepEqual(p.loadout, DEFAULT_LOADOUT);
+  assert.equal(p.start, DEFAULT_START);
   p.addRun({ score: 1000, kills: 5, wave: 1 });
   assert.ok(p.xp > 0, "xp still accrues in memory");
 });

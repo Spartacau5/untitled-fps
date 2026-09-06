@@ -77,6 +77,7 @@ export class Game {
       god: this.god,
       noSpawn: e.has("nospawn"),
       loadout: this.progression.loadout,
+      startKey: this.progression.start,
     });
     const n = new WebGLRenderer({
       canvas: t,
@@ -119,6 +120,7 @@ export class Game {
       (this.weaponView = new WeaponView(
         this.weaponCamera,
         this.progression.loadout,
+        this.world.weapons.startIndex,
       )),
       (this.pickupMeshes = new Map()),
       (this.postfx = new PostFX(n)));
@@ -200,7 +202,7 @@ export class Game {
           btnBack: this.hud.el.armoryBack,
           menuMain: this.hud.el.menuMain,
         },
-        (loadout) => this._applyLoadout(loadout),
+        (loadout, startKey) => this._applyLoadout(loadout, startKey),
       )),
       (this.controlsPanel = mountControls({
         panel: this.hud.el.controlsPanel,
@@ -432,9 +434,9 @@ export class Game {
   // The armory changed what the player carries. The sim rebuilds its weapon
   // states and the viewmodel rebuilds its rig; both are safe between runs
   // because startRun() re-forks the combat RNG stream.
-  _applyLoadout(loadout) {
-    (this.world.setLoadout(loadout),
-      this.weaponView.setLoadout(loadout),
+  _applyLoadout(loadout, startKey) {
+    (this.world.setLoadout(loadout, startKey),
+      this.weaponView.setLoadout(loadout, this.world.weapons.startIndex),
       this.weaponView.reset(),
       this.world.weapons._ammo(this.world),
       this.world.drainEvents(),
@@ -444,9 +446,14 @@ export class Game {
   _renderLoadoutStrip() {
     const el = this.hud.el.loadoutStrip;
     if (!el) return;
-    el.innerHTML = this.world.weapons.loadout
-      .map((def, i) => `<span><b>${i + 1}</b> ${def.name}</span>`)
-      .join('<span class="loadout-sep">·</span>');
+    // Too many guns to name them all on the deploy screen: show which one you
+    // start on, and how many keys are live.
+    const l = this.world.weapons.loadout,
+      start = l[this.world.weapons.startIndex];
+    el.innerHTML =
+      `<span><b>${this.world.weapons.startIndex + 1}</b> ${start.name}</span>` +
+      `<span class="loadout-sep">·</span>` +
+      `<span>KEYS <b>1&ndash;${l.length}</b> CARRIED</span>`;
   }
   start() {
     this.settingsPanel && this.settingsPanel.close();

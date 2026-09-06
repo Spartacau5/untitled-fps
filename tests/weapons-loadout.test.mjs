@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { Vector3 } from "three";
 import {
   DEFAULT_LOADOUT,
+  DEFAULT_START,
   WEAPONS,
 } from "../games/onslaught/src/data/weapons.js";
 import { resolveLoadout } from "../games/onslaught/src/sim/weapons.js";
@@ -57,12 +58,33 @@ test("weapon keys are unique", () => {
   }
 });
 
-test("the default loadout is one primary and one sidearm", () => {
+test("the default loadout carries every gun, each on its own key", () => {
   const picked = resolveLoadout(DEFAULT_LOADOUT);
+  assert.equal(picked.length, WEAPONS.length);
+  // Key order is the table order, and must be stable: a gun that moves keys
+  // between builds breaks the player's muscle memory.
   assert.deepEqual(
-    picked.map((w) => w.slot),
-    ["primary", "sidearm"],
+    picked.map((w) => w.key),
+    WEAPONS.map((w) => w.key),
   );
+});
+
+test("the starting weapon selects a slot without reordering the keys", () => {
+  const w = new World({ seed: 1, startKey: "sniper" });
+  w.startRun();
+  assert.equal(w.weapons.weapon.def.key, "sniper");
+  // Every other gun is still where it was.
+  assert.deepEqual(keys(w), WEAPONS.map((x) => x.key));
+});
+
+test("an unknown or missing start weapon falls back to the first slot", () => {
+  for (const bad of [null, "nonsense", undefined]) {
+    const w = new World({ seed: 1, startKey: bad });
+    w.startRun();
+    assert.equal(w.weapons.startIndex, 0);
+    assert.equal(w.weapons.weapon.def.key, DEFAULT_LOADOUT[0]);
+  }
+  assert.ok(WEAPONS.some((x) => x.key === DEFAULT_START));
 });
 
 test("resolveLoadout drops unknown keys and never leaves you empty-handed", () => {
@@ -93,10 +115,10 @@ test("setLoadout swaps the carried guns between runs", () => {
 });
 
 test("the weapon wheel wraps around any loadout size", () => {
-  for (const size of [1, 2, 3]) {
+  for (const size of [1, 2, 3, WEAPONS.length]) {
     const w = new World({
       seed: 1,
-      loadout: ["ar", "pistol", "smg"].slice(0, size),
+      loadout: DEFAULT_LOADOUT.slice(0, size),
     });
     w.startRun();
     const seen = [];
@@ -117,7 +139,7 @@ test("the weapon wheel wraps around any loadout size", () => {
 test("a slot key past the end of the loadout is ignored", () => {
   const w = new World({ seed: 1, loadout: ["ar", "pistol"] });
   w.startRun();
-  w.weapons.update(1 / 60, idle({ switchTo: 2 }), w.player, 0, w);
+  w.weapons.update(1 / 60, idle({ switchTo: 5 }), w.player, 0, w);
   assert.equal(w.weapons.switching, null, "slot 3 should not start a switch");
   assert.equal(w.weapons.current, 0);
 });
