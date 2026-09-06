@@ -115,6 +115,31 @@ curl -s https://untitled-fps.vercel.app/api/feedback -H "x-feedback-token: $FEED
 
 Add `FEEDBACK_ADMIN_TOKEN` in the Vercel project env (any long secret). Without it, production GET stays locked so the inbox is not public.
 
+## Gameplay telemetry
+
+Every finished run posts its full record (per-weapon accuracy, per-enemy
+counts, wave timings, killed-by, settings) to `/api/telemetry`, plus a session
+summary on tab close. Runs are tagged `dead`, `quit` or `abandoned`, so
+"which wave did they stop on" is answerable for people who never died.
+
+Players are identified by a truncated salted hash of their IP. The raw address
+is never stored.
+
+Reading requires `TELEMETRY_ADMIN_TOKEN` (falls back to `FEEDBACK_ADMIN_TOKEN`).
+Without one set, the export stays closed.
+
+```bash
+BASE=https://untitled-fps.vercel.app/api/telemetry
+H="x-telemetry-token: $TELEMETRY_ADMIN_TOKEN"
+
+curl -s "$BASE?format=stats" -H "$H"            # stickiness rollup
+curl -s "$BASE?format=csv&type=run"     -H "$H" -o runs.csv
+curl -s "$BASE?format=csv&type=session" -H "$H" -o sessions.csv
+curl -s "$BASE" -H "$H" -o telemetry.json       # raw events, full detail
+```
+
+The log keeps the most recent 5000 events.
+
 ## Leaderboard env vars (Upstash Redis)
 
 On Vercel, connect an Upstash Redis / KV store to the project so production persists the board. Either pair works:

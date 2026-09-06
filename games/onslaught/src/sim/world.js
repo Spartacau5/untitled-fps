@@ -2,6 +2,7 @@ import { MathUtils, Vector3 } from "three";
 import { RNG } from "../core/rng.js";
 import { composeWave } from "../data/waves.js";
 import { Arena } from "./arena.js";
+import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
 import {
   EV_DEAD,
@@ -40,6 +41,7 @@ export class World {
       (this.startKey = startKey),
       (this.rng = new RNG(seed)),
       (this.arena = new Arena(this.rng.fork("layout"))),
+      (this.flow = new FlowField(this.arena)),
       (this.player = new Player(this.arena)),
       (this.weapons = new Weapons(this.rng.fork("combat"), loadout, startKey)),
       (this.enemies = new Enemies(this.arena, this.rng.fork("ai"))),
@@ -49,7 +51,7 @@ export class World {
       (this._hurtBy = null),
       (this.events = []),
       (this.time = 0),
-      (this.startTime = 0),
+      (this.elapsed = 0),
       (this.slowmoRequest = 0),
       (this.score = 0),
       (this.kills = 0),
@@ -107,6 +109,7 @@ export class World {
       this.weapons.resetAll(this),
       this.enemies.clear(),
       this.projectiles.clear(),
+      this.flow.reset(),
       (this.pickups.length = 0),
       this.resetGates(),
       (this.score = 0),
@@ -115,7 +118,7 @@ export class World {
       (this.lastKillT = -10),
       (this.queue.length = 0),
       (this.deadT = 0),
-      (this.startTime = this.time),
+      (this.elapsed = 0),
       (this.breakT = 4),
       (this.waveActive = !1),
       (this.wave = 0),
@@ -131,16 +134,20 @@ export class World {
       (this.startKey = startKey),
       (this.weapons = new Weapons(this.rng.fork("combat"), keys, startKey)));
   }
-  get elapsed() {
-    return this.time - this.startTime;
-  }
   step(dt, input) {
-    this.time += dt;
+    // Run time is accumulated, not derived as `time - startTime`. `time` keeps
+    // growing for the whole life of the World, so that subtraction carried a
+    // different rounding error on a second run than it did on the first -
+    // enough to land a kill on the other side of the 1.8 s streak cutoff and
+    // score it differently on a supposedly identical replay.
+    ((this.time += dt), (this.elapsed += dt));
     // Systems see run-relative time so a replay started later in the same
     // World (menu → play → die → redeploy) evolves identically.
     const p = this.player,
       t = this.elapsed;
     (p.update(dt, input, t),
+      // Reflood before the AI reads it; a no-op unless the player changed cell.
+      this.flow.update(p.pos.x, p.pos.z),
       this.weapons.update(dt, input, p, t, this),
       this.enemies.update(dt, p, this),
       this.projectiles.update(dt, p, this),

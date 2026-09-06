@@ -1,6 +1,11 @@
 import { listTop, submitRun } from "../../server/leaderboard-store.js";
 import { listNotes, submitNote } from "../../server/feedback-store.js";
 import { markPlayer } from "../../server/visitor-store.js";
+import {
+  exportEvents,
+  listEvents,
+  recordEvent,
+} from "../../server/telemetry-store.js";
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -66,6 +71,39 @@ export function leaderboardPlugin() {
                 ? 400
                 : 500;
           send(res, status, { error: msg });
+        }
+      });
+      server.middlewares.use("/api/telemetry", async (req, res, next) => {
+        try {
+          if (req.method === "POST") {
+            const raw = (await readBody(req)) || "{}";
+            let body;
+            try {
+              body = JSON.parse(raw);
+            } catch {
+              send(res, 400, { error: "invalid json" });
+              return;
+            }
+            send(res, 200, await recordEvent(body, req));
+            return;
+          }
+          if (req.method === "GET") {
+            const url = new URL(req.url, "http://localhost");
+            const type =
+              url.searchParams.get("type") === "session" ? "session" : "run";
+            if (url.searchParams.get("format") === "csv") {
+              res.statusCode = 200;
+              res.setHeader("Content-Type", "text/csv; charset=utf-8");
+              res.end(await exportEvents(req, type));
+              return;
+            }
+            send(res, 200, await listEvents(req));
+            return;
+          }
+          next();
+        } catch (err) {
+          const msg = err && err.message ? err.message : "telemetry error";
+          send(res, err && err.status ? err.status : 500, { error: msg });
         }
       });
       server.middlewares.use("/api/play", async (req, res, next) => {

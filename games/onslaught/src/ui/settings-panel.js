@@ -24,7 +24,9 @@ export function mountSettingsPanel(settings, els) {
       val.textContent = fmt(v);
     };
     show(settings.get(key));
-    input.addEventListener("input", () => show(settings.set(key, +input.value)));
+    input.addEventListener("input", () =>
+      show(settings.set(key, +input.value)),
+    );
     els.rows.appendChild(row);
     inputs[key] = show;
   }
@@ -40,5 +42,15 @@ export function mountSettingsPanel(settings, els) {
   els.btnOpen.addEventListener("click", open);
   els.btnBack.addEventListener("click", close);
   els.btnReset.addEventListener("click", () => settings.reset());
-  return { open, close, isOpen: () => !els.panel.classList.contains("hidden") };
+  // Shown only once we know raw input was refused. `null` means the player has
+  // not locked the pointer yet, which is not the same as "it works".
+  const setRawInput = (raw) => {
+    els.note && els.note.classList.toggle("hidden", raw !== false);
+  };
+  return {
+    open,
+    close,
+    isOpen: () => !els.panel.classList.contains("hidden"),
+    setRawInput,
+  };
 }

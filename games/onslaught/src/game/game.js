@@ -50,6 +50,7 @@ import { mountFeedback } from "../ui/feedback.js";
 import { mountArmory } from "../ui/armory.js";
 import { mountControls } from "../ui/controls.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
+import { Telemetry } from "../ui/telemetry.js";
 import {
   applyAssignedCallsign,
   fetchBoard,
@@ -192,7 +193,12 @@ export class Game {
         btnBack: this.hud.el.settingsBack,
         btnReset: this.hud.el.settingsReset,
         menuMain: this.hud.el.menuMain,
+        note: this.hud.el.settingsNote,
       })),
+      // Raw-input support is only known once the pointer actually locks, so
+      // the panel is told when that resolves rather than being asked up front.
+      (this.input.onRawInput = (raw) =>
+        this.settingsPanel && this.settingsPanel.setRawInput(raw)),
       (this.armoryPanel = mountArmory(
         this.progression,
         {
@@ -213,6 +219,7 @@ export class Game {
         menuMain: this.hud.el.menuMain,
       })),
       (this.runLog = new RunLog()),
+      (this.telemetry = new Telemetry()),
       (this.lastRun = null),
       (this.runStartedAt = null),
       (this._runPosted = !1),
@@ -268,7 +275,10 @@ export class Game {
         this.last = performance.now();
         if (document.visibilityState === "hidden") this._flushRun();
       }),
-      window.addEventListener("pagehide", () => this._flushRun()),
+      window.addEventListener("pagehide", () => {
+        (this._flushRun(),
+          this.telemetry.end(this.state, this.world ? this.world.wave : 0));
+      }),
       (window.game = this),
       this.syncWeapon(),
       this.debug &&
@@ -332,6 +342,20 @@ export class Game {
   _flushRun() {
     if (this.state === "menu" || !this.runId) return;
     this._submitRun({ keepalive: true });
+    if (this._abandonSent) return;
+    this._abandonSent = true;
+    this.telemetry.run(
+      captureRun({
+        world: this.world,
+        seed: this.seed,
+        startedAt: this.runStartedAt,
+        endedAt: new Date().toISOString(),
+        settings: this.settings.all(),
+        result: "abandoned",
+      }),
+      this.runId,
+      true,
+    );
   }
   async _submitRun(opts = {}) {
     if (!this.runId || this.state === "menu") return;
@@ -370,6 +394,7 @@ export class Game {
       result,
     });
     this.runLog.append(this.lastRun);
+    this.telemetry.run(this.lastRun, this.runId);
     // Bank the XP before the board round-trip, so a failed POST cannot cost
     // the player their progress.
     this.lastXp = this.progression.addRun(this.lastRun.summary);
@@ -472,6 +497,7 @@ export class Game {
       (this._runPosted = !1),
       (this.runStartedAt = new Date().toISOString()),
       (this.runId = this._newRunId()),
+      (this._abandonSent = !1),
       this._playerName(),
       (this.state = "playing"),
       this.hud.showMenu(!1),

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Vector3 } from "three";
 import {
+  BANDS,
   DEFAULT_LOADOUT,
   DEFAULT_START,
   WEAPONS,
+  weaponsInBand,
 } from "../games/onslaught/src/data/weapons.js";
 import { resolveLoadout } from "../games/onslaught/src/sim/weapons.js";
 import { World } from "../games/onslaught/src/sim/world.js";
@@ -58,14 +60,14 @@ test("weapon keys are unique", () => {
   }
 });
 
-test("the default loadout carries every gun, each on its own key", () => {
+test("the default loadout carries one gun per band, each on its own key", () => {
   const picked = resolveLoadout(DEFAULT_LOADOUT);
-  assert.equal(picked.length, WEAPONS.length);
-  // Key order is the table order, and must be stable: a gun that moves keys
+  assert.equal(picked.length, BANDS.length);
+  // Key order is band order, and must be stable: a band that moves keys
   // between builds breaks the player's muscle memory.
   assert.deepEqual(
     picked.map((w) => w.key),
-    WEAPONS.map((w) => w.key),
+    BANDS.map((b) => weaponsInBand(b.id)[0].key),
   );
 });
 
@@ -74,7 +76,7 @@ test("the starting weapon selects a slot without reordering the keys", () => {
   w.startRun();
   assert.equal(w.weapons.weapon.def.key, "sniper");
   // Every other gun is still where it was.
-  assert.deepEqual(keys(w), WEAPONS.map((x) => x.key));
+  assert.deepEqual(keys(w), DEFAULT_LOADOUT);
 });
 
 test("an unknown or missing start weapon falls back to the first slot", () => {
@@ -118,7 +120,7 @@ test("the weapon wheel wraps around any loadout size", () => {
   for (const size of [1, 2, 3, WEAPONS.length]) {
     const w = new World({
       seed: 1,
-      loadout: DEFAULT_LOADOUT.slice(0, size),
+      loadout: WEAPONS.map((x) => x.key).slice(0, size),
     });
     w.startRun();
     const seen = [];

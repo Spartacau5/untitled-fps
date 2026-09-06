@@ -35,6 +35,7 @@ export class HUD {
       btnSettings: t("btn-settings"),
       settings: t("settings"),
       settingsRows: t("settings-rows"),
+      settingsNote: t("settings-note"),
       settingsBack: t("btn-settings-back"),
       settingsReset: t("btn-settings-reset"),
       btnArmory: t("btn-armory"),

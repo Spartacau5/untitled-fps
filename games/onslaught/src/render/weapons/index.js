@@ -1,6 +1,8 @@
 import { buildDmrModel } from "./dmr.js";
 import { buildFlameModel } from "./flame.js";
 import { buildLmgModel } from "./lmg.js";
+import { buildM4Model } from "./m4.js";
+import { buildMp5Model } from "./mp5.js";
 import { buildPistolModel } from "./pistol.js";
 import { buildRifleModel } from "./rifle.js";
 import { buildShotgunModel } from "./shotgun.js";
@@ -18,6 +20,8 @@ const BUILDERS = {
   lmg: buildLmgModel,
   sniper: buildSniperModel,
   flame: buildFlameModel,
+  m4: buildM4Model,
+  mp5: buildMp5Model,
 };
 
 export function hasWeaponModel(key) {

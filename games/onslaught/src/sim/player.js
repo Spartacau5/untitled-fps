@@ -69,7 +69,29 @@ export class Player {
       (this.sliding = !1),
       (this.crouch = !1),
       (this.sprinting = !1),
-      (this.hurtFlash = 0));
+      (this.hurtFlash = 0),
+      // View-shaping state has to reset too. It all feeds the camera, and the
+      // camera is the ray origin for every shot - leaving bob phase or a
+      // sprint blend running meant a replay of the same seed aimed from a
+      // fractionally different place and did fractionally different damage.
+      (this.onGround = !0),
+      (this.slideT = 0),
+      (this.sprintBlock = 0),
+      (this.sprintBlend = 0),
+      (this.slideBlend = 0),
+      (this.bobPhase = 0),
+      (this.bobAmt = 0),
+      (this.stepDist = 0),
+      (this.landDip = 0),
+      (this.landVel = 0),
+      (this.roll = 0),
+      (this.speed = 0),
+      (this.ads = 0),
+      (this.adsFov = 60),
+      (this.moveMult = 1),
+      (this.time = 0),
+      this.localVel.set(0, 0, 0),
+      this.moveInput.set(0, 0));
     this._euler.set(this.pitch, this.yaw, 0, "YXZ");
     this._prevEuler.copy(this._euler);
     this.camQuat.setFromEuler(this._euler);
