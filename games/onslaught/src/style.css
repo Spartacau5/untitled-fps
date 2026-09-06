@@ -1006,3 +1006,149 @@ canvas#game {
   font-style: normal;
   color: rgba(243, 246, 248, 0.5);
 }
+
+/* ---- armory ---- */
+.armory-panel {
+  width: min(920px, 95vw);
+}
+.armory-body {
+  max-height: min(60vh, 600px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.arm-profile {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.14);
+}
+.arm-level {
+  font: 900 20px/1 var(--font-title);
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.arm-xpbar {
+  height: 4px;
+  background: rgba(243, 246, 248, 0.16);
+  overflow: hidden;
+}
+.arm-xpbar b {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.arm-xp {
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.arm-slot + .arm-slot {
+  margin-top: 18px;
+}
+.arm-slot-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 8px;
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+.arm-slot-title em {
+  font: 500 10px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  font-style: normal;
+  color: rgba(243, 246, 248, 0.42);
+}
+.arm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.arm-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  background: rgba(243, 246, 248, 0.04);
+  border: 1px solid rgba(243, 246, 248, 0.18);
+  color: var(--ui);
+  font: inherit;
+  cursor: pointer;
+}
+.arm-card:hover:not(:disabled) {
+  border-color: rgba(255, 90, 31, 0.7);
+  background: rgba(255, 90, 31, 0.07);
+}
+.arm-card.equipped {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.12);
+}
+.arm-card.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.arm-card-head {
+  display: grid;
+  gap: 2px;
+}
+.arm-name {
+  font: 700 13px/1.2 var(--font-ui);
+  letter-spacing: 0.1em;
+}
+.arm-class {
+  font: 500 10px/1 var(--font-ui);
+  letter-spacing: 0.16em;
+  color: rgba(243, 246, 248, 0.5);
+}
+.arm-stats {
+  display: grid;
+  gap: 3px;
+}
+.arm-stat {
+  display: grid;
+  grid-template-columns: 66px 1fr;
+  align-items: center;
+  gap: 8px;
+  font: 500 9px/1 var(--font-ui);
+  letter-spacing: 0.12em;
+  color: rgba(243, 246, 248, 0.55);
+}
+.arm-stat i {
+  display: block;
+  height: 3px;
+  background: rgba(243, 246, 248, 0.14);
+}
+.arm-stat i b {
+  display: block;
+  height: 100%;
+  background: rgba(243, 246, 248, 0.6);
+}
+.arm-card.equipped .arm-stat i b {
+  background: var(--accent);
+}
+.arm-tag {
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 0.16em;
+  color: rgba(243, 246, 248, 0.45);
+}
+.arm-card.equipped .arm-tag {
+  color: var(--accent);
+}
+.loadout-strip {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: -18px 0 22px;
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  color: var(--dim);
+}
+.loadout-strip b {
+  color: #fff;
+  font-weight: 700;
+}

@@ -250,7 +250,10 @@ export const WEAPONS = [
     key: "smg",
     name: "WASP-9 SMG",
     class: "SUBMACHINE GUN",
-    slot: "primary",
+    // Sits in the sidearm slot, not the primary one: it is the compact,
+    // fast, low-damage option, and a sidearm slot with a single gun in it is
+    // not a choice at all.
+    slot: "sidearm",
     unlockLevel: 0,
     action: "eject",
     mode: "FULL AUTO",

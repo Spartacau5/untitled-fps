@@ -46,10 +46,7 @@
         <span class="ammo-sep">/</span>
         <span id="ammo-res" class="ammo-res">120</span>
       </div>
-      <div class="wpn-slots">
-        <span id="slot-1" class="slot active">1</span>
-        <span id="slot-2" class="slot">2</span>
-        <span id="slot-3" class="slot">3</span>
+      <div class="wpn-slots" id="wpn-slots">
       </div>
       <div id="fire-mode" class="fire-mode">AUTO</div>
     </div>
@@ -77,9 +74,11 @@
           <button type="button" id="btn-exit-menu" class="btn-secondary">EXIT TO MENU</button>
         </div>
         <div class="menu-buttons">
+          <button id="btn-armory" class="btn-secondary">ARMORY</button>
           <button id="btn-controls" class="btn-secondary">HOW TO PLAY</button>
           <button id="btn-settings" class="btn-secondary">SETTINGS</button>
         </div>
+        <div id="loadout-strip" class="loadout-strip"></div>
         <label class="callsign">
           <span>PLAYER NAME</span>
           <input id="player-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="nickname" />
@@ -114,6 +113,13 @@
         <div id="run-actions" class="run-actions hidden">
           <button id="btn-dl-run" class="btn-secondary">DOWNLOAD RUN LOG</button>
           <button id="btn-dl-all" class="btn-secondary">DOWNLOAD ALL RUNS</button>
+        </div>
+      </div>
+      <div id="armory-panel" class="settings armory-panel hidden">
+        <div class="settings-title">ARMORY</div>
+        <div id="armory-body" class="armory-body"></div>
+        <div class="settings-actions">
+          <button type="button" id="btn-armory-back" class="btn-secondary">BACK</button>
         </div>
       </div>
       <div id="controls-panel" class="settings controls-panel hidden">

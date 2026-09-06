@@ -28,6 +28,7 @@ import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
+import { Progression } from "../core/progression.js";
 import { Settings } from "../core/settings.js";
 import { captureRun } from "../core/run-record.js";
 import { RunLog } from "../core/runlog.js";
@@ -46,6 +47,7 @@ import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
+import { mountArmory } from "../ui/armory.js";
 import { mountControls } from "../ui/controls.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import {
@@ -69,10 +71,12 @@ export class Game {
     // Mutable copy so the debug panel can tune the grade live.
     this.grade = { ...theme.grade };
     this.seed = parseSeed(location.search);
+    this.progression = new Progression();
     this.world = new World({
       seed: this.seed,
       god: this.god,
       noSpawn: e.has("nospawn"),
+      loadout: this.progression.loadout,
     });
     const n = new WebGLRenderer({
       canvas: t,
@@ -112,7 +116,10 @@ export class Game {
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
       (this.enemyView = new EnemyView(this.scene)),
-      (this.weaponView = new WeaponView(this.weaponCamera)),
+      (this.weaponView = new WeaponView(
+        this.weaponCamera,
+        this.progression.loadout,
+      )),
       (this.pickupMeshes = new Map()),
       (this.postfx = new PostFX(n)));
     const r = new DirectionalLight(
@@ -167,6 +174,17 @@ export class Game {
         btnReset: this.hud.el.settingsReset,
         menuMain: this.hud.el.menuMain,
       })),
+      (this.armoryPanel = mountArmory(
+        this.progression,
+        {
+          panel: this.hud.el.armoryPanel,
+          body: this.hud.el.armoryBody,
+          btnOpen: this.hud.el.btnArmory,
+          btnBack: this.hud.el.armoryBack,
+          menuMain: this.hud.el.menuMain,
+        },
+        (loadout) => this._applyLoadout(loadout),
+      )),
       (this.controlsPanel = mountControls({
         panel: this.hud.el.controlsPanel,
         body: this.hud.el.controlsBody,
@@ -182,6 +200,8 @@ export class Game {
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
       this.hud.setContest(Date.now()),
+      this.hud.setSlots(this.world.weapons.weapons.length),
+      this._renderLoadoutStrip(),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       this.hud.el.btnRestart &&
@@ -330,6 +350,12 @@ export class Game {
       result,
     });
     this.runLog.append(this.lastRun);
+    // Bank the XP before the board round-trip, so a failed POST cannot cost
+    // the player their progress.
+    this.lastXp = this.progression.addRun(this.lastRun.summary);
+    (this.armoryPanel && this.armoryPanel.render(), this._renderLoadoutStrip());
+    this.lastXp.levelsGained > 0 &&
+      this.hud.hint(`LEVEL ${this.lastXp.level} REACHED`, !1, 3);
     await this._submitRun({ final: true });
     this.runId = "";
   }
@@ -375,8 +401,28 @@ export class Game {
     const n = new Mesh(new BoxGeometry(0.3, 0.02, 0.2), mats.emWhite);
     ((n.position.y = 0.19), t.add(n), (this.pickupProto = t));
   }
+  // The armory changed what the player carries. The sim rebuilds its weapon
+  // states and the viewmodel rebuilds its rig; both are safe between runs
+  // because startRun() re-forks the combat RNG stream.
+  _applyLoadout(loadout) {
+    (this.world.setLoadout(loadout),
+      this.weaponView.setLoadout(loadout),
+      this.weaponView.reset(),
+      this.world.weapons._ammo(this.world),
+      this.world.drainEvents(),
+      this.hud.setSlots(this.world.weapons.weapons.length),
+      this._renderLoadoutStrip());
+  }
+  _renderLoadoutStrip() {
+    const el = this.hud.el.loadoutStrip;
+    if (!el) return;
+    el.innerHTML = this.world.weapons.loadout
+      .map((def, i) => `<span><b>${i + 1}</b> ${def.name}</span>`)
+      .join('<span class="loadout-sep">·</span>');
+  }
   start() {
     this.settingsPanel && this.settingsPanel.close();
+    this.armoryPanel && this.armoryPanel.close();
     this.controlsPanel && this.controlsPanel.close();
     this.hud.setPauseActions(false);
     if ((this.audio.init(), this.audio.resume(), this.state === "paused")) {
@@ -459,11 +505,16 @@ export class Game {
       this.controlsPanel.close();
       return;
     }
+    if (t === "Escape" && this.armoryPanel && this.armoryPanel.isOpen()) {
+      this.armoryPanel.close();
+      return;
+    }
     // H opens how-to-play from the menu or pause. Mid-run it would need a
     // pause first, so it is ignored while the pointer is locked.
     if (t === "KeyH" && this.controlsPanel && this.state !== "playing") {
-      this.settingsPanel && this.settingsPanel.close();
-      this.controlsPanel.toggle();
+      (this.settingsPanel && this.settingsPanel.close(),
+        this.armoryPanel && this.armoryPanel.close(),
+        this.controlsPanel.toggle());
       return;
     }
     (t === "KeyM" &&
@@ -544,11 +595,20 @@ export class Game {
       // weapons
       case EV.EV_SHOT:
         (this.weaponView.onEvent(h, w.weapons),
-          this.particles.muzzleSmoke(
-            this.weaponView.muzzleWorld,
-            n.forward,
-            h.def.smoke,
-          ),
+          // A stream weapon emits no tracer and leaves no impact, so the jet
+          // is the only thing that shows the player where the damage went.
+          h.def.fire === "cone"
+            ? this.particles.flameJet(
+                this.weaponView.muzzleWorld,
+                n.forward,
+                h.def.coneRange,
+                h.def.coneAngle,
+              )
+            : this.particles.muzzleSmoke(
+                this.weaponView.muzzleWorld,
+                n.forward,
+                h.def.smoke,
+              ),
           A.gunshot(h.def.sound));
         break;
       case EV.EV_TRACER: {

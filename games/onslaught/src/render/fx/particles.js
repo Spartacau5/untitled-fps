@@ -612,6 +612,64 @@ export class ParticleSystem {
       );
     }
   }
+  // Flamethrower stream. Called once per sim tick while the trigger is held,
+  // so each call only needs to add a few particles -- at the incinerator's
+  // rate they overlap into a continuous jet. Particles are pushed out along
+  // the aim vector at a speed that carries them roughly the weapon's cone
+  // range within their lifetime, so the visible flame ends where the damage
+  // does rather than reaching past it.
+  flameJet(origin, dir, range = 9.5, spread = 0.16) {
+    const now = this.t,
+      d = this._jetDir || (this._jetDir = new Vector3());
+    for (let i = 0; i < 3; i++) {
+      this.randomInCone(dir, spread, d);
+      const life = rand(0.26, 0.42),
+        speed = (range / life) * rand(0.5, 0.85);
+      this.add.emit(
+        origin.x,
+        origin.y,
+        origin.z,
+        d.x * speed,
+        d.y * speed + rand(0.2, 1.1),
+        d.z * speed,
+        now,
+        life,
+        rand(0.06, 0.13),
+        rand(0.55, 0.95),
+        1,
+        rand(0.42, 0.62),
+        0.14,
+        rand(2.2, 3.4),
+        1.6,
+        0.6,
+        2,
+        rand(-2, 2),
+      );
+    }
+    // A little sooty smoke behind the flame front, so the jet leaves a trail
+    // rather than vanishing cleanly.
+    this.randomInCone(dir, spread * 1.6, d);
+    this.alpha.emit(
+      origin.x,
+      origin.y,
+      origin.z,
+      d.x * rand(1.5, 3.5),
+      d.y * rand(1.5, 3.5) + 1.1,
+      d.z * rand(1.5, 3.5),
+      now,
+      rand(0.7, 1.3),
+      0.12,
+      rand(0.8, 1.4),
+      0.22,
+      0.19,
+      0.18,
+      0.34,
+      -0.5,
+      3.4,
+      1,
+      rand(-2, 2),
+    );
+  }
   muzzleSmoke(t, e, n = 1) {
     const s = this.t;
     for (let r = 0; r < Math.ceil(2 * n); r++)
