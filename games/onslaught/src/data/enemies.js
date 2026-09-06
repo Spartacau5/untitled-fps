@@ -5,7 +5,9 @@ export const ENEMIES = {
     key: "runner",
     name: "HUSK",
     hp: 72,
-    speed: 6.6,
+    // Faster than the player's 5.3 walk so they still force movement, but far
+    // enough under the 7.7 sprint that breaking contact is a real option.
+    speed: 6.0,
     scale: 1,
     damage: 12,
     range: 1.9,
