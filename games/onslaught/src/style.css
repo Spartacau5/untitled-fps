@@ -1,10 +1,10 @@
 :root {
-  --ui: #141210;
-  --paper: rgba(245, 238, 225, 0.86);
-  --dim: rgba(20, 18, 16, 0.6);
+  --ui: #f3f6f8;
+  --paper: rgba(10, 14, 18, 0.92);
+  --dim: rgba(243, 246, 248, 0.72);
   --accent: #ff5a1f;
   --warn: #d9771b;
-  --danger: #b8231c;
+  --danger: #ff6b4a;
   --font-ui: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
   --font-title:
     "Big Shoulders Stencil Text", "Impact", "Arial Black", sans-serif;
@@ -174,8 +174,8 @@ canvas#game {
 .hp-bar {
   width: 260px;
   height: 7px;
-  background: rgba(20, 18, 16, 0.12);
-  border: 1px solid rgba(20, 18, 16, 0.4);
+  background: rgba(243, 246, 248, 0.12);
+  border: 1px solid rgba(243, 246, 248, 0.4);
   transform: skew(-18deg);
   overflow: hidden;
 }
@@ -271,7 +271,7 @@ canvas#game {
 .slot {
   width: 22px;
   height: 22px;
-  border: 1px solid rgba(20, 18, 16, 0.35);
+  border: 1px solid rgba(243, 246, 248, 0.35);
   font-size: 13px;
   font-weight: 700;
   display: flex;
@@ -369,11 +369,13 @@ canvas#game {
   font-size: 64px;
   font-weight: 900;
   letter-spacing: 8px;
-  color: #141210;
+  color: var(--ui);
   background: var(--paper);
   display: inline-block;
   padding: 6px 28px;
-  text-shadow: 0 0 30px rgba(255, 90, 31, 0.45);
+  text-shadow:
+    0 1px 0 #000,
+    0 0 18px rgba(0, 0, 0, 0.85);
 }
 .banner-main.danger {
   color: var(--danger);
@@ -382,9 +384,16 @@ canvas#game {
 .banner-sub {
   font-size: 20px;
   letter-spacing: 6px;
-  color: #141210;
-  font-weight: 600;
-  margin-top: 4px;
+  color: #fff;
+  font-weight: 700;
+  margin: 8px auto 0;
+  background: rgba(6, 8, 12, 0.78);
+  display: block;
+  width: fit-content;
+  padding: 6px 18px;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 10px #000;
 }
 .hint {
   position: absolute;
@@ -395,7 +404,7 @@ canvas#game {
   font-size: 17px;
   letter-spacing: 4px;
   font-weight: 700;
-  color: #141210;
+  color: var(--ui);
   background: var(--paper);
   display: inline-block;
   padding: 4px 16px;
@@ -468,8 +477,8 @@ canvas#game {
   overflow-y: auto;
   background: radial-gradient(
     ellipse at 50% 40%,
-    rgba(234, 223, 203, 0.55),
-    rgba(216, 203, 179, 0.92)
+    rgba(8, 12, 16, 0.42),
+    rgba(6, 8, 12, 0.78)
   );
   z-index: 10;
   cursor: default;
@@ -477,9 +486,9 @@ canvas#game {
 .menu-inner {
   text-align: center;
   padding: 28px 48px;
-  border: 2px solid #141210;
+  border: 2px solid rgba(243, 246, 248, 0.35);
   background: var(--paper);
-  box-shadow: 12px 12px 0 #141210;
+  box-shadow: 12px 12px 0 var(--accent);
 }
 .title-kicker {
   font-size: 13px;
@@ -494,7 +503,7 @@ canvas#game {
   letter-spacing: 10px;
   margin: 6px 0 0;
   line-height: 1;
-  color: #141210;
+  color: var(--ui);
 }
 .subtitle {
   font-size: 18px;
@@ -543,8 +552,8 @@ canvas#game {
   width: min(420px, 86vw);
   margin: 14px auto 0;
   text-align: left;
-  border: 1px solid #141210;
-  background: rgba(245, 238, 225, 0.5);
+  border: 1px solid rgba(243, 246, 248, 0.35);
+  background: rgba(8, 12, 16, 0.55);
   padding: 14px 16px;
 }
 .feedback-field {
@@ -566,9 +575,9 @@ canvas#game {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border: 1px solid #141210;
-  background: rgba(245, 238, 225, 0.7);
-  color: #141210;
+  border: 1px solid rgba(243, 246, 248, 0.35);
+  background: rgba(8, 12, 16, 0.7);
+  color: var(--ui);
   font: 600 14px/1.4 var(--font-ui);
   letter-spacing: 0.04em;
   resize: vertical;
@@ -591,7 +600,7 @@ canvas#game {
   letter-spacing: 0.18em;
   padding: 8px 14px;
   cursor: pointer;
-  border: 1px solid #141210;
+  border: 1px solid rgba(243, 246, 248, 0.4);
 }
 .btn-feedback-ghost {
   background: transparent;
@@ -626,9 +635,9 @@ canvas#game {
 .callsign input {
   width: 210px;
   padding: 8px 10px;
-  border: 1px solid #141210;
-  background: rgba(245, 238, 225, 0.5);
-  color: #141210;
+  border: 1px solid rgba(243, 246, 248, 0.4);
+  background: rgba(8, 12, 16, 0.65);
+  color: var(--ui);
   font: 700 14px/1 var(--font-ui);
   letter-spacing: 0.12em;
   text-align: center;
@@ -668,18 +677,18 @@ canvas#game {
   font: 600 13px/1.4 var(--font-ui);
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
-  color: #141210;
+  color: var(--ui);
 }
 .lb-table th {
   text-align: left;
   font-weight: 700;
   color: var(--dim);
-  border-bottom: 1px solid rgba(20, 18, 16, 0.25);
+  border-bottom: 1px solid rgba(243, 246, 248, 0.2);
   padding: 2px 6px;
 }
 .lb-table td {
   padding: 3px 6px;
-  border-bottom: 1px solid rgba(20, 18, 16, 0.1);
+  border-bottom: 1px solid rgba(243, 246, 248, 0.08);
 }
 .lb-table tr.you td {
   color: var(--accent);
@@ -691,7 +700,7 @@ canvas#game {
   line-height: 1.9;
 }
 .controls b {
-  color: #141210;
+  color: #fff;
   font-weight: 700;
 }
 .menu-stats {
@@ -706,8 +715,8 @@ canvas#game {
   margin-top: 10px;
   padding: 8px 18px;
   background: transparent;
-  color: #141210;
-  border: 1px solid rgba(20, 18, 16, 0.35);
+  color: var(--ui);
+  border: 1px solid rgba(243, 246, 248, 0.4);
   font: 600 14px/1 var(--font-ui);
   letter-spacing: 0.14em;
   cursor: pointer;
@@ -715,6 +724,15 @@ canvas#game {
 #btn-settings {
   display: block;
   margin: 10px auto 28px;
+}
+.pause-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 0 0 4px;
+}
+.pause-actions .btn-secondary {
+  margin-top: 0;
 }
 .btn-secondary:hover {
   border-color: var(--accent);
@@ -729,7 +747,7 @@ canvas#game {
   font: 900 28px/1 var(--font-title);
   letter-spacing: 0.06em;
   margin-bottom: 14px;
-  color: #141210;
+  color: var(--ui);
 }
 .settings-row {
   display: grid;
@@ -737,10 +755,10 @@ canvas#game {
   align-items: center;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(20, 18, 16, 0.12);
+  border-bottom: 1px solid rgba(243, 246, 248, 0.12);
   font: 600 13px/1 var(--font-ui);
   letter-spacing: 0.12em;
-  color: #141210;
+  color: var(--ui);
 }
 .settings-v {
   text-align: right;
@@ -751,7 +769,7 @@ canvas#game {
   -webkit-appearance: none;
   appearance: none;
   height: 2px;
-  background: rgba(20, 18, 16, 0.3);
+  background: rgba(243, 246, 248, 0.28);
   outline: none;
 }
 .settings-row input[type="range"]::-webkit-slider-thumb {
@@ -780,7 +798,7 @@ canvas#game {
   margin-top: 14px;
   font: 500 12px/1.5 var(--font-ui);
   letter-spacing: 0.08em;
-  color: #141210;
+  color: var(--ui);
   text-align: left;
   width: min(720px, 92vw);
 }
@@ -802,12 +820,12 @@ canvas#game {
   text-align: left;
   font-weight: 700;
   color: var(--dim);
-  border-bottom: 1px solid rgba(20, 18, 16, 0.25);
+  border-bottom: 1px solid rgba(243, 246, 248, 0.2);
   padding: 2px 4px;
 }
 .rs-grid td {
   padding: 2px 4px;
-  border-bottom: 1px solid rgba(20, 18, 16, 0.1);
+  border-bottom: 1px solid rgba(243, 246, 248, 0.08);
 }
 .run-actions {
   display: flex;
@@ -830,19 +848,10 @@ canvas#game {
   letter-spacing: 0.24em;
 }
 .banner-main {
-  text-shadow: none;
   letter-spacing: 0.08em;
-}
-.menu {
-  background: linear-gradient(
-    90deg,
-    rgba(219, 227, 229, 0.88),
-    rgba(222, 229, 232, 0.55) 48%,
-    rgba(20, 30, 40, 0.06)
-  );
 }
 .hud-bl,
 .hud-br,
 .hud-tr {
-  filter: drop-shadow(0 1px 2px rgba(240, 246, 249, 0.7));
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
 }

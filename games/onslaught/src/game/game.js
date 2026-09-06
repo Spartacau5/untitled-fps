@@ -29,9 +29,9 @@ import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
 import { Settings } from "../core/settings.js";
+import { captureRun } from "../core/run-record.js";
 import { RunLog } from "../core/runlog.js";
 import { SUN_DIR } from "../data/tuning.js";
-import { GAME_VERSION } from "../data/version.js";
 import { theme } from "../theme/theme.js";
 import { ArenaView } from "../render/arena-view.js";
 import { EnemyView } from "../render/enemy-view.js";
@@ -174,6 +174,14 @@ export class Game {
         (this.hud.el.playerName.value = loadPlayerName()),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
+      this.hud.el.btnRestart &&
+        this.hud.el.btnRestart.addEventListener("click", () =>
+          this.restartFromPause(),
+        ),
+      this.hud.el.btnExitMenu &&
+        this.hud.el.btnExitMenu.addEventListener("click", () =>
+          this.exitToMenu(),
+        ),
       (() => {
         const download = (name, data) => {
           const a = document.createElement("a");
@@ -289,6 +297,20 @@ export class Game {
       this._refreshBoard();
     }
   }
+  async _endLiveRun(result) {
+    if (!this.runId) return;
+    this.lastRun = captureRun({
+      world: this.world,
+      seed: this.seed,
+      startedAt: this.runStartedAt,
+      endedAt: new Date().toISOString(),
+      settings: this.settings.all(),
+      result,
+    });
+    this.runLog.append(this.lastRun);
+    await this._submitRun({ final: true });
+    this.runId = "";
+  }
   // Compatibility accessors for the debug panel and console poking.
   get player() {
     return this.world.player;
@@ -333,6 +355,7 @@ export class Game {
   }
   start() {
     this.settingsPanel && this.settingsPanel.close();
+    this.hud.setPauseActions(false);
     if ((this.audio.init(), this.audio.resume(), this.state === "paused")) {
       ((this.state = "playing"),
         this.hud.showMenu(!1),
@@ -363,7 +386,25 @@ export class Game {
         null,
         `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
       ),
+      this.hud.setPauseActions(true),
       this._submitRun());
+  }
+  async restartFromPause() {
+    if (this.state !== "paused") return;
+    await this._endLiveRun("quit");
+    this.state = "menu";
+    this.hud.setPauseActions(false);
+    this.start();
+  }
+  async exitToMenu() {
+    if (this.state !== "paused") return;
+    await this._endLiveRun("quit");
+    this.state = "menu";
+    this.audio.intensity = 0;
+    this.input.unlock();
+    this.hud.setPauseActions(false);
+    this.hud.showMenu(!0);
+    this.hud.show(!1);
   }
   resetGame() {
     (this.world.startRun(),
@@ -380,22 +421,7 @@ export class Game {
       this.audio.gameOver(),
       (this.audio.intensity = 0),
       this.hud.banner("K.I.A.", "THE SWARM OVERRAN THE ARENA", 6, !0),
-      (this.lastRun = {
-        v: 1,
-        game: GAME_VERSION,
-        seed: this.seed,
-        startedAt: this.runStartedAt,
-        endedAt: new Date().toISOString(),
-        settings: this.settings.all(),
-        summary: {
-          ...this.world.stats.summary(),
-          wave: this.world.wave,
-          score: this.world.score,
-          kills: this.world.kills,
-        },
-      }),
-      this.runLog.append(this.lastRun),
-      this._submitRun({ final: true }));
+      this._endLiveRun("dead"));
   }
   onKey(t) {
     if (t === "Escape" && this.settingsPanel && this.settingsPanel.isOpen()) {
@@ -764,6 +790,7 @@ export class Game {
         `WAVE ${w.wave} REACHED<br>${w.kills} KILLS · ${w.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
         "THE SWARM PREVAILS",
       ),
+        this.hud.setPauseActions(false),
         this.lastRun && this.hud.runSummary(this.lastRun),
         this.hud.show(!1));
     }

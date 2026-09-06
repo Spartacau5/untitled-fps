@@ -27,6 +27,9 @@ export class HUD {
       lowhp: t("lowhp"),
       menu: t("menu"),
       btnStart: t("btn-start"),
+      pauseActions: t("pause-actions"),
+      btnRestart: t("btn-restart"),
+      btnExitMenu: t("btn-exit-menu"),
       btnSettings: t("btn-settings"),
       settings: t("settings"),
       settingsRows: t("settings-rows"),
@@ -60,6 +63,10 @@ export class HUD {
   show(t) {
     this.el.hud.classList.toggle("hidden", !t);
   }
+  setPauseActions(t) {
+    this.el.pauseActions &&
+      this.el.pauseActions.classList.toggle("hidden", !t);
+  }
   showMenu(
     t,
     e = theme.strings.title,
@@ -67,7 +74,8 @@ export class HUD {
     s = null,
     r = theme.strings.subtitle,
   ) {
-    (this.el.runSummary && this.el.runSummary.classList.add("hidden"),
+    (this.setPauseActions(false),
+      this.el.runSummary && this.el.runSummary.classList.add("hidden"),
       this.el.runActions && this.el.runActions.classList.add("hidden"),
       this.el.menu.classList.toggle("hidden", !t),
       t &&
