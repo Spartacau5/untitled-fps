@@ -3,6 +3,7 @@ import { Vector3 } from "three";
 export const WEAPONS = [
   {
     key: "ar",
+    band: "rifle",
     name: "VK-7 ASSAULT RIFLE",
     class: "ASSAULT RIFLE",
     slot: "primary",
@@ -65,6 +66,7 @@ export const WEAPONS = [
   },
   {
     key: "shotgun",
+    band: "shotgun",
     name: "HAMMER-12 SHOTGUN",
     class: "SHOTGUN",
     slot: "primary",
@@ -129,6 +131,7 @@ export const WEAPONS = [
   },
   {
     key: "dmr",
+    band: "marksman",
     name: "LONGSHOT DMR",
     class: "MARKSMAN RIFLE",
     slot: "primary",
@@ -189,6 +192,7 @@ export const WEAPONS = [
   },
   {
     key: "pistol",
+    band: "sidearm",
     name: "SIDEWINDER 9",
     class: "SIDEARM",
     slot: "sidearm",
@@ -248,6 +252,7 @@ export const WEAPONS = [
   },
   {
     key: "smg",
+    band: "smg",
     name: "WASP-9 SMG",
     class: "SUBMACHINE GUN",
     // Sits in the sidearm slot, not the primary one: it is the compact,
@@ -313,6 +318,7 @@ export const WEAPONS = [
   },
   {
     key: "lmg",
+    band: "lmg",
     name: "OVERWATCH LMG",
     class: "LIGHT MACHINE GUN",
     slot: "primary",
@@ -375,6 +381,7 @@ export const WEAPONS = [
   },
   {
     key: "sniper",
+    band: "sniper",
     name: "MERIDIAN ANTI-MATERIEL",
     class: "SNIPER RIFLE",
     slot: "primary",
@@ -435,6 +442,7 @@ export const WEAPONS = [
   },
   {
     key: "flame",
+    band: "special",
     name: "CINDER-6 INCINERATOR",
     class: "FLAMETHROWER",
     slot: "primary",
@@ -500,19 +508,167 @@ export const WEAPONS = [
     switchTime: 0.6,
     smoke: 0,
   },
+  {
+    // M4A1. 5.56x45mm NATO, 700-970 rpm cyclic, 30-round STANAG, effective to
+    // 500 m. Against the VK-7 it trades a little damage for control: flatter
+    // recoil, tighter sights, quicker to bring up.
+    key: "m4",
+    band: "rifle",
+    name: "M4A1 CARBINE",
+    class: "ASSAULT RIFLE",
+    slot: "primary",
+    unlockLevel: 0,
+    action: "eject",
+    mode: "FULL AUTO",
+    auto: !0,
+    rpm: 780,
+    damage: 24,
+    headMult: 2.1,
+    magSize: 30,
+    reserve: 240,
+    reloadTime: 1.75,
+    adsTime: 0.17,
+    adsFov: 56,
+    moveMult: 1.02,
+    pellets: 1,
+    spreadHip: 0.022,
+    spreadAds: 0.0014,
+    spreadMove: 0.018,
+    bloomPerShot: 0.0026,
+    bloomMax: 0.022,
+    bloomDecay: 0.1,
+    recoilPitch: 0.52,
+    recoilYaw: 0.3,
+    adsRecoilReduce: 0.42,
+    recoilPermanent: 0.38,
+    pattern: [
+      0, 0.08, 0.18, 0.3, 0.4, 0.44, 0.38, 0.2, -0.05, -0.28, -0.44, -0.48,
+      -0.4, -0.2, 0.05, 0.28, 0.44, 0.44, 0.26, 0.05,
+    ],
+    kickBack: 0.028,
+    kickUp: 0.005,
+    kickPitch: 0.02,
+    kickYaw: 0.006,
+    kickRoll: 0.011,
+    trauma: 0.048,
+    weight: 0.36,
+    tracer: [1, 0.84, 0.55],
+    tracerWidth: 0.034,
+    tracerEvery: 1,
+    falloffStart: 32,
+    falloffEnd: 66,
+    falloffMin: 0.62,
+    kbForce: 1.05,
+    flash: {
+      length: 0.4,
+      width: 0.19,
+      color: [1, 0.64, 0.24],
+      intensity: 1.65,
+      duration: 0.052,
+      light: 12,
+    },
+    sound: "m4",
+    shell: "ar",
+    boltAnimTime: 0.065,
+    sprintOut: 0.17,
+    switchTime: 0.4,
+    smoke: 0.45,
+  },
+  {
+    // MP5A3. 9x19mm Parabellum, 800 rpm, 30-round curved magazine, effective
+    // to 200 m. Roller-delayed blowback is the whole character: slower than
+    // the Wasp-9, hits harder, and barely climbs.
+    key: "mp5",
+    band: "smg",
+    name: "MP5A3",
+    class: "SUBMACHINE GUN",
+    slot: "sidearm",
+    unlockLevel: 0,
+    action: "eject",
+    mode: "FULL AUTO",
+    auto: !0,
+    rpm: 800,
+    damage: 21,
+    headMult: 1.9,
+    magSize: 30,
+    reserve: 300,
+    reloadTime: 1.7,
+    adsTime: 0.16,
+    adsFov: 62,
+    moveMult: 1.08,
+    pellets: 1,
+    spreadHip: 0.021,
+    spreadAds: 0.0022,
+    spreadMove: 0.016,
+    bloomPerShot: 0.0024,
+    bloomMax: 0.024,
+    bloomDecay: 0.12,
+    recoilPitch: 0.3,
+    recoilYaw: 0.26,
+    adsRecoilReduce: 0.45,
+    recoilPermanent: 0.3,
+    pattern: [
+      0, 0.1, 0.2, 0.26, 0.24, 0.12, -0.06, -0.22, -0.3, -0.28, -0.14, 0.04,
+      0.2, 0.3, 0.28, 0.16, -0.02, -0.18, -0.26, -0.2,
+    ],
+    kickBack: 0.021,
+    kickUp: 0.004,
+    kickPitch: 0.014,
+    kickYaw: 0.005,
+    kickRoll: 0.01,
+    trauma: 0.034,
+    weight: 0.3,
+    tracer: [1, 0.86, 0.6],
+    tracerWidth: 0.03,
+    tracerEvery: 2,
+    falloffStart: 16,
+    falloffEnd: 38,
+    falloffMin: 0.42,
+    kbForce: 0.9,
+    flash: {
+      length: 0.3,
+      width: 0.17,
+      color: [1, 0.7, 0.3],
+      intensity: 1.4,
+      duration: 0.045,
+      light: 9,
+    },
+    sound: "mp5",
+    shell: "ar",
+    boltAnimTime: 0.05,
+    sprintOut: 0.15,
+    switchTime: 0.34,
+    smoke: 0.4,
+  },
 ];
-// You carry the lot. Each gun keeps a fixed number key -- its position in
-// this list -- so key 4 is always the pistol whatever else changes. Which gun
-// you deploy holding is a separate choice (see core/progression.js): letting
-// that reorder the keys would reshuffle every binding each time you picked a
-// new favourite.
-export const DEFAULT_LOADOUT = WEAPONS.map((w) => w.key);
+// One number key per band, in this order. Guns in the same band compete for
+// that key -- the M4 and the VK-7 are both key 1 -- so adding a rifle gives
+// you something to choose between rather than another key to reach for. The
+// armory picks which gun holds each band; see core/progression.js.
+export const BANDS = [
+  { id: "rifle", label: "ASSAULT RIFLE" },
+  { id: "shotgun", label: "SHOTGUN" },
+  { id: "marksman", label: "MARKSMAN" },
+  { id: "sidearm", label: "SIDEARM" },
+  { id: "smg", label: "SUBMACHINE GUN" },
+  { id: "lmg", label: "MACHINE GUN" },
+  { id: "sniper", label: "SNIPER" },
+  { id: "special", label: "SPECIAL" },
+];
 
-// Headings the armory groups the guns under.
-export const SLOT_GROUPS = [
-  { slot: "primary", label: "PRIMARY WEAPONS" },
-  { slot: "sidearm", label: "SIDEARMS" },
-];
+// The guns available in a band, easiest to unlock first.
+export function weaponsInBand(band) {
+  return WEAPONS.filter((w) => w.band === band).sort(
+    (a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0),
+  );
+}
+
+// What a fresh profile carries: the first gun in each band. Key order is band
+// order and never moves, whatever you pick.
+export const DEFAULT_PICKS = Object.fromEntries(
+  BANDS.map((b) => [b.id, weaponsInBand(b.id)[0].key]),
+);
+export const DEFAULT_LOADOUT = BANDS.map((b) => DEFAULT_PICKS[b.id]);
 
 // Which gun a fresh profile deploys holding.
 export const DEFAULT_START = "ar";

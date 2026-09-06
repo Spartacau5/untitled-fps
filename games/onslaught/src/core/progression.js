@@ -1,7 +1,9 @@
 import {
-  DEFAULT_LOADOUT,
+  BANDS,
+  DEFAULT_PICKS,
   DEFAULT_START,
   WEAPONS,
+  weaponsInBand,
 } from "../data/weapons.js";
 
 export const STORAGE_KEY = "onslaught.profile.v1";
@@ -44,20 +46,49 @@ export class Progression {
     }
     if (!saved || typeof saved !== "object") saved = {};
     ((this.xp = Number.isFinite(saved.xp) && saved.xp > 0 ? saved.xp : 0),
+      (this.picks = this._sanitizePicks(saved.picks)),
       (this.start = this._sanitizeStart(saved.start)));
   }
-  // Every unlocked gun is carried, in table order, so each keeps a fixed
-  // number key. Locked guns drop out rather than leaving a dead key.
+  // One gun per band, in band order, so each keeps a fixed number key
+  // whichever gun you put there.
   get loadout() {
-    const carried = DEFAULT_LOADOUT.filter((k) => this.isUnlocked(k));
-    return carried.length ? carried : [DEFAULT_LOADOUT[0]];
+    return BANDS.map((b) => this.picks[b.id]);
+  }
+  // A pick has to exist, be unlocked, and actually belong to its band. Any
+  // that does not falls back to the first unlocked gun in that band, so an
+  // edited or stale save can never leave a key holding nothing.
+  _sanitizePicks(picks) {
+    const want = picks && typeof picks === "object" ? picks : {};
+    return Object.fromEntries(
+      BANDS.map((b) => {
+        const key = want[b.id],
+          def = BY_KEY.get(key);
+        if (def && def.band === b.id && this.isUnlocked(key)) return [b.id, key];
+        const open = weaponsInBand(b.id).find((w) => this.isUnlocked(w.key));
+        return [b.id, open ? open.key : DEFAULT_PICKS[b.id]];
+      }),
+    );
+  }
+  // Put a gun on its band's key.
+  equip(key) {
+    const def = BY_KEY.get(key);
+    if (!def || !this.isUnlocked(key)) return this.loadout;
+    ((this.picks = { ...this.picks, [def.band]: key }),
+      // If the gun that was deploying just got benched, deploy with its
+      // replacement rather than a gun the player is no longer carrying.
+      this.loadout.includes(this.start) || (this.start = key),
+      this._save(),
+      this._emit());
+    return this.loadout;
   }
   // The gun a run begins on. Must exist, be unlocked, and be one you carry;
   // an edited or stale save falls back rather than starting you empty-handed.
   _sanitizeStart(key) {
-    return key && BY_KEY.has(key) && this.isUnlocked(key)
+    return key && this.loadout.includes(key) && this.isUnlocked(key)
       ? key
-      : DEFAULT_START;
+      : this.loadout.includes(DEFAULT_START)
+        ? DEFAULT_START
+        : this.loadout[0];
   }
   get level() {
     return levelForXp(this.xp);
@@ -84,11 +115,16 @@ export class Progression {
       (a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0),
     );
   }
+  // Whether this gun is the one currently holding its band's key.
+  isEquipped(key) {
+    const def = BY_KEY.get(key);
+    return !!def && this.picks[def.band] === key;
+  }
   // Choose the gun you deploy holding. Deliberately does not reorder the
   // loadout: the number keys stay put so picking a new favourite does not
   // move every other gun.
   setStart(key) {
-    if (!BY_KEY.has(key) || !this.isUnlocked(key)) return this.start;
+    if (!this.loadout.includes(key)) return this.start;
     ((this.start = key), this._save(), this._emit());
     return this.start;
   }
@@ -105,7 +141,11 @@ export class Progression {
     return { gained, level: this.level, levelsGained: this.level - before };
   }
   reset() {
-    ((this.xp = 0), (this.start = DEFAULT_START), this._save(), this._emit());
+    ((this.xp = 0),
+      (this.picks = { ...DEFAULT_PICKS }),
+      (this.start = DEFAULT_START),
+      this._save(),
+      this._emit());
   }
   onChange(fn) {
     this.listeners.push(fn);
@@ -118,7 +158,11 @@ export class Progression {
       this.storage &&
         this.storage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ xp: this.xp, start: this.start }),
+          JSON.stringify({
+            xp: this.xp,
+            picks: this.picks,
+            start: this.start,
+          }),
         );
     } catch {
       // A blocked or full localStorage must not take the run down with it.
