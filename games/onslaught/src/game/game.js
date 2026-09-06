@@ -112,6 +112,11 @@ export class Game {
       this.weaponScene.add(this.weaponCamera),
       (this.input = new Input(t)),
       (this.audio = new Audio()),
+      // Build the audio graph at load, not on the DEPLOY click. A context may
+      // be constructed without a gesture - it just starts suspended - and
+      // constructing one costs tens of milliseconds. Only resume() needs the
+      // gesture, and that is free.
+      this.audio.init(),
       this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD()),
       (this.arenaView = new ArenaView(this.scene, this.world.arena)),

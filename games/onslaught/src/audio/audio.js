@@ -57,8 +57,18 @@ export class Audio {
       (this._beat = 0),
       (this._heartT = 0));
   }
+  // Building the graph is cheap; filling the PCM buffers is not. The impulse
+  // response and noise bed together run Math.pow/Math.exp/Math.random across
+  // ~190k samples, which was ~65 ms here and far worse on slower machines -
+  // all of it inside the DEPLOY click handler, so the browser could not paint
+  // until it finished and the interaction registered as blocked.
+  //
+  // The AudioContext has to be created and resumed inside the user gesture or
+  // autoplay policy keeps it suspended. The sample data does not, so it moves
+  // to a task after the next paint. `ready` stays false until it lands, and
+  // every sound entry point already no-ops on that flag.
   init() {
-    if (this.ready) return;
+    if (this.ctx) return;
     const t = new (window.AudioContext || window.webkitAudioContext)({
       latencyHint: "interactive",
     });
@@ -77,7 +87,6 @@ export class Audio {
       (this.dry.gain.value = 1),
       this.dry.connect(this.master),
       (this.reverb = t.createConvolver()),
-      (this.reverb.buffer = reverbImpulse(t, 0.95, 3.4)),
       (this.revGain = t.createGain()),
       (this.revGain.gain.value = 0.28),
       this.reverb.connect(this.revGain),
@@ -89,11 +98,23 @@ export class Audio {
       (this.musicLP.type = "lowpass"),
       (this.musicLP.frequency.value = 4e3),
       this.musicLP.connect(this.musicBus),
-      (this.noiseBuf = noiseBuffer(t, 2)),
-      (this.ready = !0),
-      this._applyVolumes(),
-      this._startAmbience(),
-      (this._nextBeat = t.currentTime + 0.1));
+      this._deferBuffers(t));
+  }
+  _deferBuffers(t) {
+    const build = () => {
+      if (this.ctx !== t || this.ready) return;
+      ((this.reverb.buffer = reverbImpulse(t, 0.95, 3.4)),
+        (this.noiseBuf = noiseBuffer(t, 2)),
+        (this.ready = !0),
+        this._applyVolumes(),
+        this._startAmbience(),
+        (this._nextBeat = t.currentTime + 0.1));
+    };
+    // After the next paint, so the click that started the run is already on
+    // screen before any of this runs.
+    typeof requestAnimationFrame === "function"
+      ? requestAnimationFrame(() => setTimeout(build, 0))
+      : setTimeout(build, 0);
   }
   // User volume settings, 0–1 each. Safe to call before init().
   setVolumes({ master, music, sfx }) {
