@@ -1,4 +1,9 @@
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three";
+import {
+  CanvasTexture,
+  RepeatWrapping,
+  SRGBColorSpace,
+  TextureLoader,
+} from "three";
 
 // Authored, local procedural textures. No network requests, stock photos, or
 // generated bitmaps. The fixed seed keeps the district identical between runs.
@@ -128,4 +133,50 @@ export function shutterTexture() {
     g.fillRect(0, y + 3, 256, 1);
   }
   return texture(c);
+}
+
+// One long strip of amber text for the crawling ticker above the shopfronts.
+// The texture wraps in X and the material scrolls its offset, so the message
+// runs continuously without ever redrawing the canvas.
+export function tickerTexture(message, fg = "#ffb648", bg = "#0d1216") {
+  const height = 64;
+  // Measure first so the strip is exactly as wide as the text: any slack
+  // would show up as a gap every time the message came round.
+  const [probe, pg] = canvas(8, 8);
+  pg.font = "700 40px Arial";
+  const width = Math.max(512, Math.ceil(pg.measureText(message).width));
+  probe.width = probe.height = 0;
+
+  const [c, g] = canvas(width, height);
+  g.fillStyle = bg;
+  g.fillRect(0, 0, width, height);
+  g.font = "700 40px Arial";
+  g.fillStyle = fg;
+  g.textBaseline = "middle";
+  g.fillText(message, 0, height / 2 + 1);
+  // The same baked LED rows the boards use, so the strip belongs to them.
+  g.fillStyle = "rgba(0,0,0,.22)";
+  for (let y = 0; y < height; y += 3) g.fillRect(0, y, width, 1);
+  const t = texture(c);
+  t.wrapS = RepeatWrapping;
+  return t;
+}
+
+// Artwork the player dropped into games/onslaught/public/ads/. Returns null
+// synchronously and calls onLoad if the file turns up, so a missing or
+// misspelled path leaves the drawn board in place instead of a blank panel.
+export function adImageTexture(path, onLoad) {
+  const loader = new TextureLoader();
+  return loader.load(
+    path,
+    (t) => {
+      t.colorSpace = SRGBColorSpace;
+      t.anisotropy = 4;
+      onLoad && onLoad(t);
+    },
+    undefined,
+    () => {
+      // Missing artwork is a normal state -- the folder ships empty.
+    },
+  );
 }
