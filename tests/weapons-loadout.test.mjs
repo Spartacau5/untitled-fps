@@ -132,8 +132,13 @@ test("the weapon wheel wraps around any loadout size", () => {
         w.weapons.updateSwitch(1 / 60, w);
       seen.push(w.weapons.current);
     }
-    // Scrolling forward visits every slot and comes back round.
-    assert.deepEqual(seen.slice(0, size).sort(), [...Array(size).keys()]);
+    // Scrolling forward visits every slot and comes back round. Sorted
+    // numerically: the default sort is lexicographic, which puts 10 before 2
+    // and only looked correct while every loadout was under ten guns.
+    assert.deepEqual(
+      seen.slice(0, size).sort((a, b) => a - b),
+      [...Array(size).keys()],
+    );
     assert.deepEqual(seen.slice(0, size), seen.slice(size));
   }
 });

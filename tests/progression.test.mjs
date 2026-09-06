@@ -96,7 +96,10 @@ test("choosing a start weapon persists and never reorders the keys", () => {
 
 test("a saved start weapon is restored, and a corrupt profile falls back", () => {
   const st = memStorage();
-  new Progression(st).setStart("flame");
+  // The flamethrower shares its key with the rocket launcher, so it has to be
+  // equipped before it can be the gun you deploy holding.
+  const first = new Progression(st);
+  (first.equip("flame"), first.setStart("flame"));
   assert.equal(new Progression(st).start, "flame");
 
   for (const bad of [

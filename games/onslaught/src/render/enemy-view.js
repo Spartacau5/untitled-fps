@@ -582,8 +582,23 @@ export class EnemyView {
           v = 0;
         if (l.state === "attack") {
           const p = l.def;
-          ((g = Math.min(1, l.t / p.windup)),
-            (v = l.t > p.windup ? Math.min(1, (l.t - p.windup) / 0.25) : 0));
+          // The sim lands the hit at t = windup. The strike therefore has to
+          // be at FULL extension by then, not starting there: the first
+          // version ramped the swing after windup, so the arm was at its most
+          // retracted at the moment of contact and the player took damage and
+          // only then watched the arm move. Purely a presentation fix -- the
+          // sim's timing, damage and determinism are untouched.
+          //
+          // Pull back over the first 62% of the windup, snap through over the
+          // rest so the blow arrives on the beat, then recover over the swing.
+          const pull = p.windup * 0.62;
+          if (l.t < pull) ((g = l.t / pull), (v = 0));
+          else if (l.t < p.windup)
+            ((g = 1 - (l.t - pull) / (p.windup - pull)),
+              (v = (l.t - pull) / (p.windup - pull)));
+          else
+            ((g = 0),
+              (v = Math.max(0, 1 - (l.t - p.windup) / Math.max(0.12, p.swing * 0.7))));
         }
         (r.armsForward
           ? ((s.shL.rotation.x =

@@ -683,6 +683,57 @@ export class ParticleSystem {
       );
     }
   }
+  // Rocket blast. A flash and a fireball at the impact, debris thrown out of
+  // it, and a ring on the ground so the radius is legible -- a player needs to
+  // see how far the damage reached, not just that something exploded.
+  explosion(pos, radius = 5) {
+    const now = this.t,
+      d = this._jetDir || (this._jetDir = new Vector3()),
+      s = radius / 5;
+    // Core flash.
+    this.add.emit(
+      pos.x, pos.y, pos.z, 0, 0, 0,
+      now, 0.14, 0.6 * s, 2.6 * s,
+      1, 0.95, 0.8, 5, 0, 6, 2, 0,
+    );
+    // Fireball: turbulent puffs pushed outward, rising as they burn out.
+    for (let i = 0; i < 26; i++) {
+      this.randomInCone(new Vector3(0, 1, 0), 1.4, d);
+      const life = rand(0.4, 0.8);
+      this.add.emit(
+        pos.x, pos.y, pos.z,
+        d.x * rand(3, 11) * s, Math.abs(d.y) * rand(2, 8) * s, d.z * rand(3, 11) * s,
+        now, life, rand(0.3, 0.6) * s, rand(1.4, 2.6) * s,
+        1, rand(0.36, 0.56), 0.1, rand(1.6, 2.6),
+        -1.6, 3.0, 1, rand(-2, 2),
+      );
+    }
+    // Debris streaks.
+    for (let i = 0; i < 22; i++) {
+      this.randomInCone(new Vector3(0, 1, 0), 1.5, d);
+      const v = rand(9, 22) * s;
+      this.add.emit(
+        pos.x, pos.y, pos.z,
+        d.x * v, Math.abs(d.y) * v * 0.8 + 2, d.z * v,
+        now, rand(0.5, 1.1), rand(0.03, 0.07), 0.01,
+        1, 0.86, 0.6, rand(2, 3.4),
+        11, 0.4, 0, rand(1, 3),
+      );
+    }
+    // Smoke column.
+    for (let i = 0; i < 12; i++) {
+      this.randomInCone(new Vector3(0, 1, 0), 1.1, d);
+      this.alpha.emit(
+        pos.x, pos.y, pos.z,
+        d.x * rand(1.5, 5) * s, Math.abs(d.y) * rand(2, 5) * s, d.z * rand(1.5, 5) * s,
+        now, rand(1.1, 2.0), rand(0.5, 0.9) * s, rand(2.4, 3.8) * s,
+        0.2, 0.18, 0.17, rand(0.24, 0.4),
+        -1.4, 1.2, 1, rand(-1.2, 1.2),
+      );
+    }
+    // Ground ring at the blast radius.
+    this.rings.emit(pos.x, 0.06, pos.z, now, 0.55, radius * 2, 0.5, 1, 0.6, 0.22);
+  }
   muzzleSmoke(t, e, n = 1) {
     const s = this.t;
     for (let r = 0; r < Math.ceil(2 * n); r++)
