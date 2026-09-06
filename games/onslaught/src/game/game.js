@@ -51,6 +51,7 @@ import {
   applyAssignedCallsign,
   fetchBoard,
   loadPlayerName,
+  markPlayed,
   renderBoard,
   savePlayerName,
   submitRun as postRun,
@@ -249,17 +250,23 @@ export class Game {
   }
   _refreshBoard() {
     fetchBoard()
-      .then((data) => {
-        applyAssignedCallsign(this.hud.el.playerName, data.callsign);
-        renderBoard(this.hud.el.leaderboard, data, this._playerName());
-      })
+      .then((data) => this._applyBoard(data))
       .catch(() =>
         renderBoard(
           this.hud.el.leaderboard,
-          { entries: [] },
+          { entries: [], visitors: 0, players: 0 },
           this._playerName(),
         ),
       );
+  }
+  _applyBoard(data) {
+    applyAssignedCallsign(this.hud.el.playerName, data.callsign);
+    renderBoard(this.hud.el.leaderboard, data, this._playerName());
+  }
+  _markPlayed() {
+    markPlayed()
+      .then((data) => this._applyBoard(data))
+      .catch(() => {});
   }
   _newRunId() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -290,8 +297,7 @@ export class Game {
     if (opts.final) this._runPosted = true;
     try {
       const data = await postRun(entry);
-      applyAssignedCallsign(this.hud.el.playerName, data.callsign);
-      renderBoard(this.hud.el.leaderboard, data, this._playerName());
+      this._applyBoard(data);
     } catch {
       if (opts.final) this._runPosted = false;
       this._refreshBoard();
@@ -374,7 +380,8 @@ export class Game {
       this.debug || this.input.lock(),
       (this.last = performance.now()),
       this.hud.banner(...theme.strings.deployingBanner, 2.5),
-      (this.audio.intensity = 1));
+      (this.audio.intensity = 1),
+      this._markPlayed());
   }
   pause() {
     const w = this.world;

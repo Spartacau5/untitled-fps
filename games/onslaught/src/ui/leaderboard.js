@@ -31,6 +31,7 @@ export function savePlayerName(name) {
 export function applyAssignedCallsign(input, assigned) {
   if (!assigned) return;
   if (input) {
+    if (!String(input.value || "").trim()) return;
     if (isPlaceholderName(input.value)) input.value = assigned;
     savePlayerName(input.value);
     return;
@@ -38,16 +39,24 @@ export function applyAssignedCallsign(input, assigned) {
   if (isPlaceholderName(loadPlayerName())) savePlayerName(assigned);
 }
 
-function visitorLine(payload) {
-  const n = Math.floor(Number(payload && payload.visitors) || 0);
-  if (n <= 0) return "";
-  return `<div class="lb-count">${n} UNIQUE OPERATOR${n === 1 ? "" : "S"}</div>`;
+export function audienceLine(payload) {
+  const visitors = Math.max(
+    0,
+    Math.floor(Number(payload && payload.visitors) || 0),
+  );
+  const players = Math.max(
+    0,
+    Math.floor(Number(payload && payload.players) || 0),
+  );
+  const noun = (n, one, many) =>
+    `${n} UNIQUE ${n === 1 ? one : many}`;
+  return `<div class="lb-count"><span>${noun(visitors, "VISITOR", "VISITORS")}</span><span>${noun(players, "PLAYER", "PLAYERS")}</span></div>`;
 }
 
 export function renderBoard(el, payload, youName) {
   if (!el) return;
   const entries = (payload && payload.entries) || [];
-  const foot = visitorLine(payload);
+  const foot = audienceLine(payload);
   if (!entries.length) {
     el.innerHTML =
       `<div class="lb-title">TOP OPERATORS</div><div class="lb-empty">NO RUNS RECORDED</div>${foot}`;
@@ -61,12 +70,18 @@ export function renderBoard(el, payload, youName) {
     })
     .join("");
   el.innerHTML = `<div class="lb-title">TOP OPERATORS</div>
-    <table class="lb-table"><thead><tr><th>#</th><th>CALLSIGN</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>${foot}`;
+    <table class="lb-table"><thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>${foot}`;
 }
 
 export async function fetchBoard() {
   const res = await fetch(API, { cache: "no-store" });
   if (!res.ok) throw new Error("board unavailable");
+  return res.json();
+}
+
+export async function markPlayed() {
+  const res = await fetch("/api/play", { method: "POST", cache: "no-store" });
+  if (!res.ok) throw new Error("play mark failed");
   return res.json();
 }
 

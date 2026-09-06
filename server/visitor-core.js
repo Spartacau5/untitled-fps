@@ -34,25 +34,48 @@ export function visitorCount(state) {
   return Object.keys(state?.byHash || {}).length;
 }
 
+export function playerCount(state) {
+  return Object.keys(state?.players || {}).length;
+}
+
+function baseState(state) {
+  const prev = state && typeof state === "object" ? state : {};
+  return {
+    next: prev.next || 1,
+    byHash: { ...(prev.byHash || {}) },
+    players: { ...(prev.players || {}) },
+  };
+}
+
 export function assignFromMap(state, ip) {
-  const prev = state && typeof state === "object" ? state : { next: 1, byHash: {} };
-  const byHash = { ...(prev.byHash || {}) };
+  const nextState = baseState(state);
   const hash = hashIp(ip);
-  const existing = Number(byHash[hash]);
+  const existing = Number(nextState.byHash[hash]);
   if (Number.isFinite(existing) && existing > 0) {
     return {
-      state: { next: prev.next || 1, byHash },
+      state: nextState,
       n: existing,
       name: operatorName(existing),
       created: false,
     };
   }
-  const n = Math.max(1, Math.floor(Number(prev.next) || 1));
-  byHash[hash] = n;
+  const n = Math.max(1, Math.floor(Number(nextState.next) || 1));
+  nextState.byHash[hash] = n;
+  nextState.next = n + 1;
   return {
-    state: { next: n + 1, byHash },
+    state: nextState,
     n,
     name: operatorName(n),
     created: true,
   };
+}
+
+export function markPlayerFromMap(state, ip) {
+  const nextState = baseState(state);
+  const hash = hashIp(ip);
+  if (nextState.players[hash]) {
+    return { state: nextState, created: false };
+  }
+  nextState.players[hash] = 1;
+  return { state: nextState, created: true };
 }

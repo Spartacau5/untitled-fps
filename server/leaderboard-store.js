@@ -73,9 +73,10 @@ async function withVisitor(req, payload) {
       ...payload,
       callsign: visitor.name,
       visitors: visitor.visitors,
+      players: visitor.players || 0,
     };
   } catch {
-    return { ...payload, callsign: "", visitors: 0 };
+    return { ...payload, callsign: "", visitors: 0, players: 0 };
   }
 }
 

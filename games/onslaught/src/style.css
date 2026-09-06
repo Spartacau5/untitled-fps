@@ -666,10 +666,17 @@ canvas#game {
 }
 .lb-count {
   margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
   font: 600 11px/1 var(--font-ui);
   letter-spacing: 0.18em;
   color: var(--dim);
   text-align: center;
+}
+.lb-count span {
+  white-space: nowrap;
 }
 .lb-table {
   width: 100%;

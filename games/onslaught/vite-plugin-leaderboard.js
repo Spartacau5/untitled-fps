@@ -1,5 +1,6 @@
 import { listTop, submitRun } from "../../server/leaderboard-store.js";
 import { listNotes, submitNote } from "../../server/feedback-store.js";
+import { markPlayer } from "../../server/visitor-store.js";
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -65,6 +66,16 @@ export function leaderboardPlugin() {
                 ? 400
                 : 500;
           send(res, status, { error: msg });
+        }
+      });
+      server.middlewares.use("/api/play", async (req, res, next) => {
+        if (req.method !== "POST") return next();
+        try {
+          await markPlayer(req);
+          send(res, 200, await listTop(req));
+        } catch (err) {
+          const msg = err && err.message ? err.message : "play error";
+          send(res, 500, { error: msg });
         }
       });
     },
