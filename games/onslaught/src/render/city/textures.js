@@ -42,11 +42,21 @@ export function pavementTexture() {
       g.strokeStyle = "#929797";
       g.strokeRect(x * 128 + 3, y * 128 + 3, 122, 122);
     }
-  for (let i = 0; i < 95000; i++) {
-    const v = rand() > 0.5 ? 225 : 30;
-    g.fillStyle = `rgba(${v},${v},${v},${rand() * 0.15})`;
-    g.fillRect(rand() * 1024, rand() * 1024, 1 + rand() * 2, 1);
+  // Aggregate speckle. This used to build a fresh `rgba(...)` string and
+  // assign fillStyle 95,000 times, which cost ~150 ms of the page load on its
+  // own -- the parse, not the fill. Two passes with a fixed colour and a
+  // globalAlpha sweep give the same grain for a fraction of the work.
+  for (const [v, count] of [
+    [225, 16000],
+    [30, 16000],
+  ]) {
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    for (let i = 0; i < count; i++) {
+      g.globalAlpha = rand() * 0.15;
+      g.fillRect(rand() * 1024, rand() * 1024, 1 + rand() * 2, 1);
+    }
   }
+  g.globalAlpha = 1;
   return texture(c, [30, 30]);
 }
 export function facadeTexture(style = 0) {

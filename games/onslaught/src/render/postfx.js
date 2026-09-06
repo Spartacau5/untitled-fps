@@ -93,6 +93,7 @@ export class PostFX {
     const e = t.getDrawingBufferSize(new Vector2());
     ((this.w = Math.max(2, e.x)),
       (this.h = Math.max(2, e.y)),
+      (this.samples = 4),
       (this.sceneRT = new WebGLRenderTarget(this.w, this.h, {
         type: HalfFloatType,
         samples: 4,
@@ -179,6 +180,22 @@ export class PostFX {
         depthTest: !1,
         depthWrite: !1,
       })));
+  }
+  // MSAA sample count cannot be changed on a live target, so lowering it means
+  // rebuilding. A 4x half-float target at 2160x1218 is the single largest
+  // block of GPU memory the game allocates; dropping to 2x roughly halves it.
+  setSamples(samples) {
+    if (samples === this.samples) return;
+    this.samples = samples;
+    this.sceneRT.dispose();
+    this.sceneRT = new WebGLRenderTarget(this.w, this.h, {
+      type: HalfFloatType,
+      samples,
+      depthBuffer: !0,
+      stencilBuffer: !1,
+      minFilter: LinearFilter,
+      magFilter: LinearFilter,
+    });
   }
   setSize(t, e) {
     ((this.w = Math.max(2, t)),

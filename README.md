@@ -28,7 +28,12 @@ Vite serves the game at [http://localhost:5173](http://localhost:5173). Query fl
 - `?nospawn` — empty arena
 - `?seed=<n>` — replay a specific run
 
-Settings (sensitivity, FOV, volumes, shake) persist in `localStorage["onslaught.settings.v1"]`; finished runs accumulate in `onslaught.runs.v1` (last 30) and can be downloaded from the death screen for balance analysis. XP, level and the chosen loadout live in `onslaught.profile.v1`.
+**GRAPHICS** in settings has three tiers — performance, balanced, high. It
+drives render scale, the scene target's MSAA and the shadow maps, which are the
+three things that actually cost frames; the art itself is unchanged at every
+tier. Drop it if the game feels heavy.
+
+Settings (graphics, sensitivity, FOV, volumes, shake) persist in `localStorage["onslaught.settings.v1"]`; finished runs accumulate in `onslaught.runs.v1` (last 30) and can be downloaded from the death screen for balance analysis. XP, level and the chosen loadout live in `onslaught.profile.v1`.
 
 Other commands:
 

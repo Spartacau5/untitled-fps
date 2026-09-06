@@ -1,6 +1,10 @@
 export const STORAGE_KEY = "onslaught.settings.v1";
 
 export const DEFAULTS = {
+  // 2 high, 1 balanced, 0 performance. Drives render scale, the scene
+  // target's MSAA and the shadow map -- the three things that actually cost
+  // frames on a weak GPU. See Game._applyQuality.
+  quality: 2,
   sensitivity: 1,
   fov: 80,
   master: 0.9,
@@ -10,6 +14,7 @@ export const DEFAULTS = {
 };
 
 export const RANGES = {
+  quality: { min: 0, max: 2, step: 1 },
   sensitivity: { min: 0.2, max: 3, step: 0.1 },
   fov: { min: 70, max: 110, step: 1 },
   master: { min: 0, max: 1, step: 0.05 },

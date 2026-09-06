@@ -43,29 +43,42 @@ export class WeaponView {
       (this.muzzleWorld = new Vector3()));
     this.setLoadout(loadout, startIndex);
   }
+  // Build one gun's viewmodel and keep it. A gun is 60-90 meshes, so building
+  // all eight up front put 749 meshes in the weapon scene when only 89 of them
+  // are ever visible -- paid for at load, in geometry allocation and in every
+  // frame's scene traversal. Models are built on first selection instead, and
+  // warmed in the background once the game is running.
+  _build(key) {
+    if (this.built.has(key)) return this.built.get(key);
+    const model = buildWeaponModel(key, this.redDotMat);
+    // Opt every solid part into the weapon scene's shadow map. The lens and
+    // the flash quads are transparent and would only smear.
+    model.group.traverse((o) => {
+      if (o.isMesh && o !== model.parts.lens)
+        (o.castShadow = !0), (o.receiveShadow = !0);
+    });
+    (this.built.set(key, model),
+      this.rig.add(model.group),
+      (model.group.visible = !1));
+    return model;
+  }
+  // Build any gun not yet made. Called from an idle callback after the first
+  // frames, so switching to a gun for the first time mid-fight never hitches.
+  warm() {
+    for (const key of this.keys) this._build(key);
+  }
   // Point the rig at a set of weapon keys, in slot order. Called once at
   // construction and again whenever the armory changes what is carried.
   setLoadout(keys, startIndex = 0) {
     const wanted = keys && keys.length ? keys : ["ar"];
     this.flash.group.parent && this.flash.group.parent.remove(this.flash.group);
-    for (const m of this.models) m.group.visible = !1;
-    this.models = wanted.map((key) => {
-      if (!this.built.has(key)) {
-        const model = buildWeaponModel(key, this.redDotMat);
-        // Opt every solid part into the weapon scene's shadow map. The lens
-        // and the flash quads are transparent and would only smear.
-        model.group.traverse((o) => {
-          if (o.isMesh && o !== model.parts.lens)
-            (o.castShadow = !0), (o.receiveShadow = !0);
-        });
-        (this.built.set(key, model),
-          this.rig.add(model.group),
-          (model.group.visible = !1));
-      }
-      return this.built.get(key);
-    });
-    ((this.shown = Math.min(Math.max(0, startIndex), this.models.length - 1)),
-      (this.boltT = this.models.map(() => 0)),
+    for (const m of this.models) if (m) m.group.visible = !1;
+    // Slots hold null until the gun in them is first selected.
+    ((this.keys = wanted.slice()),
+      (this.models = wanted.map(() => null)),
+      (this.shown = Math.min(Math.max(0, startIndex), wanted.length - 1)),
+      (this.models[this.shown] = this._build(wanted[this.shown])));
+    ((this.boltT = this.models.map(() => 0)),
       (this.model.group.visible = !0),
       this.parts.muzzle.add(this.flash.group),
       this._restParts(this.parts));
@@ -77,6 +90,7 @@ export class WeaponView {
     return this.model.parts;
   }
   _show(i) {
+    this.models[i] || (this.models[i] = this._build(this.keys[i]));
     (this.model.parts.muzzle.remove(this.flash.group),
       (this.model.group.visible = !1),
       (this.shown = i),
@@ -107,7 +121,7 @@ export class WeaponView {
     ])
       v.set(0, 0, 0);
     this.boltT.fill(0);
-    for (const m of this.models) this._restParts(m.parts);
+    for (const m of this.models) if (m) this._restParts(m.parts);
   }
   // World position of the current weapon's ejection port.
   ejectWorld(out) {
