@@ -220,6 +220,64 @@ export function facadeTexture(style = 0) {
   }
   return texture(c);
 }
+// A brilliant-cut gem, drawn side-on: table across the top, crown sloping out
+// to the girdle, pavilion tapering to the culet, with the facet lines that
+// make it read as cut stone rather than a rhombus. Used by advertiser boards
+// that want a mark rather than the generic radial art panel.
+function drawGemMark(g, cx, cy, size, tint = ["#ffffff", "#f7b8d2", "#7fe3e0"]) {
+  const half = size / 2,
+    table = size * 0.26,
+    crown = size * 0.3,
+    pav = size * 0.72;
+  const top = cy - crown,
+    culet = cy + pav;
+
+  // Body, filled with a gradient running across the stone.
+  const grad = g.createLinearGradient(cx - half, top, cx + half, culet);
+  (grad.addColorStop(0, tint[0]),
+    grad.addColorStop(0.45, tint[1]),
+    grad.addColorStop(1, tint[2]));
+  (g.beginPath(),
+    g.moveTo(cx - table, top),
+    g.lineTo(cx + table, top),
+    g.lineTo(cx + half, cy),
+    g.lineTo(cx, culet),
+    g.lineTo(cx - half, cy),
+    g.closePath(),
+    (g.fillStyle = grad),
+    g.fill());
+
+  // Facets. Crown facets fan from the table corners down to the girdle;
+  // pavilion facets converge on the culet.
+  ((g.strokeStyle = "rgba(255,255,255,0.55)"), (g.lineWidth = size * 0.012));
+  g.beginPath();
+  (g.moveTo(cx - table, top),
+    g.lineTo(cx - half, cy),
+    g.moveTo(cx + table, top),
+    g.lineTo(cx + half, cy),
+    g.moveTo(cx - half, cy),
+    g.lineTo(cx + half, cy),
+    g.moveTo(cx - table, top),
+    g.lineTo(cx - size * 0.16, cy),
+    g.moveTo(cx + table, top),
+    g.lineTo(cx + size * 0.16, cy),
+    g.moveTo(cx - size * 0.16, cy),
+    g.lineTo(cx, culet),
+    g.moveTo(cx + size * 0.16, cy),
+    g.lineTo(cx, culet),
+    g.stroke());
+
+  // A bright table face on top, which is where a real stone throws its light.
+  (g.beginPath(),
+    g.moveTo(cx - table, top),
+    g.lineTo(cx + table, top),
+    g.lineTo(cx + size * 0.16, cy),
+    g.lineTo(cx - size * 0.16, cy),
+    g.closePath(),
+    (g.fillStyle = "rgba(255,255,255,0.32)"),
+    g.fill());
+}
+
 export function signTexture(
   title,
   subtitle = "",
@@ -230,7 +288,16 @@ export function signTexture(
   const [c, g] = canvas(1024, 512);
   g.fillStyle = background;
   g.fillRect(0, 0, 1024, 512);
-  if (art) {
+  if (art === "gem") {
+    // Advertiser board: a lit stone on a dark ground, which is how a jewelry
+    // brand actually buys a screen in a square like this.
+    const glow = g.createRadialGradient(724, 250, 8, 724, 250, 430);
+    (glow.addColorStop(0, "#2a2036"),
+      glow.addColorStop(0.55, background),
+      glow.addColorStop(1, "#08070c"));
+    ((g.fillStyle = glow), g.fillRect(0, 0, 1024, 512));
+    drawGemMark(g, 748, 214, 236);
+  } else if (art) {
     const grad = g.createRadialGradient(810, 220, 5, 760, 230, 440);
     grad.addColorStop(0, foreground);
     grad.addColorStop(0.3, background);
@@ -254,7 +321,7 @@ export function signTexture(
   g.font = "900 105px Arial";
   const lines = title.split("\n");
   lines.forEach((line, i) =>
-    g.fillText(line, 44, 190 + i * 112, art ? 700 : 930),
+    g.fillText(line, 44, 190 + i * 112, art ? 640 : 930),
   );
   g.font = "500 29px Arial";
   g.fillText(subtitle, 48, 451, 920);
