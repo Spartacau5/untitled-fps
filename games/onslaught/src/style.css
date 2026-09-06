@@ -678,6 +678,17 @@ canvas#game {
 .lb-count span {
   white-space: nowrap;
 }
+.settings-note {
+  max-width: 380px;
+  margin: 14px auto 0;
+  padding: 9px 11px;
+  border-left: 3px solid var(--warn);
+  background: rgba(217, 119, 27, 0.1);
+  font: 600 10px/1.6 var(--font-ui);
+  letter-spacing: 0.1em;
+  color: var(--ui);
+  text-align: left;
+}
 .prize {
   width: min(420px, 86vw);
   margin: 0 auto 12px;

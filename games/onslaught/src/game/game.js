@@ -165,7 +165,12 @@ export class Game {
         btnBack: this.hud.el.settingsBack,
         btnReset: this.hud.el.settingsReset,
         menuMain: this.hud.el.menuMain,
+        note: this.hud.el.settingsNote,
       })),
+      // Raw-input support is only known once the pointer actually locks, so
+      // the panel is told when that resolves rather than being asked up front.
+      (this.input.onRawInput = (raw) =>
+        this.settingsPanel && this.settingsPanel.setRawInput(raw)),
       (this.runLog = new RunLog()),
       (this.lastRun = null),
       (this.runStartedAt = null),

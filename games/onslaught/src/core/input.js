@@ -11,6 +11,10 @@ export class Input {
       (this.wheel = 0),
       (this.locked = !1),
       (this.sensitivity = 1),
+      // null until the first lock resolves; false means the OS pointer
+      // acceleration curve is sitting between the mouse and the aim.
+      (this.rawInput = null),
+      (this.onRawInput = null),
       (this.onLockChange = null),
       (this.onKeyDown = null),
       window.addEventListener("keydown", (e) => {
@@ -67,21 +71,43 @@ export class Input {
         this.onLockChange && this.onLockChange(!1);
       }));
   }
+  // Pointer lock, asking for unadjusted (raw) movement so the OS acceleration
+  // curve does not shape the aim. Chromium honours the option; engines that do
+  // not simply ignore it. The outcome is recorded rather than assumed: without
+  // raw input two players on the same sensitivity get materially different aim,
+  // and nothing anywhere would say so.
   lock() {
+    const el = this.canvas;
+    let req;
     try {
-      const t = this.canvas.requestPointerLock({ unadjustedMovement: !0 });
-      t &&
-        t.catch &&
-        t.catch(() => {
-          try {
-            this.canvas.requestPointerLock();
-          } catch {}
-        });
+      req = el.requestPointerLock({ unadjustedMovement: !0 });
     } catch {
-      try {
-        this.canvas.requestPointerLock();
-      } catch {}
+      // Engines predating the options form can throw on the argument itself.
+      (this._setRaw(!1), this._plainLock());
+      return;
     }
+    if (req && typeof req.then === "function") {
+      req.then(
+        () => this._setRaw(!0),
+        () => {
+          // Raw movement refused, so no lock happened. Ask again plainly.
+          (this._setRaw(!1), this._plainLock());
+        },
+      );
+      return;
+    }
+    // Returned nothing: the options bag was ignored, so the lock is already
+    // under way with acceleration applied. Re-requesting would double up.
+    this._setRaw(!1);
+  }
+  _plainLock() {
+    try {
+      this.canvas.requestPointerLock();
+    } catch {}
+  }
+  _setRaw(v) {
+    if (this.rawInput === v) return;
+    ((this.rawInput = v), this.onRawInput && this.onRawInput(v));
   }
   unlock() {
     document.pointerLockElement && document.exitPointerLock();
@@ -118,7 +144,9 @@ export class Input {
   }
   // Edge-triggered input is consumed by the sim, so it is cleared per tick.
   endTick() {
-    (this.pressed.clear(), (this.mousePressed = [!1, !1, !1]), (this.wheel = 0));
+    (this.pressed.clear(),
+      (this.mousePressed = [!1, !1, !1]),
+      (this.wheel = 0));
   }
   // Look deltas are consumed per render frame.
   endFrame() {
