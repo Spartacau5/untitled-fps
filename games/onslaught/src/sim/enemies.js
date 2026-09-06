@@ -24,6 +24,10 @@ export function rigMetrics(i) {
 
 // Pure enemy simulation: spawning, steering, attacks, hitboxes, death timing.
 // Emits events on `world` instead of touching particles/audio/meshes.
+// Candidate deviations, narrowest first, so an enemy leaves its preferred
+// line by as little as the geometry allows.
+const STEER_FAN = [0, 0.3, 0.6, 0.95, 1.35, 1.8, 2.35, 2.8];
+
 export class Enemies {
   constructor(arena, rng) {
     ((this.arena = arena),
@@ -44,7 +48,9 @@ export class Enemies {
     return t;
   }
   clear() {
-    this.list.length = 0;
+    // Ids restart with the list so nothing derived from them can leak between
+    // runs of the same World.
+    ((this.list.length = 0), (this.nextId = 1));
   }
   spawn(t, e, n = 1, world) {
     const s = ENEMIES[t],
@@ -88,6 +94,8 @@ export class Enemies {
         cooldown: this.rng.range(0.4, 1.2),
         steerBias: this.rng.chance(0.5) ? 1 : -1,
         blockedT: 0,
+        stuckT: 0,
+        detourT: 0,
         growlT: this.rng.range(0.5, 3),
         lunge: 0,
         attackLean: 0,
@@ -97,7 +105,8 @@ export class Enemies {
       (c.pos.y = this.arena.groundHeight(c.pos.x, c.pos.z)),
       c.prevPos.copy(c.pos),
       this.list.push(c),
-      world && world.emit(EV_SPAWN, { pos: c.pos.clone(), kind: t, big: s.big }),
+      world &&
+        world.emit(EV_SPAWN, { pos: c.pos.clone(), kind: t, big: s.big }),
       c
     );
   }
@@ -141,8 +150,7 @@ export class Enemies {
       let sac = -1;
       if (l.sac) {
         const sacZ = (l.torso[2] * 0.5 + 0.12) * o,
-          sacY =
-            r.pos.y + (a.hipH + l.hips[1] * 0.45 + l.torso[1] * 0.55) * o;
+          sacY = r.pos.y + (a.hipH + l.hips[1] * 0.45 + l.torso[1] * 0.55) * o;
         this._headC.set(d - c * sacZ, sacY, u - h * sacZ);
         sac = raySphere(t, e, this._headC, 0.26 * o);
       }
@@ -230,6 +238,13 @@ export class Enemies {
     for (let l = s.length - 1; l >= 0; l--) {
       const o = s[l],
         c = o.def;
+      // Distance actually covered last frame, read before prevPos is
+      // overwritten. Probe-clearance lies when an enemy is grinding on a
+      // corner; displacement does not.
+      const movedLast = Math.hypot(
+        o.pos.x - o.prevPos.x,
+        o.pos.z - o.prevPos.z,
+      );
       (o.prevPos.copy(o.pos), (o.prevYaw = o.yaw));
       ((o.flash = Math.max(0, o.flash - t * 9)),
         (o.squash = Math.max(0, o.squash - t * 1.4)),
@@ -270,26 +285,15 @@ export class Enemies {
             o.cooldown <= 0 &&
             !e.dead &&
             ((o.state = "attack"), (o.t = 0), (o.attackDone = !1));
-        const w = o.pos.x + v * (o.radius + 1),
-          M = o.pos.z + p * (o.radius + 1);
-        if (this._blocked(w, M, o.radius)) {
-          const R = -p * o.steerBias,
-            A = v * o.steerBias;
-          ((v = v * 0.25 + R), (p = p * 0.25 + A));
-          const C = Math.hypot(v, p) || 1;
-          ((v /= C),
-            (p /= C),
-            (o.blockedT += t),
-            o.blockedT > 0.9 && ((o.steerBias *= -1), (o.blockedT = 0)));
-        } else o.blockedT = Math.max(0, o.blockedT - t);
+        (this._trackStuck(o, movedLast, c.speed, t),
+          ([v, p] = this._steerAround(o, v, p, o.radius + 1.6, world)));
         const _ = v * f + o.push.x * 4,
           L = p * f + o.push.z * 4;
         ((o.vel.x = damp(o.vel.x, _, 5, t)),
           (o.vel.z = damp(o.vel.z, L, 5, t)));
         // Face the move they just chose so a strafe or reverse turns the body.
         // Melee in close still squares up. Attack (below) is what aims at you.
-        const faceYaw =
-          !c.ranged && u < 6 ? m : Math.atan2(-v, -p);
+        const faceYaw = !c.ranged && u < 6 ? m : Math.atan2(-v, -p);
         o.yaw = lerpAngle(o.yaw, faceYaw, 1 - Math.exp(-7 * t));
         ((o.growlT -= t),
           o.growlT < 0 &&
@@ -300,18 +304,8 @@ export class Enemies {
         o.t += t;
         let v = h / u,
           p = d / u;
-        const w = o.pos.x + v * (o.radius + 1),
-          M = o.pos.z + p * (o.radius + 1);
-        if (this._blocked(w, M, o.radius)) {
-          const R = -p * o.steerBias,
-            A = v * o.steerBias;
-          ((v = v * 0.25 + R), (p = p * 0.25 + A));
-          const C = Math.hypot(v, p) || 1;
-          ((v /= C),
-            (p /= C),
-            (o.blockedT += t),
-            o.blockedT > 0.9 && ((o.steerBias *= -1), (o.blockedT = 0)));
-        } else o.blockedT = Math.max(0, o.blockedT - t);
+        (this._trackStuck(o, movedLast, c.chargeSpeed, t),
+          ([v, p] = this._steerAround(o, v, p, o.radius + 2.2, world)));
         const _ = v * c.chargeSpeed + o.push.x * 4,
           L = p * c.chargeSpeed + o.push.z * 4;
         ((o.vel.x = damp(o.vel.x, _, 5, t)),
@@ -393,6 +387,58 @@ export class Enemies {
         (o.headBob =
           Math.abs(Math.sin(o.phase)) * 0.05 * o.scale * o.moveBlend));
     }
+  }
+  // Sample along the segment, not just its far end. A probe point can sit in
+  // clear space on the other side of a pillar the body would walk straight
+  // into, which is how the old single-point check let them wedge.
+  _pathBlocked(x, z, dx, dz, dist, r) {
+    for (let i = 1; i <= 3; i++) {
+      const d = (dist * i) / 3;
+      if (this._blocked(x + dx * d, z + dz * d, r)) return !0;
+    }
+    return !1;
+  }
+  // Escalates on distance actually covered rather than on whether a probe
+  // reads clear. An enemy oscillating against a pillar looks unblocked every
+  // other frame while going nowhere, so only displacement catches it.
+  _trackStuck(e, moved, speed, dt) {
+    (moved < speed * dt * 0.3
+      ? (e.stuckT += dt)
+      : (e.stuckT = Math.max(0, e.stuckT - dt * 2)),
+      (e.detourT = Math.max(0, e.detourT - dt)));
+    // Commit to going around for long enough to actually clear the corner.
+    // Without the hold it re-aims at the player the instant the probe frees
+    // up and walks straight back into the same obstacle.
+    e.stuckT > 0.7 && ((e.steerBias *= -1), (e.detourT = 1.2), (e.stuckT = 0));
+  }
+  // Context steering: try the heading it wants, then progressively wider
+  // deviations to either side, and take the first that is genuinely walkable.
+  // Preferring its existing bias side keeps the path smooth instead of
+  // jittering between two equally valid ways round.
+  _steerAround(e, dx, dz, dist, world) {
+    const r = e.radius,
+      bias = e.steerBias;
+    if (e.detourT <= 0 && !this._pathBlocked(e.pos.x, e.pos.z, dx, dz, dist, r))
+      return [dx, dz];
+    // Direct line is blocked, so ask the flow field which way actually leads
+    // to the player. This is what removes the wedge: the flood has already
+    // walked around the pillar, so there is no local minimum to sit in.
+    const flow = world && world.flow && world.flow.dirAt(e.pos.x, e.pos.z);
+    if (flow && !this._pathBlocked(e.pos.x, e.pos.z, flow[0], flow[1], dist, r))
+      return flow;
+    // A committed detour starts wide; it already knows straight on is no good.
+    for (let i = e.detourT > 0 ? 3 : 1; i < STEER_FAN.length; i++)
+      for (const side of [bias, -bias]) {
+        const a = STEER_FAN[i] * side,
+          cs = Math.cos(a),
+          sn = Math.sin(a),
+          nx = dx * cs - dz * sn,
+          nz = dx * sn + dz * cs;
+        if (!this._pathBlocked(e.pos.x, e.pos.z, nx, nz, dist, r))
+          return [nx, nz];
+      }
+    // Boxed in on every heading: back out rather than grind in place.
+    return [-dx, -dz];
   }
   _blocked(t, e, n) {
     if (Math.hypot(t, e) > ARENA_RADIUS - n - 0.5) return !0;

@@ -2,6 +2,7 @@ import { MathUtils, Vector3 } from "three";
 import { RNG } from "../core/rng.js";
 import { composeWave } from "../data/waves.js";
 import { Arena } from "./arena.js";
+import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
 import {
   EV_DEAD,
@@ -30,6 +31,7 @@ export class World {
       (this.noSpawn = noSpawn),
       (this.rng = new RNG(seed)),
       (this.arena = new Arena(this.rng.fork("layout"))),
+      (this.flow = new FlowField(this.arena)),
       (this.player = new Player(this.arena)),
       (this.weapons = new Weapons(this.rng.fork("combat"))),
       (this.enemies = new Enemies(this.arena, this.rng.fork("ai"))),
@@ -93,6 +95,7 @@ export class World {
       this.weapons.resetAll(this),
       this.enemies.clear(),
       this.projectiles.clear(),
+      this.flow.reset(),
       (this.pickups.length = 0),
       this.resetGates(),
       (this.score = 0),
@@ -122,6 +125,8 @@ export class World {
     const p = this.player,
       t = this.elapsed;
     (p.update(dt, input, t),
+      // Reflood before the AI reads it; a no-op unless the player changed cell.
+      this.flow.update(p.pos.x, p.pos.z),
       this.weapons.update(dt, input, p, t, this),
       this.enemies.update(dt, p, this),
       this.projectiles.update(dt, p, this),
