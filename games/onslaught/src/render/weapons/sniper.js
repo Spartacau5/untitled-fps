@@ -1,4 +1,12 @@
-import { CircleGeometry, Euler, Group, Mesh, Object3D, Vector3 } from "three";
+import {
+  CircleGeometry,
+  Euler,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
+  Object3D,
+  Vector3,
+} from "three";
 import {
   VIEWMODEL_MATS as M,
   box,
@@ -6,6 +14,14 @@ import {
   makeLeftHand,
   makeRightHand,
 } from "./kit.js";
+
+// Objective glass. Local to this gun: it is the only coated lens in the
+// viewmodel, and it wants to read as glass rather than as another metal part.
+const SCOPE_GLASS = new MeshStandardMaterial({
+  color: 0x0d1a24,
+  roughness: 0.08,
+  metalness: 0.2,
+});
 
 // MERIDIAN — bolt action, one shot at a time, and long enough that the muzzle
 // leaves frame at the hip. Takes the shared reticle material so the scope gets
@@ -76,9 +92,16 @@ export function buildSniperModel(lensMaterial) {
   // they reached up to 0.119 and put a solid block across the sight picture.
   for (const z of [-0.09, 0.11])
     g.add(box(0.028, 0.034, 0.028, M.metalDark, 0, 0.08, z, 0.004));
-  g.add(cyl(0.0205, 0.0205, 0.36, M.tube, 0, 0.118, 0.01, "z", 28, !0));
-  g.add(cyl(0.026, 0.026, 0.06, M.tube, 0, 0.118, -0.185, "z", 28, !0));
-  g.add(cyl(0.025, 0.025, 0.07, M.tube, 0, 0.118, 0.2, "z", 28, !0));
+  // Open-ended so the eye can see down the tube to the reticle, but
+  // FRONT-side, not double. A double-sided open tube shows its own lit inner
+  // wall from the outside, which made the scope read as a hollow white pipe
+  // rather than an optic. Front faces only: solid from outside, see-through
+  // along the axis, because the near wall is backface-culled.
+  g.add(cyl(0.0205, 0.0205, 0.36, M.metalDark, 0, 0.118, 0.01, "z", 28, !0));
+  g.add(cyl(0.026, 0.026, 0.06, M.metalDark, 0, 0.118, -0.185, "z", 28, !0));
+  g.add(cyl(0.025, 0.025, 0.07, M.metalDark, 0, 0.118, 0.2, "z", 28, !0));
+  // Objective glass, so the front of the scope is not an open hole.
+  g.add(cyl(0.0245, 0.0245, 0.004, SCOPE_GLASS, 0, 0.118, -0.209, "z", 28));
   // Elevation and windage turrets, seated on the tube's outer surface rather
   // than sunk into it -- a turret that pokes inside the tube shows up as a
   // block sitting in the middle of the sight picture.

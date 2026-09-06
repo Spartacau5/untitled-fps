@@ -27,20 +27,24 @@ import { applyGunWear } from "../shaders/gunwear.js";
 // file; each exports one build*Model() returning { group, parts }.
 
 export const VIEWMODEL_MATS = {
+  // Receivers and barrels: bead-blasted steel, not chrome.
   metal: new MeshStandardMaterial({
     color: 4014409,
-    roughness: 0.38,
-    metalness: 0.9,
+    roughness: 0.5,
+    metalness: 0.68,
   }),
+  // Parkerised black: the flattest metal on the gun.
   metalDark: new MeshStandardMaterial({
     color: 1711394,
-    roughness: 0.46,
-    metalness: 0.92,
+    roughness: 0.62,
+    metalness: 0.6,
   }),
+  // Bolts, triggers and charging handles keep some polish -- these are the
+  // parts that actually get rubbed bright in use.
   metalLight: new MeshStandardMaterial({
     color: 6054508,
-    roughness: 0.32,
-    metalness: 0.92,
+    roughness: 0.34,
+    metalness: 0.82,
   }),
   polymer: new MeshStandardMaterial({
     color: 1118741,
@@ -85,8 +89,8 @@ export const VIEWMODEL_MATS = {
   }),
   tube: new MeshStandardMaterial({
     color: 1711394,
-    roughness: 0.46,
-    metalness: 0.92,
+    roughness: 0.62,
+    metalness: 0.6,
     side: DoubleSide,
   }),
 };

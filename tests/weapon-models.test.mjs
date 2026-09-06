@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { Box3 } from "three";
 import { WEAPONS } from "../games/onslaught/src/data/weapons.js";
 import {
   buildWeaponModel,
@@ -112,4 +113,41 @@ test("no geometry lands at a non-finite position", () => {
         `${w.key} has a part at a non-finite position`,
       );
     });
+});
+
+// "In the SMG focus view the gun is covering half the screen." The Wasp-9's
+// skeleton stock ran at the sight line, and at full ADS the stock passes
+// through the camera plane -- so it was clipped and smeared across the view.
+//
+// Every gun has its arms crossing that plane; they all sit 20-50 cm below the
+// eye where nothing sees them. What matters is crossing it *inside the view
+// frustum*, which is what this checks.
+const WEAPON_FOV = 56; // games/onslaught/src/game/game.js
+const TAN_HALF = Math.tan((WEAPON_FOV / 2) * (Math.PI / 180));
+
+test("nothing is clipped through the camera inside the view", () => {
+  const box = new Box3();
+  for (const [w, model] of models) {
+    model.group.position.copy(model.parts.adsOffset);
+    model.group.rotation.set(0, 0, 0);
+    model.group.updateMatrixWorld(true);
+    const offenders = [];
+    model.group.traverse((o) => {
+      if (!o.isMesh) return;
+      box.setFromObject(o);
+      // Camera looks down -Z: a box spanning z = 0 straddles the eye.
+      if (!(box.min.z < 0 && box.max.z > 0)) return;
+      // Half-height of the frustum a few centimetres out. A part straddling
+      // the eye below this is out of shot; one within it fills the screen.
+      const half = 0.06 * TAN_HALF;
+      if (box.min.y < half && box.max.y > -half)
+        offenders.push(`y ${box.min.y.toFixed(3)}..${box.max.y.toFixed(3)}`);
+    });
+    model.group.position.set(0, 0, 0);
+    assert.equal(
+      offenders.length,
+      0,
+      `${w.key} clips ${offenders.length} part(s) through the camera inside the view at ADS: ${offenders.join(", ")}`,
+    );
+  }
 });

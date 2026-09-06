@@ -59,16 +59,21 @@ export function buildSmgModel() {
   g.add(box(0.006, 0.018, 0.008, M.metalLight, 0, -0.046, 0.042));
   g.add(box(0.004, 0.004, 0.05, M.metalDark, 0, -0.058, 0.04));
 
-  // Folding skeleton stock, run back along the right of the receiver.
-  g.add(box(0.012, 0.012, 0.2, M.metalDark, 0.024, 0.048, 0.16));
-  g.add(box(0.012, 0.012, 0.2, M.metalDark, -0.024, 0.048, 0.16));
-  g.add(box(0.062, 0.07, 0.02, M.polymer, 0, 0.042, 0.255, 0.005));
+  // Folding skeleton stock. It sits well below the sight line, the way a
+  // raised-rail SMG is actually built -- and it has to: at full ADS the stock
+  // passes through the camera plane, and anything doing that inside the view
+  // frustum is clipped and smeared across the screen. This used to run at the
+  // sight height and filled half the view when aiming.
+  for (const dx of [-0.024, 0.024])
+    g.add(box(0.012, 0.012, 0.2, M.metalDark, dx, 0.012, 0.16));
+  g.add(box(0.062, 0.07, 0.02, M.polymer, 0, 0.006, 0.255, 0.005));
+  g.add(box(0.03, 0.026, 0.07, M.metalDark, 0, 0.022, 0.075, 0.005));
 
   // Irons: hooded post up front, ghost ring at the rear.
   g.add(box(0.01, 0.014, 0.008, M.metalDark, 0, 0.076, -0.31));
   g.add(sphere(0.0026, M.white, 0, 0.082, -0.311));
-  g.add(box(0.02, 0.01, 0.018, M.metalDark, 0, 0.072, 0.05));
-  g.add(torus(0.008, 0.0016, M.metalDark, 0, 0.079, 0.05));
+  g.add(box(0.02, 0.01, 0.018, M.metalDark, 0, 0.072, -0.03));
+  g.add(torus(0.008, 0.0016, M.metalDark, 0, 0.079, -0.03));
 
   p.muzzle = new Object3D();
   p.muzzle.position.set(0, 0.026, -0.385);
@@ -84,9 +89,9 @@ export function buildSmgModel() {
   p.boltTravel = 0.04;
 
   p.sight = new Object3D();
-  p.sight.position.set(0, 0.079, 0.05);
+  p.sight.position.set(0, 0.079, -0.03);
   g.add(p.sight);
-  p.adsOffset = new Vector3(0, -0.079, -0.29);
+  p.adsOffset = new Vector3(0, -0.079, -0.21);
   p.hipOffset = new Vector3(0.155, -0.155, -0.27);
   p.hipRot = new Euler(0, 0.04, 0.024);
 

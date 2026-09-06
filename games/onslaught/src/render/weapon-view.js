@@ -346,9 +346,19 @@ export class WeaponView {
     if (
       (this.rig.position.set(k, G, q),
       this.rig.rotation.set(O, et, K),
+      // Slide travel. A gun with `slideLock` holds it fully rearward while the
+      // magazine is empty, the way a pistol locks open on the last round --
+      // and because the sim only refills the magazine at the very end of a
+      // reload, the slide stays back through the whole reload and snaps
+      // forward as the fresh mag seats, which is exactly right.
       l.bolt &&
         (l.bolt.position.z =
-          l.boltRest + this.boltT[this.shown] * l.boltTravel),
+          l.boltRest +
+          Math.max(
+            this.boltT[this.shown],
+            l.slideLock && r.mag === 0 ? 1 : 0,
+          ) *
+            l.boltTravel),
       l.pump)
     )
       if (r.pumping) {
