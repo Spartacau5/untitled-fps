@@ -207,6 +207,7 @@ export class Game {
         body: this.hud.el.controlsBody,
         btnOpen: this.hud.el.btnControls,
         btnBack: this.hud.el.controlsBack,
+        summary: this.hud.el.controlsSummary,
         menuMain: this.hud.el.menuMain,
       })),
       (this.runLog = new RunLog()),

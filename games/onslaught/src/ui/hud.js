@@ -46,6 +46,7 @@ export class HUD {
       controlsPanel: t("controls-panel"),
       controlsBody: t("controls-body"),
       controlsBack: t("btn-controls-back"),
+      controlsSummary: t("controls-summary"),
       menuMain: t("menu-main"),
       menuStats: t("menu-stats"),
       runSummary: t("run-summary"),

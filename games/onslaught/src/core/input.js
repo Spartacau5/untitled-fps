@@ -38,8 +38,11 @@ export const BINDINGS = [
   {
     id: "slots",
     label: "SELECT WEAPON",
-    codes: ["Digit1", "Digit2", "Digit3"],
-    caps: ["1", "2", "3"],
+    // One key per loadout slot: a primary and a sidearm. Adding a third slot
+    // back is adding a third code here -- frame(), the how-to-play screen and
+    // the HUD pip row all size themselves off this.
+    codes: ["Digit1", "Digit2"],
+    caps: ["1", "2"],
     seq: true,
     group: "combat",
   },
