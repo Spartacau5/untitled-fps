@@ -61,9 +61,9 @@ export class Audio {
       (this.dry.gain.value = 1),
       this.dry.connect(this.master),
       (this.reverb = t.createConvolver()),
-      (this.reverb.buffer = reverbImpulse(t, 1.8, 2.6)),
+      (this.reverb.buffer = reverbImpulse(t, 0.95, 3.4)),
       (this.revGain = t.createGain()),
-      (this.revGain.gain.value = 0.55),
+      (this.revGain.gain.value = 0.28),
       this.reverb.connect(this.revGain),
       this.revGain.connect(this.master),
       (this.musicBus = t.createGain()),
@@ -90,9 +90,9 @@ export class Audio {
     if (!this.ready) return;
     ((this.master.gain.value = this.masterVol),
       (this.dry.gain.value = this.sfxVol),
-      (this.revGain.gain.value = 0.55 * this.sfxVol),
+      (this.revGain.gain.value = 0.28 * this.sfxVol),
       this.ambBus &&
-        (this.ambBus.gain.value = this.ambienceOn ? 1 : 0));
+        (this.ambBus.gain.value = this.ambienceOn ? this.sfxVol : 0));
   }
   resume() {
     this.ctx && this.ctx.state === "suspended" && this.ctx.resume();
@@ -552,74 +552,81 @@ export class Audio {
         pan: e.pan,
       }));
   }
-  enemyGrowl(t, e = !1) {
-    const n = this.now;
-    if (n - this.lastGrowl < 0.28) return;
-    this.lastGrowl = n;
-    const s = this.spatial(t, 6, 50);
-    if (s.gain < 0.03) return;
-    const r = e ? 55 : 85 + Math.random() * 40;
-    (this.tone(n, {
-      type: "sawtooth",
-      freq: r,
-      freqEnd: r * 0.7,
-      gain: (e ? 0.5 : 0.28) * s.gain,
-      attack: 0.05,
-      decay: e ? 0.7 : 0.4,
-      pan: s.pan,
-      send: 0.5,
-    }),
-      this.tone(n, {
-        type: "square",
-        freq: r * 1.5,
-        freqEnd: r * 0.9,
-        gain: 0.08 * s.gain,
-        attack: 0.05,
-        decay: 0.35,
-        pan: s.pan,
-        send: 0.4,
-        detune: 12,
-      }),
-      this.noise(n, {
-        type: "bandpass",
-        freq: 400,
-        Q: 1,
-        gain: 0.2 * s.gain,
-        attack: 0.03,
-        decay: 0.3,
-        pan: s.pan,
-      }));
+  // Keep the gameplay event API; these are now robot motor/diagnostic cues.
+  enemyGrowl(position, heavy = false) {
+    if (!this.ready) return;
+    const now = this.now;
+    if (now - this.lastGrowl < 0.28) return;
+    this.lastGrowl = now;
+    const { gain, pan } = this.spatial(position, 6, 50);
+    if (gain < 0.03) return;
+    this.tone(now, {
+      type: "triangle",
+      freq: heavy ? 145 : 480,
+      freqEnd: heavy ? 85 : 260,
+      gain: gain * 0.16,
+      attack: 0.015,
+      decay: heavy ? 0.48 : 0.25,
+      pan,
+      send: 0.16,
+    });
+    this.noise(now, {
+      type: "bandpass",
+      freq: heavy ? 700 : 1500,
+      Q: 5,
+      gain: gain * 0.12,
+      attack: 0.01,
+      decay: 0.16,
+      pan,
+    });
+    this.tone(now + 0.055, {
+      type: "sine",
+      freq: heavy ? 380 : 980,
+      freqEnd: heavy ? 250 : 720,
+      gain: gain * 0.065,
+      decay: 0.1,
+      pan,
+    });
   }
-  enemyDeath(t, e = !1) {
-    const n = this.spatial(t, 6, 60);
-    if (n.gain < 0.02) return;
-    const s = this.now;
-    (this.noise(s, {
-      type: "lowpass",
-      freq: e ? 1600 : 2400,
-      freqEnd: 120,
-      gain: (e ? 0.9 : 0.55) * n.gain,
-      decay: e ? 0.6 : 0.35,
-      pan: n.pan,
-      send: 0.5,
-    }),
-      this.tone(s, {
-        type: "sawtooth",
-        freq: e ? 90 : 160,
-        freqEnd: 30,
-        gain: 0.35 * n.gain,
-        decay: e ? 0.5 : 0.3,
-        pan: n.pan,
-        send: 0.4,
-      }),
-      this.tone(s, {
-        type: "sine",
-        freq: e ? 70 : 110,
-        freqEnd: 28,
-        gain: 0.5 * n.gain,
-        decay: 0.25,
-        pan: n.pan,
-      }));
+  enemyDeath(position, heavy = false) {
+    if (!this.ready) return;
+    const { gain, pan } = this.spatial(position, 6, 60);
+    if (gain < 0.02) return;
+    const now = this.now;
+    this.noise(now, {
+      type: "highpass",
+      freq: 2200,
+      gain: gain * 0.38,
+      decay: 0.09,
+      pan,
+      send: 0.15,
+    });
+    this.tone(now, {
+      type: "triangle",
+      freq: heavy ? 230 : 670,
+      freqEnd: 38,
+      gain: gain * 0.2,
+      decay: heavy ? 0.55 : 0.32,
+      pan,
+    });
+    for (let i = 0; i < 3; i++)
+      this.noise(now + 0.08 + i * 0.09, {
+        type: "bandpass",
+        freq: 900 + i * 740,
+        Q: 7,
+        gain: gain * (0.18 - i * 0.035),
+        decay: 0.055,
+        pan,
+        send: 0.14,
+      });
+    this.tone(now + 0.04, {
+      type: "sine",
+      freq: heavy ? 80 : 130,
+      freqEnd: 35,
+      gain: gain * 0.3,
+      decay: 0.18,
+      pan,
+    });
   }
   bruteSlam(t) {
     const e = this.spatial(t, 8, 70),
@@ -859,44 +866,43 @@ export class Audio {
       }));
   }
   _startAmbience() {
-    const t = this.ctx,
-      bus = t.createGain();
-    ((bus.gain.value = this.ambienceOn ? 1 : 0),
-      bus.connect(this.master),
-      (this.ambBus = bus));
-    const e = t.createGain();
-    ((e.gain.value = 0.11), e.connect(bus));
-    const n = t.createBiquadFilter();
-    ((n.type = "lowpass"),
-      (n.frequency.value = 180),
-      n.connect(e),
-      [55, 55.6, 82.4].forEach((c, h) => {
-        const d = t.createOscillator();
-        ((d.type = h === 2 ? "triangle" : "sawtooth"), (d.frequency.value = c));
-        const u = t.createGain();
-        ((u.gain.value = h === 2 ? 0.3 : 0.5),
-          d.connect(u),
-          u.connect(n),
-          d.start());
-      }));
-    const s = t.createBufferSource();
-    ((s.buffer = this.noiseBuf), (s.loop = !0));
-    const r = t.createBiquadFilter();
-    ((r.type = "bandpass"), (r.frequency.value = 400), (r.Q.value = 0.5));
-    const a = t.createGain();
-    a.gain.value = 0.05;
-    const l = t.createOscillator();
-    l.frequency.value = 0.07;
-    const o = t.createGain();
-    ((o.gain.value = 250),
-      l.connect(o),
-      o.connect(r.frequency),
-      l.start(),
-      s.connect(r),
-      r.connect(a),
-      a.connect(bus),
-      s.start(),
-      (this.ambGain = e));
+    const ctx = this.ctx;
+    const bus = ctx.createGain();
+    bus.gain.value = this.ambienceOn ? this.sfxVol : 0;
+    bus.connect(this.master);
+    this.ambBus = bus;
+    // Quiet, continuously modulated road wash and ventilation. Everything
+    // routes through the existing ambience toggle, SFX slider and master.
+    const wash = ctx.createBufferSource();
+    wash.buffer = this.noiseBuf;
+    wash.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 520;
+    const level = ctx.createGain();
+    level.gain.value = 0.085;
+    const motion = ctx.createOscillator();
+    motion.frequency.value = 0.055;
+    const motionDepth = ctx.createGain();
+    motionDepth.gain.value = 0.023;
+    motion.connect(motionDepth);
+    motionDepth.connect(level.gain);
+    wash.connect(filter);
+    filter.connect(level);
+    level.connect(bus);
+    wash.start();
+    motion.start();
+    this.ambGain = level;
+    for (const frequency of [60, 120.3]) {
+      const motor = ctx.createOscillator();
+      motor.type = "sine";
+      motor.frequency.value = frequency;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.014;
+      motor.connect(gain);
+      gain.connect(bus);
+      motor.start();
+    }
   }
   _mtone(
     t,

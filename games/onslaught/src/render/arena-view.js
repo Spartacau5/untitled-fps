@@ -1,488 +1,567 @@
 import {
-  AdditiveBlending,
   BoxGeometry,
-  CircleGeometry,
   CylinderGeometry,
   DirectionalLight,
-  DoubleSide,
   FogExp2,
-  Group,
   HemisphereLight,
-  Matrix4,
   Mesh,
   MeshStandardMaterial,
-  OctahedronGeometry,
   PlaneGeometry,
   PointLight,
-  ShaderMaterial,
   TorusGeometry,
 } from "three";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
-import { NOISE_GLSL } from "./shaders/noise.glsl.js";
 import { applySurfaceGrime } from "./shaders/surface.js";
+import {
+  facadeTexture,
+  pavementTexture,
+  shutterTexture,
+  signTexture,
+} from "./city/textures.js";
 
-// Builds the visible arena (geometry, materials, lights, portals) from the pure
-// sim Arena's gates and crate layout. Owns nothing gameplay-relevant.
+// Times Square-inspired art on the ORIGINAL collision footprint. Solid cover,
+// wall segments and gate recesses retain their original dimensions/transforms.
+// Skyline and decorative details beyond the boundary are presentation only.
 export class ArenaView {
   constructor(scene, arena) {
-    ((this.scene = scene),
-      (this.timeUniform = { value: 0 }),
-      (this.portalMats = []),
-      (this.gateViews = []),
-      this._materials(),
-      this._build(arena));
+    this.scene = scene;
+    this.gateViews = [];
+    this.batches = new Map();
+    this._materials();
+    this._ground();
+    this._boundary(arena);
+    this._cover(arena);
+    this._skyline();
+    this._streetDetails();
+    this._lights();
+    this._flush();
   }
   _materials() {
-    const t = this.timeUniform;
+    const mat = (color, roughness = 0.8, metalness = 0) =>
+      new MeshStandardMaterial({ color, roughness, metalness });
     const a = theme.arena;
     this.mats = {
-      wall: new MeshStandardMaterial({
-        color: a.concrete,
-        roughness: 0.65,
-        metalness: 0.2,
+      wall: mat(a.concrete),
+      dark: mat(a.dark, 0.55, 0.45),
+      pillar: mat(a.pillar, 0.55, 0.5),
+      crate: mat(a.crate, 0.48, 0.65),
+      barrier: mat(a.barrier),
+      metal: mat(0x333c43, 0.42, 0.75),
+      stone: mat(0xaaa9a4),
+      paint: mat(0xd8d7cc),
+      yellow: mat(0xeab946),
+      red: mat(0x9a2830, 0.5),
+      glass: mat(0x172b37, 0.23, 0.62),
+      floor: new MeshStandardMaterial({
+        map: pavementTexture(),
+        color: 0xcccccc,
+        roughness: 0.78,
       }),
-      dark: new MeshStandardMaterial({
-        color: a.dark,
-        roughness: 0.75,
-        metalness: 0.1,
-      }),
-      pillar: new MeshStandardMaterial({
-        color: a.pillar,
+      asphalt: mat(0x303639, 0.94),
+      shutter: new MeshStandardMaterial({
+        map: shutterTexture(),
         roughness: 0.6,
-        metalness: 0.25,
+        metalness: 0.4,
       }),
-      crate: new MeshStandardMaterial({
-        color: a.crate,
-        roughness: 0.7,
-        metalness: 0.2,
-      }),
-      barrier: new MeshStandardMaterial({
-        color: a.barrier,
-        roughness: 0.6,
-        metalness: 0.25,
-      }),
-      // emissive material names are historical; colors come from theme
       emCyan: new MeshStandardMaterial({
-        color: 0,
-        emissive: a.accentHot,
-        emissiveIntensity: 1.4,
-        roughness: 1,
-        metalness: 0,
+        color: 0x233441,
+        emissive: 0x94bfd4,
+        emissiveIntensity: 0.4,
       }),
-      emCyanDim: new MeshStandardMaterial({
-        color: 0,
-        emissive: a.accentDim,
-        emissiveIntensity: 0.8,
-        roughness: 1,
-        metalness: 0,
-      }),
+      emCyanDim: mat(0xa5adb0, 0.5, 0.3),
       emOrange: new MeshStandardMaterial({
-        color: 0,
-        emissive: a.hazard,
-        emissiveIntensity: 1.6,
-        roughness: 1,
-        metalness: 0,
+        color: 0xe9ac3e,
+        emissive: 0xff9e30,
+        emissiveIntensity: 0.3,
       }),
       emWhite: new MeshStandardMaterial({
-        color: 0,
-        emissive: a.white,
-        emissiveIntensity: 1.2,
-        roughness: 1,
-        metalness: 0,
+        color: 0xdfe6ea,
+        emissive: 0xe4f2ff,
+        emissiveIntensity: 0.65,
       }),
     };
-    applySurfaceGrime(this.mats.wall, {
-      scale: 0.3,
-      streaks: 1.0,
-      key: "grimeWall",
-    });
-    applySurfaceGrime(this.mats.dark, {
-      scale: 0.3,
-      streaks: 0.8,
-      key: "grimeDark",
-    });
-    applySurfaceGrime(this.mats.pillar, {
-      scale: 0.45,
-      streaks: 1.0,
-      key: "grimePillar",
-    });
-    applySurfaceGrime(this.mats.barrier, {
-      scale: 0.6,
-      streaks: 0.4,
-      key: "grimeBarrier",
-    });
-    const e = new MeshStandardMaterial({
-      color: a.floor,
-      roughness: 0.5,
-      metalness: 0.3,
-    });
-    ((e.onBeforeCompile = (n) => {
-      ((n.uniforms.uTime = t),
-        (n.vertexShader = n.vertexShader
-          .replace(
-            "#include <common>",
-            `#include <common>
-varying vec3 vWPos;`,
-          )
-          .replace(
-            "#include <begin_vertex>",
-            `#include <begin_vertex>
-vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
-          )),
-        (n.fragmentShader = n.fragmentShader
-          .replace(
-            "#include <common>",
-            `#include <common>
-varying vec3 vWPos; uniform float uTime;
-${NOISE_GLSL}`,
-          )
-          .replace(
-            "#include <map_fragment>",
-            `
-          #include <map_fragment>
-          vec2 fp = vWPos.xz;
-          float fr = length(fp);
-          vec2 tile = fp / 3.0;
-          vec2 tg = abs(fract(tile) - 0.5);
-          float gap = smoothstep(0.462, 0.48, max(tg.x, tg.y));
-          vec2 sg = abs(fract(tile * 3.0) - 0.5);
-          float sub = smoothstep(0.47, 0.49, max(sg.x, sg.y)) * (1.0 - gap);
-          float wear = noise2(fp * 0.7) * 0.6 + noise2(fp * 4.0) * 0.4;
-          float grime = smoothstep(0.35, 0.75, fbm2(fp * 0.35 + 3.0));
-          vec2 cellId = floor(tile);
-          float cellVar = hash21(cellId) * 0.25;
-          diffuseColor.rgb *= (0.8 + 0.4 * wear + cellVar) * (1.0 - 0.35 * sub) * (1.0 - 0.45 * grime);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.05, 0.045), gap);
-          float ring = smoothstep(0.12, 0.0, abs(fr - (ARENA_RADIUS - 0.9)));
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02), ring);
-        `.replace("ARENA_RADIUS", ARENA_RADIUS.toFixed(1)),
-          )
-          .replace(
-            "#include <roughnessmap_fragment>",
-            `
-          #include <roughnessmap_fragment>
-          roughnessFactor = clamp(roughnessFactor * (0.75 + 0.5 * wear) + gap * 0.4 + grime * 0.3, 0.05, 1.0);
-        `,
-          )
-          .replace(
-            "#include <emissivemap_fragment>",
-            `
-          #include <emissivemap_fragment>
-          float pulse = 0.5 + 0.5 * sin(fr * 0.55 - uTime * 2.2);
-          pulse = pulse * pulse * pulse;
-          float ripple = smoothstep(0.9, 1.0, 1.0 - abs(fract(fr * 0.08 - uTime * 0.07) - 0.5) * 2.0);
-          totalEmissiveRadiance += ${theme.arena.accentHotVec} * 0.35 * gap * (0.05 + 0.25 * pulse + 0.3 * ripple);
-          totalEmissiveRadiance += ${theme.arena.accentHotVec} * ring * 0.6;
-          totalEmissiveRadiance += vec3(1.0, 0.45, 0.15) * smoothstep(0.985, 1.0, hash21(cellId + 0.5)) * (1.0 - gap) * (0.5 + 0.5 * sin(uTime * 3.0 + hash21(cellId) * 20.0)) * 0.35;
-        `,
-          )));
-    }),
-      (e.customProgramCacheKey = () => "arenaFloor"),
-      (this.mats.floor = e));
-  }
-  _build(arena) {
-    const t = this.scene,
-      e = this.mats,
-      n = new PlaneGeometry(240, 240, 1, 1);
-    n.rotateX(-Math.PI / 2);
-    const s = new Mesh(n, e.floor);
-    ((s.receiveShadow = !0), t.add(s));
-    const r = new CylinderGeometry(7, 8.5, 0.5, 8, 1, !1);
-    r.rotateY(Math.PI / 8);
-    const a = new Mesh(r, e.pillar);
-    ((a.position.y = 0.25),
-      (a.receiveShadow = !0),
-      (a.castShadow = !0),
-      t.add(a));
-    const l = new TorusGeometry(7.05, 0.05, 6, 8);
-    (l.rotateX(Math.PI / 2), l.rotateY(Math.PI / 8));
-    const o = new Mesh(l, e.emCyan);
-    ((o.position.y = 0.5),
-      t.add(o),
-      this._buildHexTop(),
-      this._buildHologram());
-    const c = [],
-      h = [],
-      d = [],
-      u = [],
-      m = [],
-      g = 24;
-    let gateIndex = 0;
-    for (let z = 0; z < g; z++) {
-      const U = (z / g) * Math.PI * 2,
-        H = z % 4 === 2,
-        k = Math.cos(U) * (ARENA_RADIUS + 0.6),
-        G = Math.sin(U) * (ARENA_RADIUS + 0.6),
-        q = -U + Math.PI / 2;
-      if (H) {
-        for (const Y of [-3.4, 3.4]) {
-          const it = new BoxGeometry(1.3, WALL_HEIGHT + 0.6, 1.6);
-          (it.translate(Y, (WALL_HEIGHT + 0.6) / 2, 0),
-            this._place(it, k, G, q),
-            c.push(it));
-          const vt = new BoxGeometry(0.12, WALL_HEIGHT - 1.5, 0.08);
-          (vt.translate(
-            Y + (Y < 0 ? 0.66 : -0.66),
-            (WALL_HEIGHT - 1.5) / 2 + 0.4,
-            -0.8,
-          ),
-            this._place(vt, k, G, q),
-            u.push(vt));
-        }
-        const O = new BoxGeometry(8.1, 1.6, 1.6);
-        (O.translate(0, WALL_HEIGHT - 0.2, 0),
-          this._place(O, k, G, q),
-          c.push(O));
-        const et = new BoxGeometry(5.6, 0.12, 0.08);
-        (et.translate(0, WALL_HEIGHT - 1.05, -0.8),
-          this._place(et, k, G, q),
-          u.push(et));
-        const K = new BoxGeometry(8.2, WALL_HEIGHT + 1, 8);
-        (K.translate(0, (WALL_HEIGHT + 1) / 2, 4.6),
-          this._place(K, k, G, q),
-          m.push(K));
-        const nt = this._makePortal();
-        (nt.position.set(
-          Math.cos(U) * (ARENA_RADIUS + 0.2),
-          3.9,
-          Math.sin(U) * (ARENA_RADIUS + 0.2),
-        ),
-          (nt.rotation.y = q),
-          t.add(nt));
-        const Lt = new PointLight(
-          theme.lights.gate.color,
-          theme.lights.gate.intensity,
-          26,
-          2,
-        );
-        (Lt.position.set(
-          Math.cos(U) * (ARENA_RADIUS - 2.2),
-          3.2,
-          Math.sin(U) * (ARENA_RADIUS - 2.2),
-        ),
-          t.add(Lt),
-          this.gateViews.push({
-            gate: arena.gates[gateIndex++],
-            mat: nt.material,
-            light: Lt,
-          }));
-      } else {
-        const O = new BoxGeometry(9.7, WALL_HEIGHT, 1.2);
-        (O.translate(0, WALL_HEIGHT / 2, 0),
-          this._place(O, k, G, q),
-          c.push(O));
-        for (const _t of [-3.2, 3.2]) {
-          const Lt = new BoxGeometry(0.5, WALL_HEIGHT, 0.4);
-          (Lt.translate(_t, WALL_HEIGHT / 2, -0.7),
-            this._place(Lt, k, G, q),
-            m.push(Lt));
-        }
-        const et = new BoxGeometry(9.5, 0.09, 0.06);
-        (et.translate(0, 3.6, -0.63), this._place(et, k, G, q), h.push(et));
-        const K = new BoxGeometry(9.5, 0.06, 0.06);
-        (K.translate(0, 0.35, -0.63), this._place(K, k, G, q), d.push(K));
-        const nt = new BoxGeometry(9.5, 0.05, 0.06);
-        (nt.translate(0, 8.4, -0.63), this._place(nt, k, G, q), d.push(nt));
-      }
-    }
-    const v = (z, U, H = !0) => {
-      if (!z.length) return;
-      const k = new Mesh(mergeGeometries(z, !1), U);
-      return ((k.castShadow = H), (k.receiveShadow = H), t.add(k), k);
-    };
-    (v(c, e.wall),
-      v(m, e.dark),
-      v(h, e.emCyan, !1),
-      v(d, e.emCyanDim, !1),
-      v(u, e.emOrange, !1));
-    const p = [],
-      f = [];
-    for (let z = 0; z < 8; z++) {
-      const U = (z / 8) * Math.PI * 2 + Math.PI / 8,
-        H = Math.cos(U) * 19,
-        k = Math.sin(U) * 19,
-        G = new BoxGeometry(1.7, 10, 1.7);
-      (G.translate(H, 5, k), p.push(G));
-      const q = new BoxGeometry(2.1, 0.5, 2.1);
-      (q.translate(H, 10.1, k), p.push(q));
-      const O = new BoxGeometry(2.3, 0.35, 2.3);
-      (O.translate(H, 0.17, k), p.push(O));
-      for (const et of [1.4, 6.8]) {
-        const K = new BoxGeometry(1.82, 0.12, 1.82);
-        (K.translate(H, et, k), f.push(K));
-      }
-    }
-    v(p, e.pillar);
-    for (let z = 0; z < 4; z++) {
-      const U = (z / 4) * Math.PI * 2 + Math.PI / 4,
-        H = new PointLight(
-          theme.lights.perimeter.color,
-          theme.lights.perimeter.intensity,
-          40,
-          2,
-        );
-      (H.position.set(Math.cos(U) * 27, 6.5, Math.sin(U) * 27), t.add(H));
-    }
-    v(f, e.emCyan, !1);
-    const w = [],
-      M = [];
-    for (let z = 0; z < 8; z++) {
-      const U = (z / 8) * Math.PI * 2,
-        H = z % 2 === 0 ? 12.5 : 26,
-        k = Math.cos(U) * H,
-        G = Math.sin(U) * H,
-        q = -U + Math.PI / 2,
-        O = z % 2 === 0 ? 4.2 : 5.5,
-        et = new RoundedBoxGeometry(O, 2.1, 0.55, 2, 0.06);
-      (et.translate(0, 1.05, 0), this._place(et, k, G, q), w.push(et));
-      const K = new BoxGeometry(O - 0.6, 0.06, 0.04);
-      (K.translate(0, 2, -0.29), this._place(K, k, G, q), M.push(K));
-      const nt = new BoxGeometry(O - 0.6, 0.06, 0.04);
-      (nt.translate(0, 2, 0.29), this._place(nt, k, G, q), M.push(nt));
-    }
-    (v(w, e.barrier), v(M, e.emOrange, !1));
-    const _ = [],
-      L = [];
-    for (const crate of arena.crates) {
-      const q = crate.size,
-        H = crate.x,
-        k = crate.z,
-        O = crate.yaw,
-        et = new RoundedBoxGeometry(q[0], q[1], q[2], 2, 0.05);
-      (et.translate(0, q[1] / 2, 0), this._place(et, H, k, O), _.push(et));
-      const K = new BoxGeometry(q[0] * 0.7, 0.05, 0.03);
-      (K.translate(0, q[1] * 0.72, -q[2] / 2 - 0.005),
-        this._place(K, H, k, O),
-        L.push(K));
-      const nt = new BoxGeometry(q[0] * 0.7, 0.05, 0.03);
-      (nt.translate(0, q[1] * 0.72, q[2] / 2 + 0.005),
-        this._place(nt, H, k, O),
-        L.push(nt));
-    }
-    (v(_, e.crate), v(L, e.emCyanDim, !1));
-    const S = new DirectionalLight(
-      theme.lights.sun.color,
-      theme.lights.sun.intensity,
-    );
-    (S.position.copy(SUN_DIR).multiplyScalar(90),
-      (S.castShadow = !0),
-      S.shadow.mapSize.set(2048, 2048),
-      (S.shadow.camera.left = -44),
-      (S.shadow.camera.right = 44),
-      (S.shadow.camera.top = 44),
-      (S.shadow.camera.bottom = -44),
-      (S.shadow.camera.near = 20),
-      (S.shadow.camera.far = 180),
-      (S.shadow.bias = -6e-4),
-      (S.shadow.normalBias = 0.03),
-      (S.shadow.radius = 3),
-      t.add(S),
-      t.add(S.target),
-      (this.sun = S));
-    const y = new HemisphereLight(
-      theme.lights.hemi.sky,
-      theme.lights.hemi.ground,
-      theme.lights.hemi.intensity,
-    );
-    t.add(y);
-    t.fog = new FogExp2(theme.lights.fog.color, theme.lights.fog.density);
-  }
-  _place(t, e, n, s) {
-    const r = new Matrix4().makeRotationY(s).setPosition(e, 0, n);
-    t.applyMatrix4(r);
-  }
-  _makePortal() {
-    const t = new PlaneGeometry(6.4, 7.6),
-      e = new ShaderMaterial({
-        transparent: !0,
-        depthWrite: !1,
-        side: DoubleSide,
-        blending: AdditiveBlending,
-        uniforms: { uTime: this.timeUniform, uActivity: { value: 0 } },
-        vertexShader:
-          "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-        fragmentShader: `
-        uniform float uTime; uniform float uActivity; varying vec2 vUv;
-        ${NOISE_GLSL}
-        void main(){
-          vec2 p = (vUv - 0.5) * vec2(6.4, 7.6) / 3.4;
-          float r = length(p);
-          float ang = atan(p.y, p.x);
-          float n = fbm3(vec3(p * 1.6 + vec2(0.0, -uTime * 0.6), uTime * 0.25));
-          float swirl = 0.5 + 0.5 * sin(ang * 3.0 + r * 7.0 - uTime * 3.5 + n * 5.0);
-          float core = smoothstep(1.05, 0.15, r);
-          float veins = smoothstep(0.45, 0.6, noise3(vec3(p * 4.0, uTime * 0.8 + n)));
-          vec3 col = mix(vec3(0.9, 0.18, 0.03), vec3(1.0, 0.65, 0.2), n) * (0.35 + 0.65 * swirl) * core;
-          col += vec3(1.0, 0.5, 0.15) * veins * core * 0.6;
-          col += vec3(1.0, 0.85, 0.6) * smoothstep(0.35, 0.0, r) * (0.3 + uActivity);
-          float rimA = smoothstep(0.08, 0.0, abs(r - 1.02)) * 0.9;
-          col += vec3(1.0, 0.45, 0.12) * rimA;
-          col *= 0.35 + uActivity * 0.8 + 0.08 * sin(uTime * 9.0);
-          float a = core + rimA;
-          gl_FragColor = vec4(col * a, a);
-        }
-      `,
+    for (const name of ["wall", "barrier", "stone", "asphalt"])
+      applySurfaceGrime(this.mats[name], {
+        scale: name === "asphalt" ? 4 : 0.8,
+        streaks: name === "asphalt" ? 0 : 0.45,
+        key: `city-${name}`,
       });
-    return (this.portalMats.push(e), new Mesh(t, e));
+    this.facades = [0, 1, 2, 3].map(
+      (i) =>
+        new MeshStandardMaterial({
+          map: facadeTexture(i),
+          roughness: i === 3 ? 0.4 : 0.78,
+          metalness: i === 3 ? 0.3 : 0.08,
+        }),
+    );
+    this.signs = new Map();
   }
-  _buildHexTop() {
-    const t = new CircleGeometry(6.9, 8);
-    (t.rotateX(-Math.PI / 2), t.rotateY(Math.PI / 8));
-    const e = new ShaderMaterial({
-        transparent: !0,
-        depthWrite: !1,
-        blending: AdditiveBlending,
-        uniforms: { uTime: this.timeUniform },
-        vertexShader:
-          "varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-        fragmentShader: `
-        uniform float uTime; varying vec3 vP;
-        ${NOISE_GLSL}
-        float hexDist(vec2 p){ p = abs(p); return max(dot(p, normalize(vec2(1.0, 1.73))), p.x); }
-        vec4 hexCoords(vec2 uv){ vec2 r = vec2(1.0, 1.73); vec2 h = r * 0.5; vec2 a = mod(uv, r) - h; vec2 b = mod(uv - h, r) - h; vec2 gv = dot(a, a) < dot(b, b) ? a : b; float y = 0.5 - hexDist(gv); vec2 id = uv - gv; return vec4(gv, id); }
-        void main(){
-          vec2 p = vP.xz;
-          float rr = length(p);
-          vec4 hc = hexCoords(p * 1.1);
-          float edge = smoothstep(0.07, 0.0, 0.5 - hexDist(hc.xy));
-          float wave = pow(0.5 + 0.5 * sin(rr * 1.4 - uTime * 2.5), 3.0);
-          float flick = smoothstep(0.75, 1.0, noise2(hc.zw * 0.35 + uTime * 0.5));
-          vec3 col = ${theme.arena.accentHotVec} * (edge * (0.1 + wave * 0.4) + flick * 0.15);
-          col += ${theme.arena.hazardVec} * smoothstep(0.35, 0.0, rr) * (0.4 + 0.3 * sin(uTime * 2.0));
-          float a = clamp(edge * 0.9 + flick * 0.5, 0.0, 1.0) * smoothstep(7.0, 6.2, rr);
-          gl_FragColor = vec4(col * a, a);
-        }
-      `,
-      }),
-      n = new Mesh(t, e);
-    ((n.position.y = 0.515), this.scene.add(n));
+  _box(w, h, d, x, y, z, material, yaw = 0) {
+    const geo = new BoxGeometry(w, h, d);
+    geo.rotateY(yaw);
+    geo.translate(x, y, z);
+    this._batch(geo, material);
   }
-  _buildHologram() {
-    const t = new Group(),
-      e = [this.mats.emCyan, this.mats.emCyanDim, this.mats.emWhite];
-    for (let s = 0; s < 3; s++) {
-      const r = new Mesh(new TorusGeometry(1.1 + s * 0.55, 0.035, 8, 64), e[s]);
-      ((r.rotation.x = Math.PI / 2 + (s - 1) * 0.5), t.add(r));
+  _batch(geo, material) {
+    if (!this.batches.has(material)) this.batches.set(material, []);
+    this.batches.get(material).push(geo);
+  }
+  _flush() {
+    for (const [mat, parts] of this.batches) {
+      const mesh = new Mesh(mergeGeometries(parts, false), mat);
+      mesh.castShadow = mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      for (const part of parts) part.dispose();
     }
-    const n = new Mesh(new OctahedronGeometry(0.45, 0), this.mats.emWhite);
-    (t.add(n), t.position.set(0, 4.8, 0), this.scene.add(t), (this.holo = t));
+    this.batches.clear();
   }
-  update(t, e) {
-    ((this.timeUniform.value = t),
-      this.holo &&
-        ((this.holo.rotation.y += e * 0.4),
-        (this.holo.children[0].rotation.z += e * 0.7),
-        (this.holo.children[1].rotation.x += e * 0.5),
-        (this.holo.children[2].rotation.y -= e * 0.9),
-        (this.holo.position.y = 4.8 + Math.sin(t * 0.8) * 0.2)));
-    for (const n of this.gateViews)
-      ((n.mat.uniforms.uActivity.value = n.gate.activity),
-        (n.light.intensity =
-          theme.lights.gate.intensity +
-          n.gate.activity * 120 +
-          Math.sin(t * 7 + n.gate.angle) * 6));
+  _sign(
+    title,
+    subtitle,
+    w,
+    h,
+    x,
+    y,
+    z,
+    yaw = 0,
+    bg = "#152934",
+    fg = "#f2eee0",
+    art = false,
+  ) {
+    const key = [title, subtitle, bg, fg, art].join("|");
+    if (!this.signs.has(key)) {
+      const map = signTexture(title, subtitle, bg, fg, art);
+      this.signs.set(
+        key,
+        new MeshStandardMaterial({
+          map,
+          emissiveMap: map,
+          emissive: 0xffffff,
+          emissiveIntensity: art ? 0.65 : 0.16,
+          roughness: 0.62,
+          metalness: 0,
+        }),
+      );
+    }
+    const geo = new PlaneGeometry(w, h);
+    geo.rotateY(yaw);
+    geo.translate(x, y, z);
+    this._batch(geo, this.signs.get(key));
+  }
+  _ground() {
+    const m = this.mats;
+    const floor = new Mesh(new PlaneGeometry(250, 250), m.floor);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    this.scene.add(floor);
+    // Retain the original raised central footprint, surfaced as granite plaza.
+    const plinth = new CylinderGeometry(7, 8.5, 0.5, 8);
+    plinth.rotateY(Math.PI / 8);
+    plinth.translate(0, 0.25, 0);
+    this._batch(plinth, m.stone);
+    // Flat painted carriageways and crossing markings add no new colliders.
+    for (const side of [-1, 1]) {
+      this._box(7, 0.006, 60, side * 24, 0.008, 0, m.asphalt);
+      this._box(0.1, 0.009, 59, side * 27.2, 0.015, 0, m.paint);
+      for (let z = -26; z < 28; z += 7)
+        this._box(0.12, 0.01, 3, side * 24, 0.016, z, m.yellow);
+      for (const z of [-19, 19])
+        for (let i = 0; i < 7; i++)
+          this._box(
+            6.1,
+            0.008,
+            0.42,
+            side * 24,
+            0.022,
+            z + i * 0.8 - 2.4,
+            m.paint,
+          );
+    }
+    const plaque = new Mesh(
+      new PlaneGeometry(5, 2.5),
+      new MeshStandardMaterial({
+        map: signTexture(
+          "TIMES SQUARE",
+          "BROADWAY  /  SEVENTH AVENUE",
+          "#747879",
+          "#e3ddd0",
+        ),
+        roughness: 0.83,
+      }),
+    );
+    plaque.rotation.x = -Math.PI / 2;
+    plaque.position.set(0, 0.506, 0);
+    this.scene.add(plaque);
+    // Drain grates sit flush with the paving.
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI) / 6;
+      for (let j = 0; j < 9; j++)
+        this._box(
+          0.04,
+          0.008,
+          0.62,
+          Math.cos(a) * 30 + j * 0.09,
+          0.019,
+          Math.sin(a) * 30,
+          m.metal,
+        );
+    }
+  }
+  _boundary(arena) {
+    const m = this.mats;
+    const shops = [
+      "BROADWAY\nCOFFEE",
+      "MIDTOWN\nMARKET",
+      "NEW YORK\nPIZZA",
+      "THEATRE\nDISTRICT",
+      "SEVENTH\nAVENUE",
+      "CITY\nPHARMACY",
+    ];
+    let gateIndex = 0;
+    for (let i = 0; i < 24; i++) {
+      const a = (i * Math.PI) / 12,
+        yaw = -a + Math.PI / 2;
+      const x = Math.cos(a) * (ARENA_RADIUS + 0.6),
+        z = Math.sin(a) * (ARENA_RADIUS + 0.6);
+      const local = (lx, ly, lz) => [
+        x + Math.cos(yaw) * lx + Math.sin(yaw) * lz,
+        ly,
+        z - Math.sin(yaw) * lx + Math.cos(yaw) * lz,
+      ];
+      const box = (w, h, d, lx, ly, lz, mat) =>
+        this._box(w, h, d, ...local(lx, ly, lz), mat, yaw);
+      const sign = (title, sub, w, h, lx, ly, lz, bg, fg) =>
+        this._sign(
+          title,
+          sub,
+          w,
+          h,
+          ...local(lx, ly, lz),
+          yaw + Math.PI,
+          bg,
+          fg,
+        );
+      if (i % 4 === 2) {
+        for (const side of [-3.4, 3.4])
+          box(
+            1.3,
+            WALL_HEIGHT + 0.6,
+            1.6,
+            side,
+            (WALL_HEIGHT + 0.6) / 2,
+            0,
+            m.wall,
+          );
+        box(8.1, 1.6, 1.6, 0, WALL_HEIGHT - 0.2, 0, m.wall);
+        box(8.2, WALL_HEIGHT + 1, 8, 0, (WALL_HEIGHT + 1) / 2, 4.6, m.dark);
+        // Back of the existing shallow gate recess: a service shutter, no portal.
+        const shutter = new Mesh(new PlaneGeometry(5.5, 7.1), m.shutter);
+        shutter.position.set(...local(0, 3.55, 0.59));
+        shutter.rotation.y = yaw + Math.PI;
+        this.scene.add(shutter);
+        sign(
+          "SERVICE ACCESS",
+          `AUTONOMOUS SYSTEMS / 0${gateIndex + 1}`,
+          7.5,
+          1.35,
+          0,
+          8.75,
+          -0.83,
+          "#26343c",
+          "#f4cf71",
+        );
+        const lampMat = new MeshStandardMaterial({
+          color: 0x91372a,
+          emissive: 0xff462b,
+          emissiveIntensity: 0.5,
+        });
+        for (const side of [-2.85, 2.85])
+          box(0.16, 0.65, 0.13, side, 6.8, -0.88, lampMat);
+        this.gateViews.push({ gate: arena.gates[gateIndex++], mat: lampMat });
+      } else {
+        box(9.7, WALL_HEIGHT, 1.2, 0, WALL_HEIGHT / 2, 0, m.wall);
+        box(8.7, 3.25, 0.08, 0, 2.05, -0.65, m.glass);
+        for (const lx of [-4.45, -2.2, 0, 2.2, 4.45])
+          box(0.09, 3.65, 0.13, lx, 2.1, -0.72, m.metal);
+        box(9.5, 0.28, 0.7, 0, 4.15, -0.83, m.metal);
+        box(9.5, 0.1, 0.1, 0, 3.92, -1.1, m.emWhite);
+        sign(
+          shops[i % shops.length],
+          "TIMES SQUARE / NEW YORK",
+          8.8,
+          2.6,
+          0,
+          6.25,
+          -0.72,
+          i % 3 === 0 ? "#62312b" : "#172d34",
+          "#eee8d5",
+        );
+        // Masonry cornice, not a glowing arena stripe.
+        box(9.7, 0.28, 1.42, 0, 8.86, 0, m.stone);
+      }
+      const height = 19 + ((i * 13) % 25),
+        depth = 10 + (i % 3) * 2;
+      box(
+        9.7,
+        height,
+        depth,
+        0,
+        9 + height / 2,
+        depth / 2 + 0.5,
+        this.facades[i % 4],
+      );
+      box(10, 0.4, depth + 0.5, 0, 9 + height, depth / 2 + 0.5, m.stone);
+      if (i % 3 !== 2) {
+        const ads = [
+          ["AFTER\nHOURS", "A NEW BROADWAY ORIGINAL", "#701e33", "#ffd7a2"],
+          ["MAKE IT\nNEW YORK", "THE CITY IS YOURS", "#173e69", "#83def1"],
+          ["SOLSTICE", "SOUND WITHOUT LIMITS", "#58367e", "#f4bce8"],
+          ["EVERY\nMOMENT", "SHOT IN NEW YORK", "#14544c", "#b6f2c8"],
+          ["NORTH\nSTAR", "THE NEXT CHAPTER", "#c55427", "#fff1c8"],
+        ];
+        const ad = ads[i % ads.length];
+        box(9.4, 7.2, 0.4, 0, 14, -0.25, m.metal);
+        this._sign(
+          ad[0],
+          ad[1],
+          9,
+          6.8,
+          ...local(0, 14, -0.48),
+          yaw + Math.PI,
+          ad[2],
+          ad[3],
+          true,
+        );
+      }
+    }
+  }
+  _cover(arena) {
+    const m = this.mats;
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4 + Math.PI / 8,
+        x = Math.cos(a) * 19,
+        z = Math.sin(a) * 19;
+      // Original 1.7 x 10 x 1.7 pillars become steel billboard supports.
+      this._box(1.7, 10, 1.7, x, 5, z, m.pillar);
+      this._box(2.1, 0.5, 2.1, x, 10.1, z, m.metal);
+      this._box(2.3, 0.35, 2.3, x, 0.17, z, m.wall);
+      for (const dx of [-0.78, 0.78])
+        for (const dz of [-0.78, 0.78])
+          this._box(0.13, 9.6, 0.13, x + dx, 5, z + dz, m.metal);
+      const yaw = -a - Math.PI / 2;
+      this._sign(
+        i % 2 ? "W 45 ST" : "BROADWAY",
+        "TIMES SQUARE",
+        1.5,
+        1.05,
+        x - Math.cos(a) * 0.87,
+        4.8,
+        z - Math.sin(a) * 0.87,
+        yaw,
+        "#164b3a",
+        "#e5ede7",
+      );
+      const ca = (i * Math.PI) / 4,
+        radius = i % 2 === 0 ? 12.5 : 26;
+      const bx = Math.cos(ca) * radius,
+        bz = Math.sin(ca) * radius,
+        byaw = -ca + Math.PI / 2,
+        width = i % 2 === 0 ? 4.2 : 5.5;
+      this._box(width, 2.1, 0.55, bx, 1.05, bz, m.barrier, byaw);
+      for (const side of [-1, 1]) {
+        this._box(
+          width - 0.2,
+          0.2,
+          0.025,
+          bx + Math.sin(byaw) * side * 0.29,
+          1.64,
+          bz + Math.cos(byaw) * side * 0.29,
+          m.yellow,
+          byaw,
+        );
+        this._sign(
+          "RESTRICTED",
+          "CITY EMERGENCY MANAGEMENT",
+          width * 0.74,
+          0.8,
+          bx + Math.sin(byaw) * side * 0.295,
+          0.91,
+          bz + Math.cos(byaw) * side * 0.295,
+          byaw + (side < 0 ? Math.PI : 0),
+          "#343c3e",
+          "#eee6ce",
+        );
+      }
+    }
+    for (const crate of arena.crates) {
+      const [w, h, d] = crate.size;
+      this._box(w, h, d, crate.x, h / 2, crate.z, m.crate, crate.yaw);
+      for (const side of [-1, 1])
+        for (let j = 0; j < 5; j++) {
+          const offset = side * (d / 2 + 0.008);
+          this._box(
+            w * 0.72,
+            0.035,
+            0.018,
+            crate.x + Math.sin(crate.yaw) * offset,
+            h * 0.3 + j * 0.11,
+            crate.z + Math.cos(crate.yaw) * offset,
+            m.metal,
+            crate.yaw,
+          );
+        }
+      this._box(
+        w + 0.025,
+        0.06,
+        d + 0.025,
+        crate.x,
+        h - 0.03,
+        crate.z,
+        m.metal,
+        crate.yaw,
+      );
+    }
+  }
+  _skyline() {
+    const m = this.mats;
+    // Rectilinear setback towers create the Manhattan street canyon beyond
+    // the retained ring. Their massing is evocative, not a surveyed replica.
+    for (const side of [-1, 1])
+      for (let i = 0; i < 7; i++) {
+        const x = side * (57 + (i % 2) * 10),
+          z = (i - 3) * 25;
+        const h = 48 + ((i * 19) % 55);
+        this._box(21, h, 21, x, h / 2, z, this.facades[(i + 1) % 4]);
+        this._box(17, 9, 17, x, h + 4.5, z, this.facades[i % 4]);
+        this._box(18, 0.7, 18, x, h + 9, z, m.stone);
+        this._box(6, 3, 5, x, h + 10.5, z, m.metal);
+      }
+    // A narrow, stacked-sign tower is the signature silhouette at the square.
+    const heroZ = -61;
+    this._box(18, 82, 18, 0, 41, heroZ, this.facades[1]);
+    this._box(13, 16, 13, 0, 90, heroZ, this.facades[1]);
+    this._box(10, 0.8, 10, 0, 98, heroZ, m.metal);
+    this._box(0.3, 10, 0.3, 0, 103, heroZ, m.metal);
+    const ball = new Mesh(new TorusGeometry(1.25, 0.3, 8, 24), m.emWhite);
+    ball.position.set(0, 101, heroZ);
+    this.scene.add(ball);
+    const ads = [
+      ["TIMES\nSQUARE", "THE CROSSROADS OF NEW YORK", "#a32a35", "#fff1dc"],
+      ["CITY\nIN MOTION", "SEVEN MILLION STORIES", "#163a69", "#9edfeb"],
+      ["BROADWAY", "LIVE EVERY NIGHT", "#49235b", "#f1c2d9"],
+      ["NYC", "MAKE YOURSELF AT HOME", "#d78931", "#fff0c7"],
+    ];
+    ads.forEach((ad, i) => {
+      this._box(19, 13, 0.7, 0, 18 + i * 15, heroZ + 9.2, m.metal);
+      this._sign(
+        ad[0],
+        ad[1],
+        18.5,
+        12.5,
+        0,
+        18 + i * 15,
+        heroZ + 9.6,
+        0,
+        ad[2],
+        ad[3],
+        true,
+      );
+    });
+    // The red seating landmark is behind the closed perimeter, so it does
+    // not introduce climbable geometry without corresponding collision.
+    for (let i = 0; i < 13; i++)
+      this._box(15, 0.3, 0.72, 0, 0.15 + i * 0.3, 45 + i * 0.72, m.red);
+    this._sign(
+      "THE RED STEPS",
+      "DUFFY SQUARE",
+      13,
+      4,
+      0,
+      13,
+      52,
+      Math.PI,
+      "#9e2839",
+      "#fff2e1",
+    );
+  }
+  _streetDetails() {
+    const m = this.mats;
+    // Traffic beyond the playable enclosure establishes scale and location.
+    for (const side of [-1, 1]) {
+      this._box(9, 0.01, 44, side * 27, 0.01, 58, m.asphalt);
+      for (let i = 0; i < 3; i++) {
+        const x = side * (25 + (i % 2) * 3),
+          z = 48 + i * 9;
+        this._box(1.85, 0.68, 4.3, x, 0.62, z, m.yellow);
+        this._box(1.62, 0.62, 2.25, x, 1.24, z - 0.18, m.glass);
+        this._box(1.7, 0.08, 2.3, x, 1.59, z - 0.18, m.yellow);
+        this._box(0.6, 0.25, 0.55, x, 1.76, z, m.emWhite);
+        for (const dx of [-0.86, 0.86])
+          for (const dz of [-1.3, 1.3]) {
+            const wheel = new CylinderGeometry(0.33, 0.33, 0.18, 12);
+            wheel.rotateZ(Math.PI / 2);
+            wheel.translate(x + dx, 0.35, z + dz);
+            this._batch(wheel, m.metal);
+          }
+        for (const dx of [-0.62, 0.62])
+          this._box(0.4, 0.15, 0.03, x + dx, 0.75, z + 2.16, m.emWhite);
+      }
+      for (let i = 0; i < 4; i++) {
+        const x = side * 34,
+          z = 40 + i * 10;
+        this._box(0.18, 8, 0.18, x, 4, z, m.metal);
+        this._box(3.6, 0.13, 0.13, x - side * 1.6, 8, z, m.metal);
+        this._box(1.1, 0.1, 0.4, x - side * 3, 7.93, z, m.emWhite);
+      }
+      // Traffic signals hang outside the walls with conventional yellow cases.
+      const x = side * 31,
+        z = 43;
+      this._box(0.18, 7, 0.18, x, 3.5, z, m.metal);
+      this._box(5.2, 0.13, 0.13, x - side * 2.4, 7, z, m.metal);
+      this._box(0.52, 1.45, 0.43, x - side * 4.4, 6.28, z, m.yellow);
+      for (let j = 0; j < 3; j++) {
+        const light = new CylinderGeometry(0.16, 0.16, 0.05, 12);
+        light.rotateX(Math.PI / 2);
+        light.translate(x - side * 4.4, 6.73 - j * 0.45, z - 0.23);
+        this._batch(light, j === 0 ? m.red : m.metal);
+      }
+    }
+  }
+  _lights() {
+    const a = theme.lights;
+    const sun = new DirectionalLight(a.sun.color, a.sun.intensity);
+    sun.position.copy(SUN_DIR).multiplyScalar(90);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, {
+      left: -48,
+      right: 48,
+      top: 48,
+      bottom: -48,
+      near: 10,
+      far: 210,
+    });
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.035;
+    this.scene.add(sun, sun.target);
+    this.sun = sun;
+    this.scene.add(
+      new HemisphereLight(a.hemi.sky, a.hemi.ground, a.hemi.intensity),
+    );
+    // Only four unshadowed pools of billboard bounce, independent of enemies.
+    for (let i = 0; i < 4; i++) {
+      const angle = (i * Math.PI) / 2;
+      const lamp = new PointLight(i % 2 ? 0xffc7a0 : 0x9dbfe8, 65, 40, 2);
+      lamp.position.set(Math.cos(angle) * 29, 8, Math.sin(angle) * 29);
+      this.scene.add(lamp);
+    }
+    this.scene.fog = new FogExp2(a.fog.color, a.fog.density);
+  }
+  update(time) {
+    for (const view of this.gateViews)
+      view.mat.emissiveIntensity =
+        0.35 + view.gate.activity * (1.2 + 0.2 * Math.sin(time * 8));
   }
 }

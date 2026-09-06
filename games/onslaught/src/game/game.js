@@ -95,8 +95,7 @@ export class Game {
       this.weaponScene.add(this.weaponCamera),
       (this.input = new Input(t)),
       (this.audio = new Audio()),
-      this.debug &&
-        ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
+      this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD()),
       (this.arenaView = new ArenaView(this.scene, this.world.arena)),
       (this.sky = createSky(SUN_DIR)),
@@ -301,35 +300,15 @@ export class Game {
     return this.world.arena;
   }
   _setupEnvironment() {
-    const t = new PMREMGenerator(this.renderer),
-      e = new Scene();
-    e.add(new Mesh(this.sky.mesh.geometry, this.sky.mesh.material));
-    const n = new Mesh(
-      new PlaneGeometry(600, 600),
-      new MeshBasicMaterial({ color: theme.arena.floor }),
-    );
-    ((n.rotation.x = -Math.PI / 2), (n.position.y = -0.5), e.add(n));
-    const s = new Mesh(
-      new TorusGeometry(38, 1.2, 8, 64),
-      new MeshBasicMaterial({
-        color: new Color(theme.arena.accentHot).multiplyScalar(1.4),
-      }),
-    );
-    ((s.rotation.x = Math.PI / 2), (s.position.y = 3.4), e.add(s));
-    for (const a of this.world.arena.gates) {
-      const l = new Mesh(
-        new SphereGeometry(2.5, 12, 8),
-        new MeshBasicMaterial({ color: new Color(2.2, 0.8, 0.2) }),
-      );
-      (l.position.set(a.pos.x, 3.5, a.pos.z), e.add(l));
-    }
-    const r = t.fromScene(e, 0.04, 0.1, 1500);
-    ((this.scene.environment = r.texture),
-      (this.weaponScene.environment = r.texture),
-      (this.scene.environmentIntensity = theme.lights.envIntensity.world),
-      (this.weaponScene.environmentIntensity =
-        theme.lights.envIntensity.weapon),
-      t.dispose());
+    // Capture the district itself once so steel and glass reflect buildings,
+    // billboard colors and the sky instead of the original orange arena ring.
+    const generator = new PMREMGenerator(this.renderer);
+    const environment = generator.fromScene(this.scene, 0.06, 0.1, 1200);
+    this.scene.environment = environment.texture;
+    this.weaponScene.environment = environment.texture;
+    this.scene.environmentIntensity = theme.lights.envIntensity.world;
+    this.weaponScene.environmentIntensity = theme.lights.envIntensity.weapon;
+    generator.dispose();
   }
   _buildPickupProto() {
     const mats = this.arenaView.mats,
@@ -619,7 +598,10 @@ export class Game {
             a.y,
             e ? "head" : "kill",
           ),
-          H.feed(`${t.def.name} ${e ? "HEADSHOT" : "DOWN"}`, e ? "head" : ""),
+          H.feed(
+            `${theme.enemies[t.type].name} ${e ? "HEADSHOT" : "DISABLED"}`,
+            e ? "head" : "",
+          ),
           h.streak >= 3 &&
             h.streak % 3 === 0 &&
             (H.feed(`${h.streak}x STREAK  ×${h.mult.toFixed(2)}`, "wave"),

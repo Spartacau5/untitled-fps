@@ -1,6 +1,6 @@
 import {
   Color,
-  ConeGeometry,
+  CylinderGeometry,
   DynamicDrawUsage,
   InstancedBufferAttribute,
   InstancedMesh,
@@ -46,8 +46,7 @@ export function buildEnemyRig(i) {
       const y = new RoundedBoxGeometry(M, _, L, 2, S);
       return (y.translate(R, A, C), y);
     };
-  if (
-    (p(s, f(i.hips[0], i.hips[1], i.hips[2], 0, 0, 0), "body"),
+  (p(s, f(i.hips[0], i.hips[1], i.hips[2], 0, 0, 0), "body"),
     p(
       r,
       f(i.torso[0], i.torso[1], i.torso[2], 0, i.torso[1] / 2, 0, 0.04),
@@ -139,31 +138,72 @@ export function buildEnemyRig(i) {
       f(i.legW, 0.08, i.legW * 1.7, 0, -i.legLL - 0.01, -i.legW * 0.35, 0.015),
       "body",
     ),
-    i.spikes)
-  ) {
-    const M = [];
-    for (let R = 0; R < 5; R++) {
-      const A = new ConeGeometry(0.06, 0.3, 6);
-      (A.rotateX(-0.9 + (R - 2) * 0.15),
-        A.rotateZ((R - 2) * 0.3),
-        A.translate(
-          (R - 2) * 0.12,
-          i.torso[1] * 0.85 + Math.abs(R - 2) * -0.04,
-          i.torso[2] / 2 + 0.08,
+    p(
+      r,
+      f(
+        i.torso[0] * 0.76,
+        0.05,
+        0.055,
+        0,
+        i.torso[1] * 0.8,
+        -i.torso[2] / 2,
+        0.007,
+      ),
+      "body",
+    ));
+  // Articulated alloy joints and dark servo housings replace creature anatomy.
+  for (const [node, radius] of [
+    [l, i.armW * 0.65],
+    [o, i.armW * 0.65],
+    [c, i.armW * 0.5],
+    [h, i.armW * 0.5],
+    [m, i.legW * 0.55],
+    [g, i.legW * 0.55],
+  ]) {
+    const joint = new CylinderGeometry(radius, radius, radius * 1.9, 10);
+    joint.rotateZ(Math.PI / 2);
+    p(node, joint, "joint");
+  }
+  for (let j = 0; j < 4; j++)
+    p(
+      r,
+      f(
+        i.torso[0] * 0.65,
+        0.018,
+        0.025,
+        0,
+        i.torso[1] * 0.22 + j * 0.045,
+        i.torso[2] / 2 + 0.013,
+        0.004,
+      ),
+      "joint",
+    );
+  if (i.spikes) {
+    // Heavy unit: compact industrial cooling fins rather than organic spikes.
+    for (let j = 0; j < 5; j++)
+      p(
+        r,
+        f(
+          0.035,
+          0.26,
+          0.12,
+          (j - 2) * 0.1,
+          i.torso[1] * 0.7,
+          i.torso[2] / 2 + 0.04,
+          0.005,
         ),
-        M.push(A));
-    }
-    p(r, mergeGeometries(M, !1), "body");
-    const _ = new ConeGeometry(0.05, 0.22, 6);
-    (_.rotateZ(0.9), _.translate(-i.armW * 0.9, 0.08, 0), p(l, _, "body"));
-    const L = new ConeGeometry(0.05, 0.22, 6);
-    (L.rotateZ(-0.9), L.translate(i.armW * 0.9, 0.08, 0), p(o, L, "body"));
+        "joint",
+      );
   }
   if (i.sac) {
-    const M = new SphereGeometry(0.2, 12, 10);
-    (M.scale(1, 1.3, 0.9),
-      M.translate(0, i.torso[1] * 0.55, i.torso[2] / 2 + 0.12),
-      p(r, M, "glow"));
+    const battery = new CylinderGeometry(0.2, 0.2, 0.52, 10);
+    battery.translate(0, i.torso[1] * 0.55, i.torso[2] / 2 + 0.12);
+    p(r, battery, "joint");
+    p(
+      r,
+      f(0.1, 0.24, 0.03, 0, i.torso[1] * 0.55, i.torso[2] / 2 + 0.22, 0.006),
+      "glow",
+    );
   }
   return {
     root: e,
@@ -250,8 +290,8 @@ export class EnemyView {
       r = makeEnemyMaterial(
         new MeshStandardMaterial({
           color: colors.body,
-          roughness: 0.55,
-          metalness: 0.55,
+          roughness: 0.36,
+          metalness: 0.72,
         }),
         this.uTime,
         !1,
@@ -260,7 +300,7 @@ export class EnemyView {
         new MeshStandardMaterial({
           color: 0,
           emissive: new Color(...colors.glow),
-          emissiveIntensity: 2.2,
+          emissiveIntensity: 1.2,
           roughness: 0.6,
           metalness: 0,
         }),
@@ -268,6 +308,15 @@ export class EnemyView {
         !0,
       ),
       l = [];
+    const jointMat = makeEnemyMaterial(
+      new MeshStandardMaterial({
+        color: 0x252e34,
+        roughness: 0.46,
+        metalness: 0.85,
+      }),
+      this.uTime,
+      false,
+    );
     for (const o of e.parts) {
       const c = o.kind === "glow" || o.kind === "headGlow",
         h = new InstancedBufferAttribute(n, 1),
@@ -276,7 +325,11 @@ export class EnemyView {
         d.setUsage(DynamicDrawUsage),
         o.geom.setAttribute("aFlash", h),
         o.geom.setAttribute("aDissolve", d));
-      const u = new InstancedMesh(o.geom, c ? a : r, MAX_PER_TYPE);
+      const u = new InstancedMesh(
+        o.geom,
+        c ? a : o.kind === "joint" ? jointMat : r,
+        MAX_PER_TYPE,
+      );
       (u.instanceMatrix.setUsage(DynamicDrawUsage),
         (u.frustumCulled = !1),
         (u.castShadow = !c),
@@ -296,8 +349,8 @@ export class EnemyView {
   _buildProjectiles() {
     const t = new SphereGeometry(0.17, 12, 10),
       e = new MeshStandardMaterial({
-        color: 1127185,
-        emissive: 5635942,
+        color: 0x264b6d,
+        emissive: 0x439edb,
         emissiveIntensity: 4.5,
         roughness: 0.4,
       });

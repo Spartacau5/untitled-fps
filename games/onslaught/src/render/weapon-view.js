@@ -57,21 +57,21 @@ export const VIEWMODEL_MATS = {
   accent: new MeshStandardMaterial({
     color: 0,
     emissive: 6222591,
-    emissiveIntensity: 1.4,
+    emissiveIntensity: 0.2,
     roughness: 0.5,
     metalness: 0,
   }),
   orange: new MeshStandardMaterial({
     color: 0,
     emissive: 16742938,
-    emissiveIntensity: 1.4,
+    emissiveIntensity: 0.2,
     roughness: 0.5,
     metalness: 0,
   }),
   white: new MeshStandardMaterial({
     color: 0,
     emissive: 16777215,
-    emissiveIntensity: 4,
+    emissiveIntensity: 0.7,
     roughness: 0.5,
     metalness: 0,
   }),
@@ -803,7 +803,8 @@ export class WeaponView {
         buildShotgunModel(),
         buildDmrModel(),
       ]));
-    for (const r of this.models) (this.rig.add(r.group), (r.group.visible = !1));
+    for (const r of this.models)
+      (this.rig.add(r.group), (r.group.visible = !1));
     ((this.shown = 0),
       (this.models[0].group.visible = !0),
       (this.flash = new MuzzleFlash()),
@@ -908,12 +909,9 @@ export class WeaponView {
   _animSwitch(sim) {
     const e = sim.switching;
     if (!e) return;
-    const s =
-        sim.weapon.def.switchTime * (e.phase === "down" ? 0.4 : 0.6),
+    const s = sim.weapon.def.switchTime * (e.phase === "down" ? 0.4 : 0.6),
       r =
-        e.phase === "down"
-          ? easeOutCubic(e.t / s)
-          : 1 - easeOutCubic(e.t / s);
+        e.phase === "down" ? easeOutCubic(e.t / s) : 1 - easeOutCubic(e.t / s);
     (this.animPos.set(0.04 * r, -0.28 * r, 0.02 * r),
       this.animRot.set(-0.7 * r, 0.15 * r, 0.25 * r));
   }
@@ -1086,7 +1084,8 @@ export class WeaponView {
       (this.rig.position.set(k, G, q),
       this.rig.rotation.set(O, et, K),
       l.bolt &&
-        (l.bolt.position.z = l.boltRest + this.boltT[this.shown] * l.boltTravel),
+        (l.bolt.position.z =
+          l.boltRest + this.boltT[this.shown] * l.boltTravel),
       l.pump)
     )
       if (r.pumping) {

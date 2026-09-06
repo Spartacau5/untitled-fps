@@ -6,7 +6,8 @@
   --warn: #d9771b;
   --danger: #b8231c;
   --font-ui: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
-  --font-title: "Big Shoulders Stencil Text", "Impact", "Arial Black", sans-serif;
+  --font-title:
+    "Big Shoulders Stencil Text", "Impact", "Arial Black", sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -818,4 +819,30 @@ canvas#game {
   font-size: 11px;
   letter-spacing: 3px;
   color: var(--dim);
+}
+
+/* Midtown art direction: typography and framing only; HUD timing is intact. */
+.title {
+  font-family: var(--font-title);
+  letter-spacing: -0.035em;
+}
+.subtitle {
+  letter-spacing: 0.24em;
+}
+.banner-main {
+  text-shadow: none;
+  letter-spacing: 0.08em;
+}
+.menu {
+  background: linear-gradient(
+    90deg,
+    rgba(219, 227, 229, 0.88),
+    rgba(222, 229, 232, 0.55) 48%,
+    rgba(20, 30, 40, 0.06)
+  );
+}
+.hud-bl,
+.hud-br,
+.hud-tr {
+  filter: drop-shadow(0 1px 2px rgba(240, 246, 249, 0.7));
 }
