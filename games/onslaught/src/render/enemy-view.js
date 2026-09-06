@@ -48,8 +48,13 @@ export function buildEnemyRig(i) {
     x2 = t(g, 0, -i.legLL, 0),
     v = [],
     p = (M, _, L) => v.push({ node: M, geom: _, kind: L }),
+    // One bevel segment, not two. Two costs 300 triangles a part against 108,
+    // and with 31-36 parts on each of up to 64 robots that was ~500k triangles
+    // a frame before the shadow pass doubled it. The bevel radii here are
+    // 4-45 mm, so the difference between a chamfer and a two-segment curve is
+    // not visible at any distance you fight these things from.
     f = (M, _, L, R, A, C, S = 0.02) => {
-      const y = new RoundedBoxGeometry(M, _, L, 2, S);
+      const y = new RoundedBoxGeometry(M, _, L, 1, S);
       return (y.translate(R, A, C), y);
     };
   (p(s, f(i.hips[0], i.hips[1], i.hips[2], 0, 0, 0), "body"),
@@ -306,6 +311,7 @@ ${NOISE_GLSL}`,
 }
 
 // Instanced skeletal rigs + projectile pool, posed each frame from sim state.
+//
 export class EnemyView {
   constructor(scene) {
     ((this.scene = scene), (this.uTime = { value: 0 }), (this.types = {}));
@@ -392,6 +398,15 @@ export class EnemyView {
       (this._pm = new Matrix4()));
   }
   // alpha interpolates prev→current tick for positions and yaw.
+  // Enemy shadow casting, toggled by the graphics setting. At a full wave the
+  // robots are about 84 extra draw calls and 410k extra triangles a frame, so
+  // this is the single biggest thing the Performance tier can give back.
+  setShadows(on) {
+    for (const k in this.types)
+      for (const m of this.types[k].meshes)
+        if (m.part.kind !== "glow" && m.part.kind !== "headGlow")
+          ((m.mesh.castShadow = on), (m.mesh.receiveShadow = on));
+  }
   sync(enemies, projectiles, alpha, time) {
     this.uTime.value = time;
     for (const t in this.types) {

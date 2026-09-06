@@ -64,9 +64,9 @@ import {
 // Graphics tiers, indexed by the `quality` setting. Render scale is capped
 // rather than fixed, so a 1x display never renders above its own resolution.
 const QUALITY_TIERS = [
-  { pixelRatio: 1, samples: 0, shadow: 1024 },
-  { pixelRatio: 1.25, samples: 2, shadow: 2048 },
-  { pixelRatio: 1.5, samples: 4, shadow: 2048 },
+  { pixelRatio: 1, samples: 0, shadow: 1024, enemyShadows: !1 },
+  { pixelRatio: 1.25, samples: 2, shadow: 2048, enemyShadows: !0 },
+  { pixelRatio: 1.5, samples: 4, shadow: 2048, enemyShadows: !0 },
 ];
 
 // Presentation shell: owns the renderer, cameras, views, FX, audio and HUD.
@@ -325,6 +325,7 @@ export class Game {
       Math.min(window.devicePixelRatio, tier.pixelRatio),
     );
     this.postfx && this.postfx.setSamples(tier.samples);
+    this.enemyView && this.enemyView.setShadows(tier.enemyShadows);
     const sun = this.arenaView && this.arenaView.sun;
     if (sun && sun.shadow.mapSize.width !== tier.shadow) {
       (sun.shadow.mapSize.setScalar(tier.shadow),
