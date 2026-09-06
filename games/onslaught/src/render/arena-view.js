@@ -19,6 +19,7 @@ import { theme } from "../theme/theme.js";
 import { createPortalMaterial } from "./portal.js";
 import { applySurfaceGrime } from "./shaders/surface.js";
 import { applyWetGround } from "./shaders/wet.js";
+import { crateProp, hoarding, scaffoldTower } from "./city/props.js";
 import {
   CAMPAIGNS,
   STOREFRONTS,
@@ -84,6 +85,7 @@ export class ArenaView {
         normalScale: new Vector2(1.15, 1.15),
       }),
       asphalt: mat(0x303639, 0.94),
+      shrub: mat(0x3f5541, 0.92),
       shutter: new MeshStandardMaterial({
         map: shutterTexture(),
         roughness: 0.6,
@@ -141,6 +143,15 @@ export class ArenaView {
     // Campaign bitmaps, shared across every board running that campaign.
     this.boardMaps = new Map();
     this.tickerMap = null;
+  }
+  // Handed to the prop builders in city/props.js so they can draw through the
+  // same batching the rest of the arena uses.
+  get _emitter() {
+    return (this.__em ||= {
+      box: (w, h, d, x, y, z, mat, yaw) => this._box(w, h, d, x, y, z, mat, yaw),
+      geo: (geo, mat) => this._batch(geo, mat),
+      mats: this.mats,
+    });
   }
   _box(w, h, d, x, y, z, material, yaw = 0) {
     const geo = new BoxGeometry(w, h, d);
@@ -553,14 +564,13 @@ export class ArenaView {
       const a = (i * Math.PI) / 4 + Math.PI / 8,
         x = Math.cos(a) * 19,
         z = Math.sin(a) * 19;
-      // Original 1.7 x 10 x 1.7 pillars become steel billboard supports.
-      this._box(1.7, 10, 1.7, x, 5, z, m.pillar);
-      this._box(2.1, 0.5, 2.1, x, 10.1, z, m.metal);
-      this._box(2.3, 0.35, 2.3, x, 0.17, z, m.wall);
-      for (const dx of [-0.78, 0.78])
-        for (const dz of [-0.78, 0.78])
-          this._box(0.13, 9.6, 0.13, x + dx, 5, z + dz, m.metal);
+      // The original 1.7 x 10 x 1.7 pillar footprint, built as a scaffold
+      // tower. Same collider, but a tube frame with plank decks reads as a
+      // real structure where a smooth column reads as a placeholder.
       const yaw = -a - Math.PI / 2;
+      this._box(2.3, 0.35, 2.3, x, 0.17, z, m.wall);
+      scaffoldTower(this._emitter, x, z, yaw, 10);
+      this._box(2.1, 0.4, 2.1, x, 10.15, z, m.metal);
       this._sign(
         i % 2 ? "W 45 ST" : "BROADWAY",
         "TIMES SQUARE",
@@ -579,7 +589,7 @@ export class ArenaView {
         bz = Math.sin(ca) * radius,
         byaw = -ca + Math.PI / 2,
         width = i % 2 === 0 ? 4.2 : 5.5;
-      this._box(width, 2.1, 0.55, bx, 1.05, bz, m.barrier, byaw);
+      hoarding(this._emitter, bx, bz, byaw, width, 2.1);
       for (const side of [-1, 1]) {
         this._box(
           width - 0.2,
@@ -605,34 +615,13 @@ export class ArenaView {
         );
       }
     }
-    for (const crate of arena.crates) {
+    // Crate footprints become real street objects -- dumpsters, utility
+    // cabinets, planters, pallet stacks -- each built inside its own collider
+    // so cover works exactly as it did when they were boxes.
+    arena.crates.forEach((crate, i) => {
       const [w, h, d] = crate.size;
-      this._box(w, h, d, crate.x, h / 2, crate.z, m.crate, crate.yaw);
-      for (const side of [-1, 1])
-        for (let j = 0; j < 5; j++) {
-          const offset = side * (d / 2 + 0.008);
-          this._box(
-            w * 0.72,
-            0.035,
-            0.018,
-            crate.x + Math.sin(crate.yaw) * offset,
-            h * 0.3 + j * 0.11,
-            crate.z + Math.cos(crate.yaw) * offset,
-            m.metal,
-            crate.yaw,
-          );
-        }
-      this._box(
-        w + 0.025,
-        0.06,
-        d + 0.025,
-        crate.x,
-        h - 0.03,
-        crate.z,
-        m.metal,
-        crate.yaw,
-      );
-    }
+      crateProp(this._emitter, i, crate.x, crate.z, crate.yaw, w, h, d);
+    });
   }
   _skyline() {
     const m = this.mats;

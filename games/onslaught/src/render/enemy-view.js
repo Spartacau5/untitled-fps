@@ -56,7 +56,49 @@ export function buildEnemyRig(i) {
     f = (M, _, L, R, A, C, S = 0.02) => {
       const y = new RoundedBoxGeometry(M, _, L, 1, S);
       return (y.translate(R, A, C), y);
-    };
+    },
+    // A hand: palm, knuckle bar, three fingers and a thumb, merged so the
+    // whole thing still costs one instanced mesh. `mirror` puts the thumb on
+    // the correct side.
+    wrist = -i.armLL,
+    handGeom = (mirror) =>
+      mergeGeometries(
+        [
+          f(i.armW * 0.62, 0.085, i.armW * 0.5, 0, wrist - 0.045, 0, 0.012),
+          f(i.armW * 0.6, 0.03, i.armW * 0.52, 0, wrist - 0.092, 0, 0.008),
+          ...[-1, 0, 1].map((n) =>
+            f(
+              i.armW * 0.15,
+              0.08,
+              i.armW * 0.17,
+              n * i.armW * 0.2,
+              wrist - 0.14,
+              0,
+              0.006,
+            ),
+          ),
+          f(
+            i.armW * 0.14,
+            0.06,
+            i.armW * 0.15,
+            mirror * i.armW * 0.3,
+            wrist - 0.08,
+            0,
+            0.006,
+          ),
+        ],
+        !1,
+      ),
+    palmGlow = () =>
+      f(
+        i.armW * 0.26,
+        0.014,
+        i.armW * 0.2,
+        0,
+        wrist - 0.045,
+        -i.armW * 0.26,
+        0.004,
+      );
   (p(s, f(i.hips[0], i.hips[1], i.hips[2], 0, 0, 0), "body"),
     p(
       r,
@@ -182,16 +224,15 @@ export function buildEnemyRig(i) {
     p(o, f(i.armW, i.armUL, i.armW, 0, -i.armUL / 2, 0), "body"),
     p(c, f(i.armW * 0.9, i.armLL, i.armW * 0.9, 0, -i.armLL / 2, 0), "body"),
     p(h, f(i.armW * 0.9, i.armLL, i.armW * 0.9, 0, -i.armLL / 2, 0), "body"),
-    p(
-      c,
-      f(i.armW * 0.55, 0.12, i.armW * 0.55, 0, -i.armLL - 0.04, 0, 0.01),
-      "glow",
-    ),
-    p(
-      h,
-      f(i.armW * 0.55, 0.12, i.armW * 0.55, 0, -i.armLL - 0.04, 0, 0.01),
-      "glow",
-    ),
+    // Hands. These were a single glowing cube on the end of each forearm --
+    // fine as an "emitter" while the glow was dim, but once the face needed a
+    // brighter emissive to read, the cubes lit up like lanterns and the arms
+    // ended in two blazing blocks. Metal hands now, with only a small palm
+    // plate left glowing.
+    p(c, handGeom(-1), "body"),
+    p(c, palmGlow(), "glow"),
+    p(h, handGeom(1), "body"),
+    p(h, palmGlow(), "glow"),
     p(d, f(i.legW, i.legUL, i.legW, 0, -i.legUL / 2, 0), "body"),
     p(u, f(i.legW, i.legUL, i.legW, 0, -i.legUL / 2, 0), "body"),
     p(m, f(i.legW * 0.85, i.legLL, i.legW * 0.85, 0, -i.legLL / 2, 0), "body"),
