@@ -1,3 +1,4 @@
+import { contestState } from "./contest.js";
 import { theme } from "../theme/theme.js";
 
 export class HUD {
@@ -42,6 +43,8 @@ export class HUD {
       btnDlRun: t("btn-dl-run"),
       btnDlAll: t("btn-dl-all"),
       playerName: t("player-name"),
+      prize: t("prize"),
+      prizeClock: t("prize-clock"),
       leaderboard: t("leaderboard"),
       title: document.querySelector(".title"),
       subtitle: document.querySelector(".subtitle"),
@@ -64,8 +67,15 @@ export class HUD {
     this.el.hud.classList.toggle("hidden", !t);
   }
   setPauseActions(t) {
-    this.el.pauseActions &&
-      this.el.pauseActions.classList.toggle("hidden", !t);
+    this.el.pauseActions && this.el.pauseActions.classList.toggle("hidden", !t);
+  }
+  // Prize bar lives in the shared menu shell, so the same element serves the
+  // main menu and the game-over screen without a second copy to maintain.
+  setContest(nowMs) {
+    const el = this.el.prize;
+    if (!el) return;
+    (el.classList.remove("hidden"),
+      this._set("prizeClock", this.el.prizeClock, contestState(nowMs).label));
   }
   showMenu(
     t,

@@ -64,6 +64,23 @@ export class World {
     const e = this.events;
     return ((this.events = []), e);
   }
+  resetGates() {
+    for (const g of this.arena.gates)
+      ((g.activity = 0), (g.openHold = 0), (g.open = 0));
+  }
+  // Tears the run down without resetting the score, so the game-over screen
+  // can still read it. Clearing the combatants is what stops the arena making
+  // noise behind the menu: stepIdle keeps ticking enemies, and leftovers would
+  // otherwise growl, spit and swing at a corpse indefinitely.
+  endRun() {
+    (this.enemies.clear(),
+      this.projectiles.clear(),
+      (this.queue.length = 0),
+      (this.waveActive = !1),
+      (this.slowmoRequest = 0),
+      this.drainEvents(),
+      this.resetGates());
+  }
   // Begin (or restart) a run. Re-forks the per-run streams so a replay from
   // the same seed is identical. The layout stream is not reset: the arena is
   // built once.
@@ -77,6 +94,7 @@ export class World {
       this.enemies.clear(),
       this.projectiles.clear(),
       (this.pickups.length = 0),
+      this.resetGates(),
       (this.score = 0),
       (this.kills = 0),
       (this.streak = 0),
@@ -201,7 +219,10 @@ export class World {
         heavy: w.heavy,
         banner: w.banner,
       }));
-    for (const a of this.arena.gates) a.activity = 1.2;
+    // The whole ring unseals on the horn, then each shutter settles shut
+    // again unless enemies actually keep coming through it.
+    for (const a of this.arena.gates)
+      ((a.activity = 1.2), (a.openHold = Math.max(a.openHold, 2.6)));
   }
   updateWaves(t) {
     if (this.noSpawn) return;
@@ -221,7 +242,8 @@ export class World {
           1 + (this.wave - 1) * 0.07,
           this,
         ),
-          (a.activity = 1.2));
+          (a.activity = 1.2),
+          (a.openHold = Math.max(a.openHold, 1.8)));
       }
       this.spawnTimer = this.spawnInterval;
     }

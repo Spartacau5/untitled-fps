@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  Color,
   CylinderGeometry,
   DirectionalLight,
   FogExp2,
@@ -11,8 +12,10 @@ import {
   TorusGeometry,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { damp } from "../core/mathx.js";
 import { ARENA_RADIUS, SUN_DIR, WALL_HEIGHT } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
+import { createPortalMaterial } from "./portal.js";
 import { applySurfaceGrime } from "./shaders/surface.js";
 import {
   facadeTexture,
@@ -20,6 +23,14 @@ import {
   shutterTexture,
   signTexture,
 } from "./city/textures.js";
+
+// Gate status lamps: red while the door is sealed, green for exactly as long
+// as it is open. Allocated once at module scope — lerping into a scratch Color
+// every frame for six gates would churn garbage.
+const LAMP_SHUT = new Color(0xff462b);
+const LAMP_OPEN = new Color(0x35ff6a);
+const LAMP_BODY_SHUT = new Color(0x91372a);
+const LAMP_BODY_OPEN = new Color(0x2a9143);
 
 // Times Square-inspired art on the ORIGINAL collision footprint. Solid cover,
 // wall segments and gate recesses retain their original dimensions/transforms.
@@ -256,11 +267,32 @@ export class ArenaView {
           );
         box(8.1, 1.6, 1.6, 0, WALL_HEIGHT - 0.2, 0, m.wall);
         box(8.2, WALL_HEIGHT + 1, 8, 0, (WALL_HEIGHT + 1) / 2, 4.6, m.dark);
-        // Back of the existing shallow gate recess: a service shutter, no portal.
-        const shutter = new Mesh(new PlaneGeometry(5.5, 7.1), m.shutter);
-        shutter.position.set(...local(0, 3.55, 0.59));
+        // Back of the shallow gate recess: a roll-up service shutter with the
+        // spawn portal behind it. The shutter squashes into its housing rather
+        // than sliding, which is how a real roll-up stacks its slats, and the
+        // portal is only ever visible through the gap it leaves.
+        // Depth order out from the arena: shutter, then the portal, then the
+        // dark recess box whose front face sits at lz 0.60. The portal has to
+        // land between the two — putting it deeper hides it inside the box.
+        const SHUTTER_H = 7.1;
+        const shutter = new Mesh(new PlaneGeometry(5.5, SHUTTER_H), m.shutter);
+        shutter.position.set(...local(0, SHUTTER_H / 2, 0.45));
         shutter.rotation.y = yaw + Math.PI;
         this.scene.add(shutter);
+        const portalMat = createPortalMaterial(gateIndex * 3.7);
+        // Slightly overfills the opening so no dark seam shows at the jambs.
+        const portal = new Mesh(
+          new PlaneGeometry(5.6, SHUTTER_H + 0.1),
+          portalMat,
+        );
+        portal.position.set(...local(0, SHUTTER_H / 2, 0.56));
+        portal.rotation.y = yaw + Math.PI;
+        portal.visible = false;
+        this.scene.add(portal);
+        // In FRONT of the recess face (lz 0.60), not behind it. Parked inside
+        // the box the lamp was sealed in a solid volume, lighting nothing and
+        // leaving the whole doorway surround black.
+        const portalPos = local(0, 3.4, 0.15);
         sign(
           "SERVICE ACCESS",
           `AUTONOMOUS SYSTEMS / 0${gateIndex + 1}`,
@@ -279,7 +311,20 @@ export class ArenaView {
         });
         for (const side of [-2.85, 2.85])
           box(0.16, 0.65, 0.13, side, 6.8, -0.88, lampMat);
-        this.gateViews.push({ gate: arena.gates[gateIndex++], mat: lampMat });
+        this.gateViews.push({
+          gate: arena.gates[gateIndex++],
+          mat: lampMat,
+          shutter,
+          shutterTop: SHUTTER_H,
+          shutterHalf: SHUTTER_H / 2,
+          portal,
+          portalMat,
+          portalPos,
+          // Desynchronises the flicker so six open gates do not pulse as one.
+          phase: gateIndex * 1.7,
+          // Lamp state, snapped rather than tracked. See update().
+          lamp: 0,
+        });
       } else {
         box(9.7, WALL_HEIGHT, 1.2, 0, WALL_HEIGHT / 2, 0, m.wall);
         box(8.7, 3.25, 0.08, 0, 2.05, -0.65, m.glass);
@@ -558,10 +603,49 @@ export class ArenaView {
       this.scene.add(lamp);
     }
     this.scene.fog = new FogExp2(a.fog.color, a.fog.density);
+    // A single roaming spill light serves every portal. Six of them (one per
+    // gate) would double the scene's point-light count, and every material
+    // pays for each light whether or not it is lit.
+    // Short range on purpose: this should pool on the jambs and pavement at
+    // the mouth of the gate, not relight the whole block and flatten the night.
+    this.portalLight = new PointLight(0xff6a1e, 0, 11, 2);
+    this.scene.add(this.portalLight);
   }
-  update(time) {
-    for (const view of this.gateViews)
+  update(time, dt = 1 / 60) {
+    let widest = 0;
+    let lit = null;
+    for (const view of this.gateViews) {
+      const gate = view.gate;
+      // The lamps report a binary state - sealed or not - so they switch on
+      // the shutter leaving and regaining its seated position, not on how far
+      // it has travelled. Tracking the travel walked the colour through yellow
+      // for the whole of every open and close. Damped hard so the change reads
+      // as a switch throwing rather than a hard one-frame cut.
+      const seated = gate.open > 0 ? 1 : 0;
+      view.lamp = damp(view.lamp, seated, 26, dt);
+      view.mat.emissive.copy(LAMP_SHUT).lerp(LAMP_OPEN, view.lamp);
+      view.mat.color.copy(LAMP_BODY_SHUT).lerp(LAMP_BODY_OPEN, view.lamp);
       view.mat.emissiveIntensity =
-        0.35 + view.gate.activity * (1.2 + 0.2 * Math.sin(time * 8));
+        0.35 +
+        gate.activity * (1.2 + 0.2 * Math.sin(time * 8)) +
+        view.lamp * 1.1;
+      // Squash the shutter into the lintel, keeping its top edge pinned.
+      const shut = 1 - gate.open;
+      view.shutter.scale.y = Math.max(0.001, shut);
+      view.shutter.position.y = view.shutterTop - view.shutterHalf * shut;
+      view.shutter.visible = shut > 0.02;
+      // Slow, shallow breathing rather than a strobe. The shader carries the
+      // fast detail; this is just the overall level.
+      const flicker = 0.92 + 0.08 * Math.sin(time * 2.6 + view.phase);
+      view.portal.visible = gate.open > 0.01;
+      ((view.portalMat.uniforms.uTime.value = time),
+        (view.portalMat.uniforms.uOpen.value = gate.open * flicker));
+      if (gate.open > widest) ((widest = gate.open), (lit = view));
+    }
+    if (lit) {
+      this.portalLight.position.set(...lit.portalPos);
+      this.portalLight.intensity =
+        widest * 22 * (0.92 + 0.08 * Math.sin(time * 2.6));
+    } else this.portalLight.intensity = 0;
   }
 }

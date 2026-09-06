@@ -97,6 +97,34 @@ export class Audio {
   resume() {
     this.ctx && this.ctx.state === "suspended" && this.ctx.resume();
   }
+  // Called when a run ends. Everything the match was driving — the music
+  // layers, the low-health heartbeat and any tail still ringing out in the
+  // reverb — is cut here, so a finished session cannot keep making noise on
+  // the game-over screen. Ambience is left alone: it belongs to the city, not
+  // to the run, and it is the same bed the first menu plays.
+  endSession() {
+    ((this.intensity = 0), (this._heartT = 0));
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    (this.musicBus.gain.cancelScheduledValues(t),
+      this.musicBus.gain.setTargetAtTime(0, t, 0.08),
+      this.revGain.gain.cancelScheduledValues(t),
+      this.revGain.gain.setTargetAtTime(0, t, 0.12),
+      // Let the tank refill once the tail it was holding has been cut, so the
+      // next run starts with its reverb intact even without beginSession().
+      this.revGain.gain.setTargetAtTime(0.28 * this.sfxVol, t + 0.7, 0.15),
+      (this._beat = 0),
+      (this._nextBeat = t + 0.1));
+  }
+  // Restores the buses endSession() ducked. Called when a new run starts.
+  beginSession() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    (this.musicBus.gain.cancelScheduledValues(t),
+      this.revGain.gain.cancelScheduledValues(t),
+      this.revGain.gain.setTargetAtTime(0.28 * this.sfxVol, t, 0.05),
+      (this._nextBeat = t + 0.1));
+  }
   get now() {
     return this.ctx ? this.ctx.currentTime : 0;
   }

@@ -822,6 +822,7 @@ export class WeaponView {
       (this.moveRot = new Vector3()),
       (this.animPos = new Vector3()),
       (this.animRot = new Vector3()),
+      (this.reloadPose = 0),
       (this._v = new Vector3()),
       (this._up = new Vector3()),
       (this.muzzleWorld = new Vector3()));
@@ -896,6 +897,11 @@ export class WeaponView {
         this.boltT[i] - dt / (sim.weapons[i].def.boltAnimTime || 0.1),
       );
     const w = sim.weapon;
+    // Sprinting tucks the gun far out of frame, which used to swallow the
+    // reload animation whole — players could not tell the reload had started.
+    // Ease the sprint pose out for the duration of the reload so the hands
+    // stay on screen; the sim already allows reloading at a full sprint.
+    this.reloadPose = damp(this.reloadPose, w.reloading ? 1 : 0, 13, dt);
     (this._animSwitch(sim),
       w.reloading ? this._animReload(w, dt) : this._restParts(this.parts),
       w.reloading || sim.switching || this.animPos.set(0, 0, 0),
@@ -970,7 +976,7 @@ export class WeaponView {
       a = r.def,
       l = this.parts,
       o = sim.adsSmooth,
-      c = smooth01(sim.sprintBlend),
+      c = smooth01(sim.sprintBlend) * (1 - this.reloadPose),
       h = a.weight,
       d = 1 - o * 0.88,
       u = MathUtils.lerp(0.012, 0.022, h) * d,

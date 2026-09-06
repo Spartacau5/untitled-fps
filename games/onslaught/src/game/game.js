@@ -173,6 +173,7 @@ export class Game {
       (this.runId = ""),
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
+      this.hud.setContest(Date.now()),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       this.hud.el.btnRestart &&
@@ -258,6 +259,13 @@ export class Game {
           this._playerName(),
         ),
       );
+  }
+  // The prize clock only needs to be legible, not smooth: half a second is
+  // well inside the smallest unit it ever shows.
+  _tickContest(dt) {
+    this._contestT = (this._contestT || 0) - dt;
+    if (this._contestT > 0) return;
+    ((this._contestT = 0.5), this.hud.setContest(Date.now()));
   }
   _applyBoard(data) {
     applyAssignedCallsign(this.hud.el.playerName, data.callsign);
@@ -369,7 +377,8 @@ export class Game {
         (this.last = performance.now()));
       return;
     }
-    (this.resetGame(),
+    (this.audio.beginSession(),
+      this.resetGame(),
       (this._runPosted = !1),
       (this.runStartedAt = new Date().toISOString()),
       (this.runId = this._newRunId()),
@@ -400,6 +409,7 @@ export class Game {
     if (this.state !== "paused") return;
     await this._endLiveRun("quit");
     this.state = "menu";
+    this.audio.endSession();
     this.hud.setPauseActions(false);
     this.start();
   }
@@ -407,7 +417,8 @@ export class Game {
     if (this.state !== "paused") return;
     await this._endLiveRun("quit");
     this.state = "menu";
-    this.audio.intensity = 0;
+    this.audio.endSession();
+    this.world.endRun();
     this.input.unlock();
     this.hud.setPauseActions(false);
     this.hud.showMenu(!0);
@@ -744,6 +755,7 @@ export class Game {
       this.shells.update(fxDt, (r, a) => w.arena.groundHeight(r, a)),
       (this.impactLight.intensity *= Math.exp(-28 * frameDt)),
       this.hud.update(frameDt),
+      this._tickContest(frameDt),
       this.audio.setListener(
         [
           this.camera.position.x,
@@ -788,7 +800,10 @@ export class Game {
     const w = this.world;
     w.step(dt, this.input.frame());
     if (w.player.dead && w.deadT > 3.2 && this.state === "dead") {
-      ((this.state = "over"), this.input.unlock());
+      ((this.state = "over"),
+        this.input.unlock(),
+        this.audio.endSession(),
+        w.endRun());
       const d = Math.floor(w.elapsed);
       (this.hud.showMenu(
         !0,

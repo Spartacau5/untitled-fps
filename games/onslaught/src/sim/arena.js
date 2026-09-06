@@ -1,6 +1,12 @@
 import { MathUtils, Vector3 } from "three";
 import { ARENA_RADIUS, WALL_HEIGHT } from "../data/tuning.js";
 
+// Roll-up shutter timing. Opening is quicker than closing so a gate reads as
+// "something is coming through" the moment a spawn is queued to it, then
+// settles shut once the gate has been quiet for its hold.
+const GATE_OPEN_RATE = 1 / 0.55;
+const GATE_CLOSE_RATE = 1 / 0.9;
+
 export class BoxCollider {
   constructor(t, e, n, s, r, a, l) {
     ((this.cx = t),
@@ -50,6 +56,10 @@ export class Arena {
         ),
         dir: new Vector3(-Math.cos(U), 0, -Math.sin(U)),
         activity: 0,
+        // 0 shut, 1 fully rolled up. `openHold` is the countdown that keeps it
+        // up; spawning through a gate refreshes it.
+        open: 0,
+        openHold: 0,
         angle: U,
       });
     }
@@ -120,7 +130,7 @@ export class Arena {
     ];
     let A = 0,
       C = 0;
-    for (; A < 16 && C < 400; ) {
+    for (; A < 16 && C < 400;) {
       C++;
       const z = 9 + this.rng.float() * 22,
         U = this.rng.float() * Math.PI * 2,
@@ -270,9 +280,17 @@ export class Arena {
         }
       : null;
   }
-  // Gate activity is sim state (spawns raise it); the view reads it for glow.
+  // Gate activity and shutter travel are sim state (spawns raise them); the
+  // view reads both for the roll-up and the portal glow.
   update(dt) {
-    for (const n of this.gates)
+    for (const n of this.gates) {
       n.activity = Math.max(0, n.activity - dt * 1.2);
+      n.openHold = Math.max(0, n.openHold - dt);
+      const target = n.openHold > 0 ? 1 : 0;
+      n.open =
+        target > n.open
+          ? Math.min(target, n.open + GATE_OPEN_RATE * dt)
+          : Math.max(target, n.open - GATE_CLOSE_RATE * dt);
+    }
   }
 }
