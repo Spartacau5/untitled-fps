@@ -5,7 +5,10 @@
 //
 // Each board's material gets its own uTime uniform, advanced by ArenaView.
 // `phase` desynchronises boards sharing a motion so the square does not pulse
-// as one animal.
+// as one animal - and it is a uniform, not a baked constant. Baking it made
+// every board a distinct shader source and so a distinct compiled program:
+// 21 boards became 21 programs where four motions need four. Linking those
+// is synchronous and it dominated load time.
 
 const MOTIONS = {
   // A slow backlit swell.
@@ -32,16 +35,20 @@ export function applyLedPanel(material, { motion = "pulse", phase = 0 } = {}) {
   const body = MOTIONS[motion];
   if (!body) return material;
   const uTime = { value: 0 };
-  const glsl = body.replace(/PHASE/g, phase.toFixed(3));
+  const uPhase = { value: phase };
+  const glsl = body.replace(/PHASE/g, "uPhase");
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = uTime;
+    ((shader.uniforms.uTime = uTime), (shader.uniforms.uPhase = uPhase));
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec2 vLedUv;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvLedUv = uv;");
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvLedUv = uv;",
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
-        "#include <common>\nvarying vec2 vLedUv;\nuniform float uTime;",
+        "#include <common>\nvarying vec2 vLedUv;\nuniform float uTime;\nuniform float uPhase;",
       )
       // Hook the emissive stage: these panels read as lit screens, so the
       // motion belongs on the light they give off, not on their albedo.
@@ -54,10 +61,10 @@ export function applyLedPanel(material, { motion = "pulse", phase = 0 } = {}) {
         totalEmissiveRadiance *= max(0.0, m) * dots;`,
       );
   };
-  // Without a distinct cache key three.js shares one compiled program across
-  // every board, and they would all run the first board's motion.
-  material.customProgramCacheKey = () => `led_${motion}_${phase.toFixed(3)}`;
-  material.userData.ledTime = uTime;
+  // Keyed on motion alone now: the source no longer varies with phase, so
+  // boards on the same motion legitimately share one program.
+  material.customProgramCacheKey = () => `led_${motion}`;
+  ((material.userData.ledTime = uTime), (material.userData.ledPhase = uPhase));
   return material;
 }
 

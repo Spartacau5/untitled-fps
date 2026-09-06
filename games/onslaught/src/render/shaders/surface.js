@@ -41,6 +41,9 @@ export function applySurfaceGrime(
         roughnessFactor = clamp(roughnessFactor * (0.8 + 0.4 * wear) + stain * 0.2, 0.05, 1.0);`,
       );
   };
-  material.customProgramCacheKey = () => key;
+  // Scale and streaks are the only values baked into the source, so they
+  // alone decide the key. Keying on a caller-supplied name compiled the
+  // same shader once per material.
+  material.customProgramCacheKey = () => `grime_${s}_${streaks.toFixed(3)}`;
   return material;
 }

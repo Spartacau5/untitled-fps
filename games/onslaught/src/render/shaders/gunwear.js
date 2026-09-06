@@ -102,8 +102,8 @@ export function applyGunWear(material, style, key) {
         roughnessFactor = clamp(roughnessFactor + rough, 0.04, 1.0);`,
       );
   };
-  // Materials sharing a signature would otherwise share one compiled program
-  // and all run the first style.
-  material.customProgramCacheKey = () => `wear_${key || style}`;
+  // The injected body is STYLES[style] and nothing else, so style is the
+  // entire key. Keying per material compiled eight programs for five styles.
+  material.customProgramCacheKey = () => `wear_${style}`;
   return material;
 }
