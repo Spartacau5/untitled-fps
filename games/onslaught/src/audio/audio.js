@@ -29,6 +29,10 @@ const GUN_VOICES = {
   smg: { base: "ar", pitch: 1.12, gain: 0.62 },
   lmg: { base: "dmr", pitch: 0.94, gain: 0.92 },
   sniper: { base: "dmr", pitch: 0.72, gain: 1.35 },
+  // 5.56 out of a 14.5" barrel: a touch sharper and flatter than the VK-7.
+  m4: { base: "ar", pitch: 1.05, gain: 0.9 },
+  // 9mm, roller-delayed, suppressed-sounding next to the others.
+  mp5: { base: "ar", pitch: 1.18, gain: 0.68 },
 };
 
 export class Audio {

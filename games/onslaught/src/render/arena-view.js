@@ -121,6 +121,9 @@ export class ArenaView {
     // Materials with a motion shader, advanced together in update().
     this.ledMats = [];
     this.tickers = [];
+    // Campaign bitmaps, shared across every board running that campaign.
+    this.boardMaps = new Map();
+    this.tickerMap = null;
   }
   _box(w, h, d, x, y, z, material, yaw = 0) {
     const geo = new BoxGeometry(w, h, d);
@@ -178,13 +181,22 @@ export class ArenaView {
   // are not batched: each carries its own motion shader and its own clock, so
   // they have to stay separate meshes.
   _board(campaign, w, h, x, y, z, yaw = 0, phase = 0) {
-    const map = signTexture(
-      campaign.headline,
-      campaign.subline || "",
-      campaign.bg,
-      campaign.fg,
-      campaign.art !== false,
-    );
+    // Draw each campaign once and share the bitmap. Twenty boards run six
+    // campaigns, and a 1024x512 RGBA texture with mipmaps is ~2.8 MiB, so
+    // redrawing per board cost about 39 MiB of GPU memory for nothing. The
+    // material still has to be per-board: each carries its own motion clock.
+    if (!this.boardMaps.has(campaign.id))
+      this.boardMaps.set(
+        campaign.id,
+        signTexture(
+          campaign.headline,
+          campaign.subline || "",
+          campaign.bg,
+          campaign.fg,
+          campaign.art !== false,
+        ),
+      );
+    const map = this.boardMaps.get(campaign.id);
     const mat = new MeshStandardMaterial({
       map,
       emissiveMap: map,
@@ -210,7 +222,15 @@ export class ArenaView {
   // The crawling news strip. One wrapped texture per message, scrolled by
   // offset -- no canvas is ever redrawn.
   _ticker(w, h, x, y, z, yaw, speed = 0.06) {
-    const map = tickerTexture(TICKER.join(TICKER_SEPARATOR) + TICKER_SEPARATOR);
+    // Every strip runs the same message. One bitmap, cloned per strip so each
+    // keeps its own offset and repeat -- clones share the underlying image, so
+    // eighteen strips cost one upload rather than eighteen.
+    if (!this.tickerMap)
+      this.tickerMap = tickerTexture(
+        TICKER.join(TICKER_SEPARATOR) + TICKER_SEPARATOR,
+      );
+    const map = this.tickerMap.clone();
+    map.needsUpdate = !0;
     // Repeat so the strip reads at a legible size on a wide panel rather than
     // stretching one pass of the text across the whole board.
     map.repeat.set(w / (h * 9), 1);

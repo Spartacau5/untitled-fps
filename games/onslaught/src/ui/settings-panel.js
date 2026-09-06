@@ -1,6 +1,9 @@
 import { DEFAULTS, RANGES } from "../core/settings.js";
 
+const QUALITY = ["PERFORMANCE", "BALANCED", "HIGH"];
+
 const LABELS = {
+  quality: ["GRAPHICS", (v) => QUALITY[v] || QUALITY[2]],
   sensitivity: ["SENSITIVITY", (v) => v.toFixed(1)],
   fov: ["FIELD OF VIEW", (v) => v.toFixed(0) + "°"],
   master: ["MASTER VOLUME", (v) => Math.round(v * 100) + "%"],

@@ -61,6 +61,14 @@ import {
   submitRun as postRun,
 } from "../ui/leaderboard.js";
 
+// Graphics tiers, indexed by the `quality` setting. Render scale is capped
+// rather than fixed, so a 1x display never renders above its own resolution.
+const QUALITY_TIERS = [
+  { pixelRatio: 1, samples: 0, shadow: 1024 },
+  { pixelRatio: 1.25, samples: 2, shadow: 2048 },
+  { pixelRatio: 1.5, samples: 4, shadow: 2048 },
+];
+
 // Presentation shell: owns the renderer, cameras, views, FX, audio and HUD.
 // All gameplay lives in sim/world.js; this class feeds it input frames and
 // turns its events and state into pixels and sound.
@@ -226,6 +234,9 @@ export class Game {
       (this.runId = ""),
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
+      // Build the guns the player did not deploy with once the page is idle:
+      // off the load path, but done well before anyone presses a number key.
+      this._warmViewmodels(),
       this.hud.setContest(Date.now()),
       this.hud.setSlots(this.world.weapons.weapons.length),
       this._renderLoadoutStrip(),
@@ -297,11 +308,30 @@ export class Game {
     this.camFov = this.settings.get("fov");
     const apply = (k, v) => {
       (k === "sensitivity" && (this.input.sensitivity = v),
+        k === "quality" && this._applyQuality(v),
         (k === "master" || k === "music" || k === "sfx") &&
           this.audio.setVolumes({ [k]: v }));
     };
     for (const k in this.settings.all()) apply(k, this.settings.get(k));
     this.settings.onChange(apply);
+  }
+  // Three levers, in the order they cost frames: how many pixels are shaded,
+  // how many samples each one takes, and how big the sun's shadow map is.
+  // Everything else about the look is unchanged, so dropping quality trades
+  // sharpness for framerate rather than turning the art off.
+  _applyQuality(level) {
+    const tier = QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio, tier.pixelRatio),
+    );
+    this.postfx && this.postfx.setSamples(tier.samples);
+    const sun = this.arenaView && this.arenaView.sun;
+    if (sun && sun.shadow.mapSize.width !== tier.shadow) {
+      (sun.shadow.mapSize.setScalar(tier.shadow),
+        sun.shadow.map && (sun.shadow.map.dispose(), (sun.shadow.map = null)));
+    }
+    // setPixelRatio alone does not resize the drawing buffer.
+    this.resize();
   }
   _playerName() {
     const typed = this.hud.el.playerName && this.hud.el.playerName.value;
@@ -467,6 +497,14 @@ export class Game {
       this.world.drainEvents(),
       this.hud.setSlots(this.world.weapons.weapons.length),
       this._renderLoadoutStrip());
+  }
+  // Deferred so it never lands inside the first frames. requestIdleCallback
+  // is not in every browser, so fall back to a timeout.
+  _warmViewmodels() {
+    const warm = () => this.weaponView.warm();
+    typeof requestIdleCallback === "function"
+      ? requestIdleCallback(warm, { timeout: 4000 })
+      : setTimeout(warm, 1200);
   }
   _renderLoadoutStrip() {
     const el = this.hud.el.loadoutStrip;
