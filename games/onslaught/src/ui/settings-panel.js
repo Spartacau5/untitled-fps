@@ -15,6 +15,7 @@ const LABELS = {
 export function mountSettingsPanel(settings, els) {
   const inputs = {};
   for (const key in DEFAULTS) {
+    if (els.mobile && key === "quality") continue;
     const r = RANGES[key],
       [label, fmt] = LABELS[key],
       row = document.createElement("label");
@@ -32,6 +33,10 @@ export function mountSettingsPanel(settings, els) {
     );
     els.rows.appendChild(row);
     inputs[key] = show;
+  }
+  if (els.mobile && els.note) {
+    els.note.textContent = "MOBILE TEST PROFILE · 1× resolution · no shadows or postprocessing. Sensitivity adjusts touch aiming.";
+    els.note.classList.remove("hidden");
   }
   settings.onChange((k, v) => inputs[k] && inputs[k](v));
   const open = () => {

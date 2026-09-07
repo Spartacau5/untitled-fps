@@ -297,7 +297,7 @@ export function updateRedDot(i, t, e) {
     (i.uniforms.uTime.value = e));
 }
 export class MuzzleFlash {
-  constructor() {
+  constructor({ mobile = false } = {}) {
     ((this.group = new Group()),
       (this.uniforms = {
         uLife: { value: 1 },
@@ -361,7 +361,7 @@ export class MuzzleFlash {
       (this.inner = new Group()),
       this.inner.add(s, r, a, l),
       this.group.add(this.inner),
-      (this.light = new PointLight(16752704, 0, 3, 2)),
+      (this.light = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16752704, 0, 3, 2)),
       (this.light.position.z = -0.05),
       this.group.add(this.light),
       (this.group.visible = !1),

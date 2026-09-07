@@ -13,7 +13,7 @@ import { MuzzleFlash, makeRedDotMaterial, updateRedDot } from "./weapons/kit.js"
 // the pose; reacts to sim events for kicks, flash and bolt motion. Owns every
 // spring and animation value — none of this feeds back into the sim.
 export class WeaponView {
-  constructor(cam, loadout, startIndex = 0) {
+  constructor(cam, loadout, startIndex = 0, { mobile = false } = {}) {
     ((this.cam = cam),
       (this.rig = new Group()),
       cam.add(this.rig),
@@ -23,7 +23,7 @@ export class WeaponView {
       (this.built = new Map()),
       (this.models = []),
       (this.shown = 0),
-      (this.flash = new MuzzleFlash()),
+      (this.flash = new MuzzleFlash({ mobile })),
       (this.boltT = []),
       (this.swayPos = new Vector3()),
       (this.swayPosV = new Vector3()),

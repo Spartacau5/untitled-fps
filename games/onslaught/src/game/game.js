@@ -40,7 +40,9 @@ import { Decals } from "../render/fx/decals.js";
 import { ParticleSystem } from "../render/fx/particles.js";
 import { Shells } from "../render/fx/shells.js";
 import { Tracers } from "../render/fx/tracers.js";
-import { PostFX } from "../render/postfx.js";
+import { DirectRenderer } from "../render/direct-renderer.js";
+import { TouchInput } from "../core/touch-input.js";
+import { mountTouchControls } from "../ui/touch-controls.js";
 import { createSky } from "../render/sky.js";
 import { WeaponView } from "../render/weapon-view.js";
 import * as EV from "../sim/events.js";
@@ -77,7 +79,8 @@ const QUALITY_TIERS = [
 // All gameplay lives in sim/world.js; this class feeds it input frames and
 // turns its events and state into pixels and sound.
 export class Game {
-  constructor(t) {
+  constructor(t, { mobile = false, PostFX } = {}) {
+    this.mobile = mobile;
     this.canvas = t;
     const e = new URLSearchParams(location.search);
     ((this.debug = e.has("debug")), (this.god = e.has("god")));
@@ -99,10 +102,10 @@ export class Game {
       stencil: !1,
       alpha: !1,
     });
-    (n.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)),
+    (n.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1 : 1.5)),
       n.setSize(window.innerWidth, window.innerHeight, !1),
       (n.toneMapping = NoToneMapping),
-      (n.shadowMap.enabled = !0),
+      (n.shadowMap.enabled = !mobile),
       (n.shadowMap.type = PCFSoftShadowMap),
       (n.autoClear = !1),
       n.setClearColor(0, 1),
@@ -114,7 +117,7 @@ export class Game {
       (this.weaponCamera = new PerspectiveCamera(56, s, 0.012, 8)),
       this.scene.add(this.camera),
       this.weaponScene.add(this.weaponCamera),
-      (this.input = new Input(t)),
+      (this.input = mobile ? new TouchInput() : new Input(t)),
       (this.audio = new Audio()),
       // Build the audio graph at load, not on the DEPLOY click. A context may
       // be constructed without a gesture - it just starts suspended - and
@@ -123,7 +126,7 @@ export class Game {
       this.audio.init(),
       this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD()),
-      (this.arenaView = new ArenaView(this.scene, this.world.arena)),
+      (this.arenaView = new ArenaView(this.scene, this.world.arena, { mobile })),
       (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
@@ -139,9 +142,10 @@ export class Game {
         this.weaponCamera,
         this.progression.loadout,
         this.world.weapons.startIndex,
+        { mobile },
       )),
       (this.pickupMeshes = new Map()),
-      (this.postfx = new PostFX(n)));
+      (this.postfx = mobile ? new DirectRenderer(n) : new PostFX(n)));
     const r = new DirectionalLight(
       theme.lights.weaponKey.color,
       theme.lights.weaponKey.intensity,
@@ -154,7 +158,7 @@ export class Game {
     // trigger guard have no contact darkening and the gun reads as one flat
     // object. A tight frustum is enough: the subject is under a metre across
     // and sits a fixed distance from the camera.
-    r.castShadow = true;
+    r.castShadow = !mobile;
     r.shadow.mapSize.width = r.shadow.mapSize.height = 1024;
     Object.assign(r.shadow.camera, {
       left: -0.7,
@@ -175,7 +179,7 @@ export class Game {
         theme.lights.weaponHemi.intensity,
       ),
     );
-    const a = new PointLight(
+    const a = mobile ? new Group() : new PointLight(
       theme.lights.weaponFill.color,
       theme.lights.weaponFill.intensity,
       4,
@@ -183,11 +187,11 @@ export class Game {
     );
     (a.position.set(-0.6, -0.3, -0.6),
       this.weaponCamera.add(a),
-      (this.muzzleLight = new PointLight(16752704, 0, 20, 2)),
+      (this.muzzleLight = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16752704, 0, 20, 2)),
       this.scene.add(this.muzzleLight),
-      (this.impactLight = new PointLight(16760960, 0, 9, 2)),
+      (this.impactLight = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16760960, 0, 9, 2)),
       this.scene.add(this.impactLight),
-      this._setupEnvironment(),
+      !mobile && this._setupEnvironment(),
       this._buildPickupProto(),
       (this.state = "menu"),
       (this.time = 0),
@@ -211,6 +215,7 @@ export class Game {
         btnReset: this.hud.el.settingsReset,
         menuMain: this.hud.el.menuMain,
         note: this.hud.el.settingsNote,
+        mobile,
       })),
       // Raw-input support is only known once the pointer actually locks, so
       // the panel is told when that resolves rather than being asked up front.
@@ -233,6 +238,7 @@ export class Game {
         btnOpen: this.hud.el.btnControls,
         btnBack: this.hud.el.controlsBack,
         summary: this.hud.el.controlsSummary,
+        mobile,
         menuMain: this.hud.el.menuMain,
       })),
       (this.runLog = new RunLog()),
@@ -317,6 +323,7 @@ export class Game {
       (this._raf = (l) => {
         (requestAnimationFrame(this._raf), this.loop(l));
       }));
+    if (mobile) this.touchControls = mountTouchControls(this.input, this);
   }
   // Compile every program the opening frames will need, up front.
   //
@@ -367,7 +374,7 @@ export class Game {
   // Everything else about the look is unchanged, so dropping quality trades
   // sharpness for framerate rather than turning the art off.
   _applyQuality(level) {
-    const tier = QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
+    const tier = this.mobile ? QUALITY_TIERS[0] : QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
     this.renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, tier.pixelRatio),
     );
@@ -567,6 +574,7 @@ export class Game {
       `<span>KEYS <b>1&ndash;${l.length}</b> CARRIED</span>`;
   }
   start() {
+    if (this.mobile && !this.touchControls.enter()) return;
     this.settingsPanel && this.settingsPanel.close();
     this.armoryPanel && this.armoryPanel.close();
     this.controlsPanel && this.controlsPanel.close();
@@ -574,7 +582,7 @@ export class Game {
     if ((this.audio.init(), this.audio.resume(), this.state === "paused")) {
       ((this.state = "playing"),
         this.hud.showMenu(!1),
-        this.debug || this.input.lock(),
+        (!this.debug || this.mobile) && this.input.lock(),
         (this.last = performance.now()));
       return;
     }
@@ -588,13 +596,14 @@ export class Game {
       (this.state = "playing"),
       this.hud.showMenu(!1),
       this.hud.show(!0),
-      this.debug || this.input.lock(),
+      (!this.debug || this.mobile) && this.input.lock(),
       (this.last = performance.now()),
       this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
   }
   pause() {
+    if (this.mobile) this.input.unlock();
     const w = this.world;
     ((this.state = "paused"),
       this.hud.showMenu(
@@ -637,6 +646,7 @@ export class Game {
       this.syncWeapon());
   }
   onDeath() {
+    if (this.mobile) this.input.unlock();
     ((this.state = "dead"),
       this.audio.gameOver(),
       (this.audio.intensity = 0),

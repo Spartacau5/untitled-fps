@@ -124,6 +124,10 @@ export function mountControls(els) {
   els.body.innerHTML =
     `<div class="ctrl-brief">${brief}</div><div class="ctrl-cols">${groups}</div>`;
 
+  if (els.mobile) {
+    els.summary.innerHTML = "<div><b>LEFT THUMB</b> move · <b>RIGHT THUMB</b> look</div><div>Auto-run on · Tap AIM to toggle sights · Hold FIRE to shoot</div>";
+    els.body.innerHTML = `<div class="ctrl-brief">${brief}</div><div class="ctrl-brief"><p>Drag the left half to move, and the right half to look. You can drag FIRE to aim while shooting.</p><p>Tap AIM to toggle sights. Hold CROUCH to crouch or slide while running. Tap JUMP, RELOAD or WEAPON to act or cycle your equipped guns.</p><p>AUTO RUN starts on and yields while aiming or firing. Tap it to walk. PAUSE opens the menu; rotating upright or leaving the page pauses play.</p></div>`;
+  }
   const open = () => {
     els.panel.classList.remove("hidden");
     els.menuMain.classList.add("hidden");

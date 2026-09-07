@@ -4,6 +4,7 @@ import {
   CylinderGeometry,
   DirectionalLight,
   FogExp2,
+  Group,
   HemisphereLight,
   Mesh,
   MeshStandardMaterial,
@@ -49,7 +50,8 @@ const LAMP_BODY_OPEN = new Color(0x2a9143);
 // wall segments and gate recesses retain their original dimensions/transforms.
 // Skyline and decorative details beyond the boundary are presentation only.
 export class ArenaView {
-  constructor(scene, arena) {
+  constructor(scene, arena, { mobile = false } = {}) {
+    this.mobile = mobile;
     this.scene = scene;
     this.gateViews = [];
     this.batches = new Map();
@@ -714,7 +716,7 @@ export class ArenaView {
     const a = theme.lights;
     const sun = new DirectionalLight(a.sun.color, a.sun.intensity);
     sun.position.copy(SUN_DIR).multiplyScalar(90);
-    sun.castShadow = true;
+    sun.castShadow = !this.mobile;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, {
       left: -48,
@@ -743,7 +745,9 @@ export class ArenaView {
     // pays for each light whether or not it is lit.
     // Short range on purpose: this should pool on the jambs and pavement at
     // the mouth of the gate, not relight the whole block and flatten the night.
-    this.portalLight = new PointLight(0xff6a1e, 0, 11, 2);
+    this.portalLight = this.mobile
+      ? Object.assign(new Group(), { intensity: 0 })
+      : new PointLight(0xff6a1e, 0, 11, 2);
     this.scene.add(this.portalLight);
   }
   update(time, dt = 1 / 60) {

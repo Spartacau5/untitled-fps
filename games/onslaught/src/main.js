@@ -1,5 +1,6 @@
 import { inject } from "@vercel/analytics";
-import { Game } from "./game/game.js";
+import { isTouchDevice } from "./core/device.js";
+import { mountRotatePrompt } from "./ui/touch-controls.js";
 import { applyThemeCss, applyThemeStrings } from "./theme/theme.js";
 import { mountBoot } from "./ui/boot.js";
 
@@ -21,8 +22,14 @@ const boot = mountBoot();
 // frame and the tab would simply hang in between.
 (async () => {
   try {
+    const mobile = isTouchDevice();
+    if (mobile) await mountRotatePrompt();
+    const [{ Game }, desktop] = await Promise.all([
+      import("./game/game.js"),
+      mobile ? Promise.resolve(null) : import("./render/postfx.js"),
+    ]);
     await boot.step("BUILDING THE SQUARE", 0.18);
-    const game = new Game(canvas);
+    const game = new Game(canvas, { mobile, PostFX: desktop?.PostFX });
     await boot.step("PREPARING RENDERER", 0.42);
     await game.warmup((value, label) => boot.set(value, label));
     game.startLoop();
