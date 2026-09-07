@@ -314,6 +314,10 @@ export function buildEnemyRig(i) {
       "glow",
     );
   }
+  if (i.tactical) {
+    p(h, f(0.12, 0.48, 0.13, 0, -i.armLL - 0.13, -0.03), "joint");
+    p(h, f(0.045, 0.3, 0.045, 0, -i.armLL - 0.5, -0.03), "joint");
+  }
   return {
     root: e,
     n: {
@@ -411,14 +415,15 @@ ${NOISE_GLSL}`,
 // Instanced skeletal rigs + projectile pool, posed each frame from sim state.
 //
 export class EnemyView {
-  constructor(scene) {
+  constructor(scene, { tactical = false } = {}) {
+    this.tactical = tactical;
     ((this.scene = scene), (this.uTime = { value: 0 }), (this.types = {}));
     for (const a in ENEMIES) this._buildType(ENEMIES[a]);
     this._buildProjectiles();
   }
   _buildType(t) {
     const colors = theme.enemies[t.key],
-      e = buildEnemyRig(t.proportions),
+      e = buildEnemyRig({ ...t.proportions, tactical: this.tactical }),
       n = new Float32Array(MAX_PER_TYPE),
       s = new Float32Array(MAX_PER_TYPE),
       r = makeEnemyMaterial(
@@ -713,6 +718,7 @@ export class EnemyView {
           (s.elR.rotation.x = Math.max(0.04, elX + Math.max(0, swR) * 0.5)),
           (s.elL.rotation.z = -carry),
           (s.elR.rotation.z = carry),
+          l.tactical && (s.shR.rotation.set(0.4, 0, 0.1), s.elR.rotation.set(1.05, 0, 0), s.shL.rotation.set(0.5, 0, -0.1), s.elL.rotation.set(0.9, 0, 0)),
           n.root.updateMatrixWorld(!0));
         for (const p of e.meshes) {
           const f =

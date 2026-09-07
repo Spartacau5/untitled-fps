@@ -37,8 +37,9 @@ const NEIGHBOURS = [
 export class FlowField {
   constructor(arena, cell = CELL) {
     this.cell = cell;
-    this.origin = -(ARENA_RADIUS + 1);
-    this.n = Math.ceil(((ARENA_RADIUS + 1) * 2) / cell);
+    const extent = arena.bounds ? Math.max(arena.bounds.x, arena.bounds.z) + 1 : ARENA_RADIUS + 1;
+    this.origin = -extent;
+    this.n = Math.ceil((extent * 2) / cell);
     const total = this.n * this.n;
     this.open = new Uint8Array(total);
     this.dist = new Int32Array(total);
@@ -59,7 +60,7 @@ export class FlowField {
       const z = origin + (gz + 0.5) * cell;
       for (let gx = 0; gx < n; gx++) {
         const x = origin + (gx + 0.5) * cell;
-        let ok = Math.hypot(x, z) < limit;
+        let ok = arena.bounds ? Math.abs(x) < arena.bounds.x - CLEARANCE && Math.abs(z) < arena.bounds.z - CLEARANCE : Math.hypot(x, z) < limit;
         if (ok)
           for (const b of arena.boxes) {
             if (b.y1 < 0.5) continue;

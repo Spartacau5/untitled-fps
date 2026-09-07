@@ -2,6 +2,9 @@ import { MathUtils, Vector3 } from "three";
 import { RNG } from "../core/rng.js";
 import { composeWave } from "../data/waves.js";
 import { Arena } from "./arena.js";
+import { MidtownArena } from "./midtown-arena.js";
+import { TacticalEnemies } from "./tactical-enemies.js";
+import { Hardpoint } from "./hardpoint.js";
 import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
 import {
@@ -28,12 +31,14 @@ import { Weapons } from "./weapons.js";
 export class World {
   constructor({
     seed = 1,
+    mode = "horde",
     god = !1,
     noSpawn = !1,
     loadout = null,
     startKey = null,
   } = {}) {
-    ((this.seed = seed),
+    ((this.mode = mode),
+      (this.seed = seed),
       (this.god = god),
       (this.noSpawn = noSpawn),
       // Which guns the player brought. Part of the run, not a setting: the
@@ -41,11 +46,11 @@ export class World {
       (this.loadout = loadout),
       (this.startKey = startKey),
       (this.rng = new RNG(seed)),
-      (this.arena = new Arena(this.rng.fork("layout"))),
+      (this.arena = new (mode === "hardpoint" ? MidtownArena : Arena)(this.rng.fork("layout"))),
       (this.flow = new FlowField(this.arena)),
       (this.player = new Player(this.arena)),
       (this.weapons = new Weapons(this.rng.fork("combat"), loadout, startKey)),
-      (this.enemies = new Enemies(this.arena, this.rng.fork("ai"))),
+      (this.enemies = new (mode === "hardpoint" ? TacticalEnemies : Enemies)(this.arena, this.rng.fork("ai"))),
       (this.projectiles = new Projectiles(this.arena)),
       (this.waveRng = this.rng.fork("waves")),
       (this.stats = new RunStats()),
@@ -73,6 +78,7 @@ export class World {
       (this._cone = []),
       (this._cv = new Vector3()),
       (this._cp = new Vector3()));
+    this.match = mode === "hardpoint" ? new Hardpoint(this) : null;
   }
   emit(type, data) {
     ((data.type = type), this.stats.record(data, this), this.events.push(data));
@@ -127,6 +133,7 @@ export class World {
       (this._hurtBy = null),
       this.stats.reset(),
       this.weapons._ammo(this));
+    if (this.match) { this.match.reset(); this.match.placePlayer(); }
   }
   // Swap the carried guns between runs. startRun() re-forks the combat
   // stream, so rebuilding the weapons here cannot desync a seeded replay.
@@ -136,6 +143,7 @@ export class World {
       (this.weapons = new Weapons(this.rng.fork("combat"), keys, startKey)));
   }
   step(dt, input) {
+    if (this.match?.finished) return;
     // Run time is accumulated, not derived as `time - startTime`. `time` keeps
     // growing for the whole life of the World, so that subtraction carried a
     // different rounding error on a second run than it did on the first -
@@ -148,13 +156,13 @@ export class World {
       t = this.elapsed;
     (p.update(dt, input, t),
       // Reflood before the AI reads it; a no-op unless the player changed cell.
-      this.flow.update(p.pos.x, p.pos.z),
+      this.flow.update(this.match ? this.match.point.x : p.pos.x, this.match ? this.match.point.z : p.pos.z),
       this.weapons.update(dt, input, p, t, this),
       this.enemies.update(dt, p, this),
       this.projectiles.update(dt, p, this),
       p.dead
         ? (this.deadT += dt)
-        : (this.updateWaves(dt), this.updatePickups(dt)),
+        : (!this.match && this.updateWaves(dt), this.updatePickups(dt)),
       this.arena.update(dt),
       this.stats.tick(dt, this));
     // Player events are gameplay-relevant too (landing shakes the camera),
@@ -162,17 +170,18 @@ export class World {
     // stats recorder is fed here; hurt events are tagged with their source.
     for (const ev of p.events) {
       (ev.type === EV_LAND && p.addTrauma(ev.strength * 0.12),
-        ev.type === EV_DEAD && (this.slowmoRequest = 2.5),
+        ev.type === EV_DEAD && !this.match && (this.slowmoRequest = 2.5),
         ev.type === EV_HURT && (ev.by = this._hurtBy),
         this.stats.record(ev, this),
         this.events.push(ev));
     }
     p.events.length = 0;
+    if (this.match) this.match.update(dt);
   }
   // Menu/idle: only the ambient systems run so the diorama keeps moving.
   stepIdle(dt) {
     ((this.time += dt),
-      this.enemies.update(dt, this.player, this),
+      !this.match && this.enemies.update(dt, this.player, this),
       this.projectiles.update(dt, this.player, this),
       this.arena.update(dt));
   }
@@ -284,11 +293,11 @@ export class World {
   }
   // n is the attacking enemy, or null for a spitter projectile.
   onPlayerHit(t, e, n) {
-    if (this.player.dead) return;
-    ((this._hurtBy = n ? n.type : "spit"),
+    if (this.player.dead || this.match?.spawnShield > 0) return;
+    ((this._hurtBy = n?.tactical ? "rifle" : n ? n.type : "spit"),
       this.god && (t = 0),
       this.player.damage(t, e),
-      n &&
+      n && !n.tactical &&
         (this._v.subVectors(this.player.pos, n.pos),
         (this._v.y = 0),
         this._v.normalize(),
@@ -296,7 +305,7 @@ export class World {
   }
   onSlam(t, e, n = 5) {
     (this.player.addTrauma(MathUtils.clamp(1 - e / 14, 0, 0.8)),
-      e < n &&
+      e < n && !n.tactical &&
         (this._v.subVectors(this.player.pos, t),
         (this._v.y = 0),
         this._v.normalize(),
@@ -318,7 +327,7 @@ export class World {
         mult: s,
         groundY: this.arena.groundHeight(t.pos.x, t.pos.z),
       }),
-      (t.def.big || this.waveRng.chance(0.13)) && this.spawnPickup(t.pos));
+      (this.match || t.def.big || this.waveRng.chance(0.13)) && this.spawnPickup(t.pos));
   }
   startWave(t) {
     ((this.wave = t), (this.waveActive = !0));
@@ -422,6 +431,7 @@ export class World {
       }
     };
     const p = this.player;
+    if (this.match) { mix(this.match.playerScore); mix(this.match.robotScore); mix(this.match.time); mix(this.match.deaths); }
     (mix(p.pos.x),
       mix(p.pos.y),
       mix(p.pos.z),

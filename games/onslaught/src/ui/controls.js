@@ -117,7 +117,11 @@ export function mountControls(els) {
     return `<div class="ctrl-group"><h3 class="ctrl-heading">${heading}</h3>${items}</div>`;
   }).join("");
 
-  const brief = BRIEF.map(
+  const brief = (els.hardpoint ? [
+    ["OBJECTIVE", "Stand inside the marked hardpoint to score one point per second. Enemy presence contests it and stops scoring. First to 120 wins; the match ends after six minutes."],
+    ["ROTATION", "The point moves every 45 seconds: Broadway, Theater Walk, Seventh Avenue. Use the cross-streets and watch the next-point indicator."],
+    ["RESPAWNS", "You respawn after three seconds. Three rifle robots capture and defend the point. Eliminations drop ammunition. Solo practice does not award horde XP or leaderboard scores."],
+  ] : BRIEF).map(
     ([k, v]) => `<div class="ctrl-brief-row"><b>${k}</b><span>${v}</span></div>`,
   ).join("");
 

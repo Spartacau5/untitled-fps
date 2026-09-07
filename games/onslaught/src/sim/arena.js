@@ -179,7 +179,7 @@ export class Arena {
       }
     }
     const l = Math.hypot(t, e),
-      o = ARENA_RADIUS + 4 - n;
+      o = this.bounds ? Infinity : ARENA_RADIUS + 4 - n;
     return (l > o && ((t *= o / l), (e *= o / l)), [t, e]);
   }
   floorAt(t, e, n, s) {
@@ -204,7 +204,7 @@ export class Arena {
       if (c > 0 && c < s) {
         const h = t.x + e.x * c,
           d = t.z + e.z * c;
-        if (Math.hypot(h, d) < 8.5) {
+        if (!this.bounds && Math.hypot(h, d) < 8.5) {
           const m = (0.5 - t.y) / e.y,
             g = Math.hypot(t.x + e.x * m, t.z + e.z * m);
           if (m > 0 && g < 7) ((s = m), (r = 0), (a = 1), (l = 0), (o = !0));
@@ -253,7 +253,7 @@ export class Arena {
     }
     {
       const c = e.x * e.x + e.z * e.z;
-      if (c > 1e-8) {
+      if (!this.bounds && c > 1e-8) {
         const h = 2 * (t.x * e.x + t.z * e.z),
           d = t.x * t.x + t.z * t.z - ARENA_RADIUS * ARENA_RADIUS,
           u = h * h - 4 * c * d;

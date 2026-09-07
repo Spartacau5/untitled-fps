@@ -266,6 +266,13 @@ export class Audio {
       u.start(t),
       u.stop(t + a + l + 0.05));
   }
+  robotShot(position, occluded = false) {
+    if (!this.ready) return;
+    const { gain, pan } = this.spatial(position, 5, 55);
+    const level = gain * (occluded ? 0.22 : 1);
+    this.noise(this.now, { type: "lowpass", freq: occluded ? 650 : 4800, freqEnd: 350, gain: level * 0.7, attack: 0.001, decay: 0.12, pan, send: 0.3 });
+    this.tone(this.now, { type: "triangle", freq: 140, freqEnd: 48, gain: level * 0.38, attack: 0.001, decay: 0.16, pan, send: 0.25 });
+  }
   gunshot(key) {
     if (!this.ready) return;
     if (key === "flame") return this.flameLoop();

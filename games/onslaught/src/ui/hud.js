@@ -1,8 +1,10 @@
+import { MatchHUD } from "./match-hud.js";
 import { contestState } from "./contest.js";
 import { theme } from "../theme/theme.js";
 
 export class HUD {
-  constructor() {
+  constructor({ match = false } = {}) {
+    this.matchMode = match;
     const t = (e) => document.getElementById(e);
     ((this.el = {
       hud: t("hud"),
@@ -72,6 +74,9 @@ export class HUD {
         ((this.w = window.innerWidth), (this.h = window.innerHeight));
       }));
   }
+  initMatch() {
+    if (this.matchMode) { this.matchUI = new MatchHUD(this); this.showMenu(true); }
+  }
   _set(t, e, n) {
     this.cache[t] !== n && ((this.cache[t] = n), (e.textContent = n));
   }
@@ -84,6 +89,7 @@ export class HUD {
   // Prize bar lives in the shared menu shell, so the same element serves the
   // main menu and the game-over screen without a second copy to maintain.
   setContest(nowMs) {
+    if (this.matchMode) return;
     const el = this.el.prize;
     if (!el) return;
     (el.classList.remove("hidden"),
@@ -91,10 +97,10 @@ export class HUD {
   }
   showMenu(
     t,
-    e = theme.strings.title,
+    e = this.matchMode ? "MIDTOWN CROSSING" : theme.strings.title,
     n = theme.strings.deploy,
     s = null,
-    r = theme.strings.subtitle,
+    r = this.matchMode ? "HARDPOINT / SOLO VS 3 ROBOTS / FIRST TO 120" : theme.strings.subtitle,
   ) {
     (this.setPauseActions(false),
       this.el.runSummary && this.el.runSummary.classList.add("hidden"),

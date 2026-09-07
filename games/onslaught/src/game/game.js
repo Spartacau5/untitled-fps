@@ -34,6 +34,7 @@ import { captureRun } from "../core/run-record.js";
 import { RunLog } from "../core/runlog.js";
 import { SUN_DIR } from "../data/tuning.js";
 import { theme } from "../theme/theme.js";
+import { MidtownView } from "../render/midtown-view.js";
 import { ArenaView } from "../render/arena-view.js";
 import { EnemyView } from "../render/enemy-view.js";
 import { Decals } from "../render/fx/decals.js";
@@ -90,6 +91,7 @@ export class Game {
     this.progression = new Progression();
     this.world = new World({
       seed: this.seed,
+      mode: e.get("mode") === "horde" ? "horde" : "hardpoint",
       god: this.god,
       noSpawn: e.has("nospawn"),
       loadout: this.progression.loadout,
@@ -125,8 +127,9 @@ export class Game {
       // gesture, and that is free.
       this.audio.init(),
       this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
-      (this.hud = new HUD()),
-      (this.arenaView = new ArenaView(this.scene, this.world.arena, { mobile })),
+      (this.hud = new HUD({ match: Boolean(this.world.match) })),
+      this.hud.initMatch(),
+      (this.arenaView = new (this.world.match ? MidtownView : ArenaView)(this.scene, this.world.arena, { mobile })),
       (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
@@ -137,7 +140,7 @@ export class Game {
         const o = this.audio.spatial([l.x, l.y, l.z], 3, 14);
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
-      (this.enemyView = new EnemyView(this.scene)),
+      (this.enemyView = new EnemyView(this.scene, { tactical: Boolean(this.world.match) })),
       (this.weaponView = new WeaponView(
         this.weaponCamera,
         this.progression.loadout,
@@ -233,6 +236,7 @@ export class Game {
         (loadout, startKey) => this._applyLoadout(loadout, startKey),
       )),
       (this.controlsPanel = mountControls({
+        hardpoint: Boolean(this.world.match),
         panel: this.hud.el.controlsPanel,
         body: this.hud.el.controlsBody,
         btnOpen: this.hud.el.btnControls,
@@ -425,6 +429,7 @@ export class Game {
       : `${this.seed}-${Date.now()}`;
   }
   _flushRun() {
+    if (this.world.match) return;
     if (this.state === "menu" || !this.runId) return;
     this._submitRun({ keepalive: true });
     if (this._abandonSent) return;
@@ -443,6 +448,7 @@ export class Game {
     );
   }
   async _submitRun(opts = {}) {
+    if (this.world.match) return;
     if (!this.runId || this.state === "menu") return;
     if (this._runPosted && !opts.keepalive) return;
     const w = this.world;
@@ -469,6 +475,7 @@ export class Game {
     }
   }
   async _endLiveRun(result) {
+    if (this.world.match) { this.runId = ""; return; }
     if (!this.runId) return;
     this.lastRun = captureRun({
       world: this.world,
@@ -598,7 +605,7 @@ export class Game {
       this.hud.show(!0),
       (!this.debug || this.mobile) && this.input.lock(),
       (this.last = performance.now()),
-      this.hud.banner(...theme.strings.deployingBanner, 2.5),
+      this.world.match ? this.hud.banner("CAPTURE THE HARDPOINT", "HOLD UNCONTESTED TO SCORE · FIRST TO 120", 3) : this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
   }
@@ -611,7 +618,7 @@ export class Game {
         "PAUSED",
         "RESUME",
         null,
-        `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
+        w.match ? `HARDPOINT · YOU ${w.match.playerScore} : ${w.match.robotScore} ROBOTS` : `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
       ),
       this.hud.setPauseActions(true),
       this._submitRun());
@@ -646,6 +653,7 @@ export class Game {
       this.syncWeapon());
   }
   onDeath() {
+    if (this.world.match) { this.hud.banner("DOWN", "RESPAWNING IN 3 SECONDS", 2.5, true); return; }
     if (this.mobile) this.input.unlock();
     ((this.state = "dead"),
       this.audio.gameOver(),
@@ -754,7 +762,7 @@ export class Game {
         // which washed the screen white and hid the robot that threw the
         // punch. That robot is the whole point, so the burst is now small,
         // slow, and below the sight line.
-        if (h.by !== "spit") {
+        if (h.by !== "spit" && h.by !== "rifle") {
           const bearing = h.angle - n.yaw;
           this._v.set(Math.sin(bearing), 0, -Math.cos(bearing));
           this._v2
@@ -773,6 +781,27 @@ export class Game {
         H.setHealth(n.hp, n.maxHp);
         break;
       }
+      case "objective":
+        H.banner(`${h.point.id} / ${h.point.name}`, `CAPTURE AND HOLD · NEXT ${h.next.name}`, 2.5);
+        A.waveClear();
+        break;
+      case "respawn":
+        this.weaponView.reset(); this.syncWeapon(); this.hurtFx = 0;
+        H.banner("REDEPLOYED", "CAPTURE THE HARDPOINT", 1.6);
+        break;
+      case "botShot": {
+        this.tracers.fire(h.origin, h.end, this.time, 300, 0.025, 2, [1, 0.62, 0.38]);
+        const delta = this._v.subVectors(w.player.camPos, h.origin);
+        const distance = delta.length();
+        const occluded = Boolean(w.arena.raycast(h.origin, delta.normalize(), distance));
+        A.robotShot([h.origin.x, h.origin.y, h.origin.z], occluded);
+        break;
+      }
+      case "matchEnd":
+        this.state = "over"; this.input.unlock(); this.audio.endSession();
+        H.showMenu(true, h.result, "PLAY AGAIN", `YOU ${w.match.playerScore} : ${w.match.robotScore} ROBOTS<br>${w.kills} ELIMINATIONS · ${w.match.deaths + (w.player.dead ? 1 : 0)} DEATHS`, "MIDTOWN CROSSING / SOLO PRACTICE");
+        H.show(false); w.endRun(); this.runId = "";
+        break;
       case EV.EV_DEAD:
         this.onDeath();
         break;
@@ -1032,6 +1061,7 @@ export class Game {
     const s = this.time,
       fxDt = frameDt * this.timeScale,
       n = w.player;
+    if (w.match) { this.arenaView.syncMatch(w.match); this.hud.matchUI.update(w, frameDt); }
     (this.arenaView.update(s, fxDt),
       this.sky.update(s),
       this.particles.update(s, fxDt, this.camera.position),
@@ -1063,9 +1093,9 @@ export class Game {
     if (this.state === "menu" || this.state === "over") {
       const n = this.time * 0.07;
       (this.camera.position.set(
-        Math.cos(n) * 26,
-        7.5 + Math.sin(this.time * 0.3) * 1.2,
-        Math.sin(n) * 26,
+        Math.cos(n) * (w.match ? 12 : 26),
+        w.match ? 25 : 7.5 + Math.sin(this.time * 0.3) * 1.2,
+        w.match ? 30 : Math.sin(n) * 26,
       ),
         this.camera.lookAt(0, 2.5, 0),
         (this.camera.fov = damp(this.camera.fov, 62, 4, frameDt)),
