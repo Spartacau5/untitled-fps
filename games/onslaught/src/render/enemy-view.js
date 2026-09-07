@@ -549,33 +549,91 @@ export class EnemyView {
           // used to freeze mid-A-pose; a planted spitter was a statue.
           idle = 1 - d,
           it = time + l.id * 0.7,
-          stride = 0.95 + chg * 0.5,
+          // 0.95 rad is 54 degrees of hip swing. A straight leg swung that
+          // far shortens by legLen*(1-cos) = 0.36 m, and the pelvis has to
+          // drop by all of it to keep the foot down -- which is why the old
+          // gait either floated both feet or squatted 32 cm a step. Real hip
+          // flexion in a walk is about 25 degrees; the charge boost buys the
+          // extra travel a sprint genuinely has.
+          stride = 0.5 + chg * 0.45,
           u = Math.sin(h) * stride * d,
           m = Math.sin(h + Math.PI) * stride * d;
+        // ---------------------------------------------------------------
+        // Skeletal pose. Two sign rules drive everything below, and every
+        // joint that read wrong was one of them applied backwards.
+        //
+        // 1. Nodes whose geometry hangs DOWN from them -- shL/shR, elL/elR,
+        //    legL/legR, knL/knR -- swing toward -Z, the model's FRONT, on a
+        //    POSITIVE rotation.x. So +x is flexion (forward), -x extension.
+        // 2. Nodes whose geometry stands UP from them -- torso, neck -- are
+        //    the mirror image: -x pitches the chest and the head FORWARD.
+        //
+        // Joint limits are the other half of it. Shoulders and hips swing
+        // both ways; elbows and knees are hinges that fold ONE way only --
+        // the forearm folds forward (elL/elR.rotation.x >= 0), the shin
+        // folds backward (knL/knR.rotation.x <= 0). Nothing below may cross
+        // those, and that is what makes the rig read as a skeleton instead
+        // of a bag of boxes. None of this is robot-specific: the only
+        // robot-flavoured values are the posture constants (r.lean, shBase,
+        // elBase, armAmp), which is exactly where a zombie would differ.
+        // ---------------------------------------------------------------
+        //
+        // Knees flex BACKWARD, peaking just after toe-off and straightening
+        // again by heel strike. The old term was positive with a +0.1 floor,
+        // i.e. a permanently hyperextended, bird-jointed leg.
+        const kfL = Math.max(0, -Math.sin(h - 0.9)) * 1.15 * d + 0.06,
+          kfR = Math.max(0, -Math.sin(h + Math.PI - 0.9)) * 1.15 * d + 0.06,
+          // How far the hip sits above the ankle for a leg swung to `a` with
+          // its knee folded by `kf`. Closed form, so pelvis height can be
+          // solved rather than approximated.
+          legReach = (a, kf) =>
+            r.legUL * Math.cos(a) + r.legLL * Math.cos(a - kf),
+          // The reach n.hipH was authored against: legs down, resting flex.
+          restReach = r.legUL + r.legLL * Math.cos(0.06),
+          // Drop the pelvis by exactly what the longer -- i.e. planted -- leg
+          // loses. The standing foot then holds ONE height for the whole
+          // cycle instead of pumping through the pavement. Anchored at rest,
+          // so a standing unit is still exactly n.hipH tall and stays
+          // registered with the hitboxes the sim derives from that number.
+          stand = Math.max(legReach(u, kfL), legReach(m, kfR)) - restReach;
         ((s.legL.rotation.x = u),
           (s.legR.rotation.x = m),
-          (s.knL.rotation.x = Math.max(0, -Math.sin(h - 0.9)) * 1.2 * d + 0.1),
-          (s.knR.rotation.x =
-            Math.max(0, -Math.sin(h + Math.PI - 0.9)) * 1.2 * d + 0.1),
+          (s.knL.rotation.x = -kfL),
+          (s.knR.rotation.x = -kfR),
           // Hold the feet level against the leg and knee above them instead
           // of letting them trail the shin.
           (s.ankL.rotation.x = -(u + s.knL.rotation.x) * 0.72),
           (s.ankR.rotation.x = -(m + s.knR.rotation.x) * 0.72),
           (s.hips.position.y =
             n.hipH +
-            Math.abs(Math.sin(h)) * 0.06 * d -
+            stand -
             (1 - d) * 0.02 +
             Math.sin(it * 1.7) * 0.008 * idle),
-          // Weight shifting onto the stance leg, and the torso counter-rolling
-          // to keep the head over the feet.
-          (s.hips.position.x = Math.sin(h) * 0.03 * d),
-          (s.hips.rotation.y = Math.sin(h) * 0.14 * d),
-          (s.torso.rotation.x =
-            r.lean * d + l.attackLean + 0.08 + chg * 0.45),
-          (s.torso.rotation.y = -Math.sin(h) * 0.16 * d + Math.sin(it * 0.8) * 0.05 * idle),
-          (s.torso.rotation.z = -Math.sin(h) * 0.06 * d),
-          (s.neck.rotation.x =
-            -r.lean * 0.75 * d - l.attackLean * 0.6 - chg * 0.3),
+          // Weight shifts ONTO the stance leg. legL sits at -x and carries
+          // the body through h = PI, so the shift is cos(h): the old sin(h)
+          // was a quarter cycle out and leaned onto the airborne leg.
+          (s.hips.position.x = Math.cos(h) * 0.03 * d),
+          // The pelvis leads with the SWINGING leg while the ribcage
+          // counter-rotates against it. Both signs were flipped before, so
+          // the pelvis twisted toward the planted foot and the two nearly
+          // cancelled instead of reading as a gait.
+          (s.hips.rotation.y = -Math.sin(h) * 0.12 * d));
+        // Torso pitch: negative is the forward hunch (rule 2). This term was
+        // positive, so every unit stood up and rocked BACKWARD -- worst on a
+        // charge, where +chg*0.45 fought the sim's own -0.15 lean-in and won.
+        // attackLean is sim state and is not touched; the view simply reads
+        // it in the same "negative is forward" sense, which makes a windup
+        // rear the chest back and the strike pitch it onto the blow.
+        const hunch = -(r.lean * d + 0.08 + chg * 0.45),
+          aLean = -l.attackLean;
+        ((s.torso.rotation.x = hunch + aLean),
+          (s.torso.rotation.y =
+            Math.sin(h) * 0.16 * d + Math.sin(it * 0.8) * 0.05 * idle),
+          // The trunk lists toward the stance leg, in phase with the hips.
+          (s.torso.rotation.z = -Math.cos(h) * 0.05 * d),
+          // The neck counter-rotates so the head stays level and the eyes
+          // stay on the player through the hunch, the charge and the attack.
+          (s.neck.rotation.x = -hunch * 0.75 - aLean * 0.6),
           // A stopped unit sweeps its head, looking for you.
           (s.neck.rotation.y = Math.sin(it * 0.63) * 0.4 * idle));
         let g = 0,
@@ -598,25 +656,63 @@ export class EnemyView {
               (v = (l.t - pull) / (p.windup - pull)));
           else
             ((g = 0),
-              (v = Math.max(0, 1 - (l.t - p.windup) / Math.max(0.12, p.swing * 0.7))));
+              (v = Math.max(
+                0,
+                1 - (l.t - p.windup) / Math.max(0.12, p.swing * 0.7),
+              )));
         }
-        (r.armsForward
-          ? ((s.shL.rotation.x =
-              -1.35 + Math.sin(h + Math.PI) * 0.35 * d - g * 1.2 + v * 1.8),
-            (s.shR.rotation.x =
-              -1.35 + Math.sin(h) * 0.35 * d - g * 1.2 + v * 1.8),
-            (s.shL.rotation.z = 0.25 + g * 0.6 - v * 0.5),
-            (s.shR.rotation.z = -0.25 - g * 0.6 + v * 0.5),
-            (s.elL.rotation.x = -0.45 - g * 0.8 + v * 0.6),
-            (s.elR.rotation.x = -0.45 - g * 0.8 + v * 0.6))
-          : ((s.shL.rotation.x =
-              Math.sin(h + Math.PI) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6 + chg * 0.9),
-            (s.shR.rotation.x =
-              Math.sin(h) * 0.7 * d - 0.2 - g * 2.3 + v * 2.6 + chg * 0.9),
-            (s.shL.rotation.z = 0.35 + g * 0.4 - v * 0.6 + chg * 0.25),
-            (s.shR.rotation.z = -0.35 - g * 0.4 + v * 0.6 - chg * 0.25),
-            (s.elL.rotation.x = -0.6 - g * 0.5),
-            (s.elR.rotation.x = -0.6 - g * 0.5)),
+        // ---- Arms -------------------------------------------------------
+        // Shoulders swing CONTRALATERALLY with the legs: legL is sin(h), so
+        // the left arm is sin(h + PI). That much was already right; every
+        // constant around it was not.
+        const reach = r.armsForward ? 1 : 0,
+          // A reaching unit holds its arms out and lets them bob; a hanging
+          // unit swings them from the shoulder.
+          armAmp = (reach ? 0.24 : 0.5) + chg * 0.3,
+          swL = Math.sin(h + Math.PI) * armAmp * d,
+          swR = Math.sin(h) * armAmp * d,
+          // Cancel most of the torso's pitch so the arms hang plumb from
+          // the shoulder instead of riding forward with the chest they hang
+          // off -- including through the attack lean, so a slam drives the
+          // hands DOWN AND FORWARD rather than flinging them out behind.
+          hang = -(hunch + aLean) * 0.85,
+          // Resting shoulder flexion. `armsForward` now does what its name
+          // says: +1.12 rad puts the upper arms out in front. It used to be
+          // -1.35, which is 77 degrees BEHIND the body -- the reason the one
+          // unit flagged "arms forward" walked with its hands behind its back.
+          shBase = reach ? 1.12 : 0,
+          // A resting elbow is never straight, and it folds further as the
+          // arm swings forward. The old -0.6 constant was 34 degrees of
+          // hyperextension and -g*0.5 took it to 63 during a windup.
+          elBase = (reach ? 0.5 : 0.22) + chg * 0.35,
+          // Windup (g) cocks the arm -- a reacher draws it back and folds it
+          // to the chest, a hanger hauls it up overhead. The strike (v)
+          // drives the elbow straight and throws the shoulder through, so
+          // v = 1 is full extension: the frame the sim lands the hit on.
+          shX =
+            shBase +
+            hang +
+            g * (reach ? -0.75 : 1.7) +
+            v * (reach ? 0.62 : 0.3),
+          elX = elBase + g * (reach ? 0.7 : 1.05) - v * (reach ? 0.45 : 0.2),
+          // Abduction. Negative rotation.z lifts the LEFT arm away from the
+          // body, since shL sits at -x. The old +0.35/-0.35 pair pulled both
+          // arms across the chest and buried the elbows in the torso box.
+          abd = 0.13 + g * 0.3 + chg * 0.12,
+          // Carrying angle: the forearm sits a few degrees outboard of the
+          // upper arm, which is what keeps the hands clear of the hips on
+          // the back half of the swing.
+          carry = 0.16;
+        ((s.shL.rotation.x = shX + swL),
+          (s.shR.rotation.x = shX + swR),
+          (s.shL.rotation.z = -abd + Math.max(0, swL) * 0.12 + v * 0.1),
+          (s.shR.rotation.z = abd - Math.max(0, swR) * 0.12 - v * 0.1),
+          // Clamped at the hinge stop so no combination of blend inputs can
+          // ever invert an elbow again.
+          (s.elL.rotation.x = Math.max(0.04, elX + Math.max(0, swL) * 0.5)),
+          (s.elR.rotation.x = Math.max(0.04, elX + Math.max(0, swR) * 0.5)),
+          (s.elL.rotation.z = -carry),
+          (s.elR.rotation.z = carry),
           n.root.updateMatrixWorld(!0));
         for (const p of e.meshes) {
           const f =

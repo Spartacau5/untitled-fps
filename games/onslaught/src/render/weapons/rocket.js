@@ -106,6 +106,9 @@ export function buildRocketModel(lensMaterial) {
   g.add(mag);
   p.mag = mag;
   p.magRest = mag.position.clone();
+  // Tells WeaponView this part is the round itself, not a magazine: hide it
+  // when the tube is empty.
+  p.magIsRound = !0;
 
   // Backblast warning stripe, because a tube like this always has one.
   g.add(box(0.004, 0.03, 0.12, M.orange, 0.058, 0.03, 0.22));
@@ -138,5 +141,67 @@ export function buildRocketModel(lensMaterial) {
   p.handL = makeLeftHand([-0.002, -0.072, -0.236], [-0.13, -0.33, 0.04]);
   g.add(p.handL);
   p.handLRest = p.handL.position.clone();
+
+  // ---- reload ------------------------------------------------------------
+  //
+  // Muzzle-loaded, one round at a time, so this cannot be the generic
+  // magazine swap: `p.mag` is the rocket itself and it sits in the muzzle,
+  // not in a magwell under the receiver. Run through the generic animation it
+  // dropped the loaded round 30 cm straight down out of the front of the tube
+  // and floated a replacement back up into it.
+  //
+  // What actually happens: the launcher comes down off the shoulder, the tube
+  // is empty (the round left when you fired it), the support hand brings a
+  // fresh rocket up to the muzzle from below and forward, slides it aft into
+  // the tube fins-last, seats it, and the launcher goes back up.
+  const ease = (t) => t * t * (3 - 2 * t),
+    span = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+  p.reloadAnim = (view, l) => {
+    // Sell the motion, not the mechanism.
+    //
+    // A muzzle-loaded tube is the one reload you cannot stage in front of the
+    // camera: the round seats a metre out at the far end, off the bottom of
+    // the frame, and every attempt to show it sliding home was either
+    // invisible or required swinging the launcher so far inboard that the
+    // gun just lay across the screen. So the launcher drops out of frame the
+    // way a real one comes down off the shoulder, the round changes state
+    // down there where the work actually happens, and it comes back up
+    // loaded. The player reads "reloading" from the dip and the empty tube,
+    // which is all they ever read from it in a game.
+    const dip = Math.sin(Math.min(1, l) * Math.PI) ** 0.65;
+    (view.animPos.set(0.06 * dip, -0.26 * dip, 0.12 * dip),
+      view.animRot.set(-0.62 * dip, 0.3 * dip, -0.42 * dip));
+
+    // Empty until it is loaded, and it loads while the tube is out of shot.
+    p.mag.visible = l > 0.55;
+    if (!p.mag.visible) {
+      // Support hand goes down after the round rather than hanging in space.
+      p.handL.position.set(
+        p.handLRest.x - 0.05,
+        p.handLRest.y - 0.16,
+        p.handLRest.z + 0.26,
+      );
+      return;
+    }
+    // The last of the push home, finishing just before the tube comes back up
+    // into frame, plus a short settle so it does not stop dead.
+    const home = ease(span(l, 0.55, 0.74)),
+      seat = Math.sin(span(l, 0.74, 0.88) * Math.PI) * 0.014;
+    (p.mag.position.set(
+      p.magRest.x,
+      p.magRest.y,
+      p.magRest.z - 0.1 * (1 - home) + seat,
+    ),
+      (p.mag.rotation.x = 0),
+      (p.mag.rotation.z = 0));
+    // Hand releases back to the foregrip as the launcher comes up.
+    const letGo = ease(span(l, 0.72, 0.95));
+    p.handL.position.set(
+      p.handLRest.x - 0.05 * (1 - letGo),
+      p.handLRest.y - 0.16 * (1 - letGo),
+      p.handLRest.z + 0.26 * (1 - letGo),
+    );
+  };
+
   return { group: g, parts: p };
 }

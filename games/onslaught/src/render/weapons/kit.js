@@ -78,12 +78,20 @@ export const VIEWMODEL_MATS = {
     metalness: 0,
   }),
   glove: new MeshStandardMaterial({
-    color: 1776672,
-    roughness: 0.9,
+    color: 1250073,
+    roughness: 0.88,
     metalness: 0.05,
   }),
+  // Knuckles and the backs of the phalanges, a stop lighter than the glove.
+  // Without this every digit is the same near-black as its neighbour and the
+  // whole hand silhouettes as one blob against a dark gun.
+  knuckle: new MeshStandardMaterial({
+    color: 1908260,
+    roughness: 0.82,
+    metalness: 0.06,
+  }),
   sleeve: new MeshStandardMaterial({
-    color: 2369325,
+    color: 1645345,
     roughness: 0.95,
     metalness: 0.02,
   }),
@@ -148,22 +156,71 @@ const G = () => VIEWMODEL_MATS.glove;
 // of the hand, each shorter and slightly tucked, so the silhouette curls
 // instead of ending in a flat slab. `len` scales the whole digit, which is
 // how the middle finger ends up longest and the little finger shortest.
+// One digit closed around a pistol grip.
+//
+// A finger is a CHAIN, not three boxes in a row. The old version laid the
+// phalanges out in a straight line pointing down the barrel with a couple of
+// millimetres of offset, so nothing ever curled and the "grip" read as a claw
+// held somewhere near the gun. Here each phalanx hangs off the joint at the
+// end of the one before it and is turned further round, so the curl
+// accumulates and the fingertip comes back toward the palm the way a hand
+// closed on a grip actually does.
+//
+// The wrap is about Y: a segment pointing -Z swings toward -X as Y increases,
+// which is a right hand coming off the backstrap, across the front strap, and
+// round. The three turns sum to ~95 degrees, which is what it takes to get
+// round a 3 cm wide, 5 cm deep grip.
 function finger(group, y, len, z0, w = 0.0125) {
   const seg = [
-    [len * 0.026, 0.0, 0.0],
-    [len * 0.019, -0.0035, -0.010],
-    [len * 0.013, -0.0085, -0.017],
+    [len * 0.026, 0.55, 0.0], // proximal: forward and already turning in
+    [len * 0.019, 0.8, -0.05], // middle: across the front strap
+    [len * 0.013, 0.8, -0.08], // distal: closing back toward the palm
   ];
-  let z = z0;
-  seg.forEach(([d, dy, dz], i) => {
-    z -= d / 2;
-    group.add(
-      box(w, 0.0135 - i * 0.0012, d, G(), 0, y + dy, z + dz, 0.0045),
-    );
-    z -= d / 2;
+  // Knuckles sit just outboard of the grip's right face -- where a right
+  // hand's knuckles actually are -- and the three turns close ~130 degrees,
+  // which is what it takes to come round a 3 cm x 5 cm grip. Curling less
+  // orbits the fingers wide of the gun and reads as a claw held near it.
+  const root = new Group();
+  root.position.set(0.014, y, z0);
+  let node = root;
+  seg.forEach(([d, turn, droop], i) => {
+    const j = new Group();
+    ((j.rotation.y = turn), (j.rotation.x = droop));
+    node.add(j);
+    // Backs of the phalanges are the lighter tone; they are what the key
+    // light actually lands on, so they do the work of separating the digits.
+    (j.add(
+      box(w - i * 0.0012, 0.0132 - i * 0.0011, d, G(), 0, 0, -d / 2, 0.0045),
+    ),
+      j.add(
+        box(
+          w - i * 0.0022,
+          0.0034,
+          d * 0.82,
+          VIEWMODEL_MATS.knuckle,
+          0,
+          0.0056 - i * 0.0005,
+          -d / 2,
+          0.0014,
+        ),
+      ));
+    const tip = new Group();
+    (tip.position.set(0, 0, -d), j.add(tip), (node = tip));
   });
-  // Knuckle over the joint, which is what catches the key light.
-  group.add(box(w * 0.92, 0.014, 0.009, G(), 0, y + 0.001, z0 - 0.004, 0.0055));
+  // Knuckle over the first joint, which is what catches the key light.
+  root.add(
+    box(
+      w * 0.96,
+      0.0142,
+      0.0105,
+      VIEWMODEL_MATS.knuckle,
+      0,
+      0.001,
+      0.001,
+      0.0055,
+    ),
+  );
+  group.add(root);
 }
 
 // The wrist and glove cuff. The forearm used to leave the hand as one bare
@@ -186,8 +243,7 @@ export function makeRightHand(i, t = -0.3) {
   // Four fingers, individually placed with gaps rather than one full-width
   // bar per finger. Middle longest, little finger shortest.
   const lens = [0.98, 1.06, 1.0, 0.88];
-  for (let n = 0; n < 4; n++)
-    finger(e, 0.021 - n * 0.0172, lens[n], -0.03);
+  for (let n = 0; n < 4; n++) finger(e, 0.021 - n * 0.0172, lens[n], -0.012);
   // Thumb: two segments angled up and across the back of the grip.
   const thumb = new Group();
   (thumb.position.set(-0.026, 0.012, 0.012),
@@ -227,7 +283,9 @@ export function makeLeftHand(i, t = [-0.13, -0.34, 0.24]) {
     const z = -0.031 + n * 0.0202,
       L = lens[n];
     (e.add(box(0.019, 0.03 * L, 0.0165, G(), 0.033, 0.014, z, 0.005)),
-      e.add(box(0.017, 0.024 * L, 0.0155, G(), 0.03, 0.038 * L, z - 0.002, 0.005)),
+      e.add(
+        box(0.017, 0.024 * L, 0.0155, G(), 0.03, 0.038 * L, z - 0.002, 0.005),
+      ),
       // Knuckle over the first joint.
       e.add(box(0.017, 0.011, 0.017, G(), 0.034, 0.001, z, 0.0055)));
   }

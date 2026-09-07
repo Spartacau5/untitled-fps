@@ -94,6 +94,15 @@ export class ArenaView {
         normalScale: new Vector2(1.15, 1.15),
       }),
       asphalt: mat(0x303639, 0.94),
+      // Sidewalk-shed plywood. Hunter green was the only colour NYC permitted
+      // from 2013; Local Law 47 of 2025 added metallic gray and white, so all
+      // three are in circulation and the ring can use them for variety.
+      shedGreen: mat(0x1d4331, 0.86),
+      shedGrey: mat(0x8b9095, 0.6, 0.35),
+      shedWhite: mat(0xcfcdc3, 0.84),
+      // Flame-retardant debris netting. Reads as a flat tint at any distance
+      // you see it from, so it is a solid rather than a cutout texture.
+      netting: mat(0x2b4a68, 0.95),
       shrub: mat(0x3f5541, 0.92),
       shutter: new MeshStandardMaterial({
         map: shutterTexture(),
@@ -157,7 +166,8 @@ export class ArenaView {
   // same batching the rest of the arena uses.
   get _emitter() {
     return (this.__em ||= {
-      box: (w, h, d, x, y, z, mat, yaw) => this._box(w, h, d, x, y, z, mat, yaw),
+      box: (w, h, d, x, y, z, mat, yaw) =>
+        this._box(w, h, d, x, y, z, mat, yaw),
       geo: (geo, mat) => this._batch(geo, mat),
       mats: this.mats,
     });
@@ -578,7 +588,7 @@ export class ArenaView {
       // real structure where a smooth column reads as a placeholder.
       const yaw = -a - Math.PI / 2;
       this._box(2.3, 0.35, 2.3, x, 0.17, z, m.wall);
-      scaffoldTower(this._emitter, x, z, yaw, 10);
+      scaffoldTower(this._emitter, x, z, yaw, 10, i);
       this._box(2.1, 0.4, 2.1, x, 10.15, z, m.metal);
       this._sign(
         i % 2 ? "W 45 ST" : "BROADWAY",
@@ -599,14 +609,18 @@ export class ArenaView {
         byaw = -ca + Math.PI / 2,
         width = i % 2 === 0 ? 4.2 : 5.5;
       hoarding(this._emitter, bx, bz, byaw, width, 2.1);
+      // Hazard band and sign bolt onto the hoarding's own face. These used to
+      // sit at 0.29, which was the face of the solid slab the hoarding
+      // replaced -- against a thin fence that left both hanging 21 cm out in
+      // mid air, attached to nothing.
       for (const side of [-1, 1]) {
         this._box(
           width - 0.2,
           0.2,
           0.025,
-          bx + Math.sin(byaw) * side * 0.29,
+          bx + Math.sin(byaw) * side * 0.085,
           1.64,
-          bz + Math.cos(byaw) * side * 0.29,
+          bz + Math.cos(byaw) * side * 0.085,
           m.yellow,
           byaw,
         );
@@ -615,9 +629,9 @@ export class ArenaView {
           "CITY EMERGENCY MANAGEMENT",
           width * 0.74,
           0.8,
-          bx + Math.sin(byaw) * side * 0.295,
+          bx + Math.sin(byaw) * side * 0.09,
           0.91,
-          bz + Math.cos(byaw) * side * 0.295,
+          bz + Math.cos(byaw) * side * 0.09,
           byaw + (side < 0 ? Math.PI : 0),
           "#343c3e",
           "#eee6ce",
