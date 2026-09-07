@@ -1193,7 +1193,7 @@ canvas#game {
   font: 500 10px/1 var(--font-ui);
   letter-spacing: 0.14em;
   font-style: normal;
-  color: rgba(243, 246, 248, 0.42);
+  color: rgba(243, 246, 248, 0.62);
 }
 .arm-grid {
   display: grid;
@@ -1202,26 +1202,114 @@ canvas#game {
 }
 .arm-card {
   display: grid;
+  grid-template-rows: 1fr auto;
   gap: 8px;
   padding: 10px 12px;
   text-align: left;
   background: rgba(243, 246, 248, 0.04);
-  border: 1px solid rgba(243, 246, 248, 0.18);
+  border: 1px solid rgba(243, 246, 248, 0.26);
   color: var(--ui);
   font: inherit;
+}
+/* The card is a wrapper now, not a control: the affordance lives on the two
+   buttons inside it, which need the native button face stripped off or they
+   render light grey with our near-white labels invisible on top. */
+.arm-pick {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  color: var(--ui);
+  font: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
 }
-.arm-card:hover:not(:disabled) {
-  border-color: rgba(255, 90, 31, 0.7);
-  background: rgba(255, 90, 31, 0.07);
+.arm-pick:disabled {
+  color: var(--ui);
+  cursor: not-allowed;
 }
+.arm-start {
+  width: 100%;
+  margin: 0;
+  padding: 7px 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(255, 90, 31, 0.65);
+  border-radius: 0;
+  color: var(--accent);
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+.arm-start:hover {
+  background: rgba(255, 90, 31, 0.22);
+  border-color: var(--accent);
+  color: #fff;
+}
+/* Filled = this is the gun you spawn holding; outline = you could make it so. */
+.arm-start.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0e12;
+  cursor: default;
+}
+.arm-start.on:hover {
+  background: var(--accent);
+  color: #0a0e12;
+}
+.arm-pick:focus-visible,
+.arm-start:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.arm-start.on:focus-visible {
+  outline-color: #fff;
+}
+.arm-card:not(.locked):hover {
+  border-color: rgba(255, 90, 31, 0.7);
+  background: rgba(255, 90, 31, 0.08);
+}
+/* EQUIPPED: this gun holds that number key. */
 .arm-card.equipped {
   border-color: var(--accent);
   background: rgba(255, 90, 31, 0.12);
 }
+.arm-card.equipped:hover {
+  background: rgba(255, 90, 31, 0.18);
+}
+/* DEPLOYING: equipped AND the gun you spawn holding. The hard offset shadow
+   is the menu-card idiom, so this card reads as "the one" across the grid. */
+.arm-card.deploying {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.16);
+  box-shadow: 4px 4px 0 var(--accent);
+}
+/* LOCKED: dashed and amber rather than faded out -- the old opacity: 0.4 was
+   what made an unavailable gun unreadable instead of merely unavailable. */
 .arm-card.locked {
-  opacity: 0.4;
-  cursor: not-allowed;
+  background: rgba(243, 246, 248, 0.02);
+  border-style: dashed;
+  border-color: rgba(217, 119, 27, 0.45);
+}
+.arm-card.locked .arm-name {
+  color: rgba(243, 246, 248, 0.78);
+}
+.arm-card.locked .arm-key {
+  border-style: dashed;
+  border-bottom-width: 1px;
+  color: rgba(243, 246, 248, 0.6);
+}
+.arm-card.locked .arm-stat i b {
+  background: rgba(243, 246, 248, 0.32);
 }
 .arm-card-head {
   display: grid;
@@ -1234,7 +1322,7 @@ canvas#game {
 .arm-class {
   font: 500 10px/1 var(--font-ui);
   letter-spacing: 0.16em;
-  color: rgba(243, 246, 248, 0.5);
+  color: rgba(243, 246, 248, 0.66);
 }
 .arm-stats {
   display: grid;
@@ -1247,7 +1335,7 @@ canvas#game {
   gap: 8px;
   font: 500 9px/1 var(--font-ui);
   letter-spacing: 0.12em;
-  color: rgba(243, 246, 248, 0.55);
+  color: rgba(243, 246, 248, 0.68);
 }
 .arm-stat i {
   display: block;
@@ -1263,12 +1351,42 @@ canvas#game {
   background: var(--accent);
 }
 .arm-tag {
-  font: 700 10px/1 var(--font-ui);
-  letter-spacing: 0.16em;
-  color: rgba(243, 246, 248, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
 }
-.arm-card.equipped .arm-tag {
+.arm-state {
+  padding: 3px 6px;
+  border: 1px solid rgba(243, 246, 248, 0.34);
+  border-radius: 2px;
+  background: rgba(243, 246, 248, 0.06);
+  font: 700 9px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  color: rgba(243, 246, 248, 0.78);
+  white-space: nowrap;
+}
+.arm-mode {
+  font: 500 9px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  color: rgba(243, 246, 248, 0.62);
+}
+.arm-card.equipped .arm-state {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.14);
   color: var(--accent);
+}
+.arm-card.deploying .arm-state {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #0a0e12;
+}
+.arm-card.locked .arm-state {
+  border-style: dashed;
+  border-color: rgba(217, 119, 27, 0.7);
+  background: rgba(217, 119, 27, 0.1);
+  color: var(--warn);
 }
 .loadout-strip {
   display: flex;
@@ -1286,10 +1404,47 @@ canvas#game {
 
 /* ---- armory: carried-key badge ---- */
 .arm-note {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   font: 400 12px/1.5 var(--font-ui);
   letter-spacing: 0.06em;
   color: var(--dim);
+}
+.arm-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.12);
+}
+.arm-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.12em;
+  color: rgba(243, 246, 248, 0.72);
+}
+.arm-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(243, 246, 248, 0.34);
+  background: rgba(243, 246, 248, 0.06);
+}
+.arm-swatch.is-equipped {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.14);
+}
+.arm-swatch.is-deploying {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 2px 2px 0 rgba(255, 90, 31, 0.45);
+}
+.arm-swatch.is-locked {
+  border-style: dashed;
+  border-color: rgba(217, 119, 27, 0.7);
+  background: rgba(217, 119, 27, 0.1);
 }
 .arm-card-head {
   display: grid;
@@ -1311,6 +1466,11 @@ canvas#game {
 .arm-card.equipped .arm-key {
   border-color: var(--accent);
   color: var(--accent);
+}
+.arm-card.deploying .arm-key {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0e12;
 }
 .arm-titles {
   display: grid;

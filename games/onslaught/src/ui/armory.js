@@ -28,12 +28,23 @@ export function mountArmory(progression, els, onChange) {
       ([label, read], i) =>
         `<span class="arm-stat"><span>${label}</span><i><b style="width:${pct(read(weapon), peaks[i])}%"></b></i></span>`,
     ).join("");
+    // Three states the player must never confuse: LOCKED (below level),
+    // EQUIPPED (this gun holds that number key) and DEPLOYING (equipped AND
+    // the gun you spawn holding). Each gets its own card class so the border,
+    // key badge and status chip can move together.
+    const state = locked
+      ? `LOCKED · LEVEL ${weapon.unlockLevel}`
+      : starts
+        ? `SPAWN · KEY ${key}`
+        : equipped
+          ? `ON KEY ${key}`
+          : "AVAILABLE";
     // The card is a div holding two buttons: nesting one button inside
     // another is invalid, and these are genuinely two different actions.
     return `<div class="arm-card${equipped ? " equipped" : ""}${
-      locked ? " locked" : ""
-    }">
-      <button type="button" class="arm-pick" data-act="equip" data-key="${weapon.key}"${
+      starts ? " deploying" : ""
+    }${locked ? " locked" : ""}">
+      <button type="button" class="arm-pick" data-act="equip" data-key="${weapon.key}" aria-pressed="${equipped}"${
         locked ? " disabled" : ""
       }>
         <span class="arm-card-head">
@@ -44,17 +55,14 @@ export function mountArmory(progression, els, onChange) {
           </span>
         </span>
         <span class="arm-stats">${bars}</span>
-        <span class="arm-tag">${
-          locked
-            ? `LOCKED · LEVEL ${weapon.unlockLevel}`
-            : equipped
-              ? "EQUIPPED"
-              : weapon.mode
-        }</span>
+        <span class="arm-tag"
+          ><span class="arm-state">${state}</span
+          ><span class="arm-mode">${weapon.mode}</span></span
+        >
       </button>
       ${
         equipped
-          ? `<button type="button" class="arm-start${starts ? " on" : ""}" data-act="start" data-key="${weapon.key}">${
+          ? `<button type="button" class="arm-start${starts ? " on" : ""}" data-act="start" data-key="${weapon.key}" aria-pressed="${starts}">${
               starts ? "DEPLOYS WITH THIS" : "DEPLOY WITH THIS"
             }</button>`
           : ""
@@ -74,7 +82,18 @@ export function mountArmory(progression, els, onChange) {
       </div>` +
       `<p class="arm-note">One gun per number key. Guns in the same category
         share a key, so pick the one you want on it — then choose which of them
-        you deploy holding.</p>` +
+        you deploy holding.</p>
+      <div class="arm-legend">
+        <span class="arm-legend-item"
+          ><i class="arm-swatch is-deploying"></i>SPAWN GUN</span
+        ><span class="arm-legend-item"
+          ><i class="arm-swatch is-equipped"></i>ON A NUMBER KEY</span
+        ><span class="arm-legend-item"
+          ><i class="arm-swatch"></i>AVAILABLE</span
+        ><span class="arm-legend-item"
+          ><i class="arm-swatch is-locked"></i>LOCKED</span
+        >
+      </div>` +
       BANDS.map((band, i) => {
         const guns = weaponsInBand(band.id);
         return `<div class="arm-slot">
