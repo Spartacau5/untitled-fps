@@ -157,7 +157,8 @@ export class ArenaView {
   // same batching the rest of the arena uses.
   get _emitter() {
     return (this.__em ||= {
-      box: (w, h, d, x, y, z, mat, yaw) => this._box(w, h, d, x, y, z, mat, yaw),
+      box: (w, h, d, x, y, z, mat, yaw) =>
+        this._box(w, h, d, x, y, z, mat, yaw),
       geo: (geo, mat) => this._batch(geo, mat),
       mats: this.mats,
     });
@@ -599,14 +600,18 @@ export class ArenaView {
         byaw = -ca + Math.PI / 2,
         width = i % 2 === 0 ? 4.2 : 5.5;
       hoarding(this._emitter, bx, bz, byaw, width, 2.1);
+      // Hazard band and sign bolt onto the hoarding's own face. These used to
+      // sit at 0.29, which was the face of the solid slab the hoarding
+      // replaced -- against a thin fence that left both hanging 21 cm out in
+      // mid air, attached to nothing.
       for (const side of [-1, 1]) {
         this._box(
           width - 0.2,
           0.2,
           0.025,
-          bx + Math.sin(byaw) * side * 0.29,
+          bx + Math.sin(byaw) * side * 0.085,
           1.64,
-          bz + Math.cos(byaw) * side * 0.29,
+          bz + Math.cos(byaw) * side * 0.085,
           m.yellow,
           byaw,
         );
@@ -615,9 +620,9 @@ export class ArenaView {
           "CITY EMERGENCY MANAGEMENT",
           width * 0.74,
           0.8,
-          bx + Math.sin(byaw) * side * 0.295,
+          bx + Math.sin(byaw) * side * 0.09,
           0.91,
-          bz + Math.cos(byaw) * side * 0.295,
+          bz + Math.cos(byaw) * side * 0.09,
           byaw + (side < 0 ? Math.PI : 0),
           "#343c3e",
           "#eee6ce",
