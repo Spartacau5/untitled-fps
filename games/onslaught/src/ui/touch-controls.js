@@ -30,7 +30,7 @@ export function mountTouchControls(input, game) {
     [["fire", "FIRE"], ["ads", "AIM"], ["jump", "JUMP"],
      ["crouch", "CROUCH"], ["reload", "RELOAD"], ["weapon", "WEAPON"],
      ["sprint", "AUTO RUN"], ["pause", "PAUSE"]]
-      .map(([action, label]) => `<button type="button" data-action="${action}" class="touch-button touch-${action}" aria-label="${label}">${label}</button>`).join("");
+      .map(([action, label]) => `<button type="button" data-action="${action}" class="touch-button touch-${action}" aria-label="${label}"><span class="touch-glyph" aria-hidden="true">${action === "fire" ? "●" : action === "ads" ? "⌾" : action === "jump" ? "↟" : action === "crouch" ? "⌄" : action === "reload" ? "↻" : action === "weapon" ? "◇" : action === "sprint" ? "»" : "Ⅱ"}</span><span class="touch-label">${label}</span></button>`).join("");
   document.body.appendChild(root);
   const stick = root.querySelector(".touch-stick");
   const knob = stick.querySelector("i");

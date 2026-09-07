@@ -66,7 +66,14 @@ export class ArenaView {
   }
   _materials() {
     const mat = (color, roughness = 0.8, metalness = 0) =>
-      new MeshStandardMaterial({ color, roughness, metalness });
+      new MeshStandardMaterial({
+        color,
+        roughness,
+        // A reflective surface without an environment map reads as black on
+        // mobile. Keep the material response, but cap metalness so the cheap
+        // mobile lighting still gives the street and cover readable shape.
+        metalness: this.mobile ? Math.min(metalness, 0.2) : metalness,
+      });
     const a = theme.arena;
     this.mats = {
       wall: mat(a.concrete),
