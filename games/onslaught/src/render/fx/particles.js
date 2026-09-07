@@ -634,13 +634,24 @@ export class ParticleSystem {
       const life = rand(0.1, 0.18),
         speed = (range / life) * rand(0.2, 0.34);
       this.add.emit(
-        origin.x, origin.y, origin.z,
-        d.x * speed, d.y * speed, d.z * speed,
-        now, life,
-        rand(0.07, 0.12), rand(0.24, 0.36),
-        1, 0.9, 0.55,
+        origin.x,
+        origin.y,
+        origin.z,
+        d.x * speed,
+        d.y * speed,
+        d.z * speed,
+        now,
+        life,
+        rand(0.07, 0.12),
+        rand(0.24, 0.36),
+        1,
+        0.9,
+        0.55,
         rand(2.6, 3.6),
-        -0.4, 5.5, 1, rand(-3, 3),
+        -0.4,
+        5.5,
+        1,
+        rand(-3, 3),
       );
     }
     // Body: the flame proper. High drag is what turns a projectile into a
@@ -656,14 +667,25 @@ export class ParticleSystem {
         // players misjudge it.
         speed = (range / life) * rand(0.45, 1.0);
       this.add.emit(
-        origin.x, origin.y, origin.z,
-        d.x * speed, d.y * speed, d.z * speed,
-        now, life,
-        rand(0.1, 0.2), rand(0.75, 1.35),
-        1, rand(0.34, 0.5), 0.09,
+        origin.x,
+        origin.y,
+        origin.z,
+        d.x * speed,
+        d.y * speed,
+        d.z * speed,
+        now,
+        life,
+        rand(0.1, 0.2),
+        rand(0.75, 1.35),
+        1,
+        rand(0.34, 0.5),
+        0.09,
         rand(1.5, 2.4),
         // Negative gravity: hot gas rises as it burns out.
-        -1.3, 2.4, 1, rand(-2.5, 2.5),
+        -1.3,
+        2.4,
+        1,
+        rand(-2.5, 2.5),
       );
     }
     // Sooty tail, alpha-blended so it darkens rather than adds. Slower and
@@ -673,13 +695,24 @@ export class ParticleSystem {
       const life = rand(0.6, 1.0),
         speed = (range / life) * rand(0.22, 0.45);
       this.alpha.emit(
-        origin.x, origin.y, origin.z,
-        d.x * speed, d.y * speed, d.z * speed,
-        now, life,
-        rand(0.16, 0.28), rand(1.1, 1.9),
-        0.16, 0.13, 0.12,
+        origin.x,
+        origin.y,
+        origin.z,
+        d.x * speed,
+        d.y * speed,
+        d.z * speed,
+        now,
+        life,
+        rand(0.16, 0.28),
+        rand(1.1, 1.9),
+        0.16,
+        0.13,
+        0.12,
         rand(0.16, 0.3),
-        -1.8, 1.9, 1, rand(-1.6, 1.6),
+        -1.8,
+        1.9,
+        1,
+        rand(-1.6, 1.6),
       );
     }
   }
@@ -692,20 +725,48 @@ export class ParticleSystem {
       s = radius / 5;
     // Core flash.
     this.add.emit(
-      pos.x, pos.y, pos.z, 0, 0, 0,
-      now, 0.14, 0.6 * s, 2.6 * s,
-      1, 0.95, 0.8, 5, 0, 6, 2, 0,
+      pos.x,
+      pos.y,
+      pos.z,
+      0,
+      0,
+      0,
+      now,
+      0.14,
+      0.6 * s,
+      2.6 * s,
+      1,
+      0.95,
+      0.8,
+      5,
+      0,
+      6,
+      2,
+      0,
     );
     // Fireball: turbulent puffs pushed outward, rising as they burn out.
     for (let i = 0; i < 26; i++) {
       this.randomInCone(new Vector3(0, 1, 0), 1.4, d);
       const life = rand(0.4, 0.8);
       this.add.emit(
-        pos.x, pos.y, pos.z,
-        d.x * rand(3, 11) * s, Math.abs(d.y) * rand(2, 8) * s, d.z * rand(3, 11) * s,
-        now, life, rand(0.3, 0.6) * s, rand(1.4, 2.6) * s,
-        1, rand(0.36, 0.56), 0.1, rand(1.6, 2.6),
-        -1.6, 3.0, 1, rand(-2, 2),
+        pos.x,
+        pos.y,
+        pos.z,
+        d.x * rand(3, 11) * s,
+        Math.abs(d.y) * rand(2, 8) * s,
+        d.z * rand(3, 11) * s,
+        now,
+        life,
+        rand(0.3, 0.6) * s,
+        rand(1.4, 2.6) * s,
+        1,
+        rand(0.36, 0.56),
+        0.1,
+        rand(1.6, 2.6),
+        -1.6,
+        3.0,
+        1,
+        rand(-2, 2),
       );
     }
     // Debris streaks.
@@ -713,26 +774,63 @@ export class ParticleSystem {
       this.randomInCone(new Vector3(0, 1, 0), 1.5, d);
       const v = rand(9, 22) * s;
       this.add.emit(
-        pos.x, pos.y, pos.z,
-        d.x * v, Math.abs(d.y) * v * 0.8 + 2, d.z * v,
-        now, rand(0.5, 1.1), rand(0.03, 0.07), 0.01,
-        1, 0.86, 0.6, rand(2, 3.4),
-        11, 0.4, 0, rand(1, 3),
+        pos.x,
+        pos.y,
+        pos.z,
+        d.x * v,
+        Math.abs(d.y) * v * 0.8 + 2,
+        d.z * v,
+        now,
+        rand(0.5, 1.1),
+        rand(0.03, 0.07),
+        0.01,
+        1,
+        0.86,
+        0.6,
+        rand(2, 3.4),
+        11,
+        0.4,
+        0,
+        rand(1, 3),
       );
     }
     // Smoke column.
     for (let i = 0; i < 12; i++) {
       this.randomInCone(new Vector3(0, 1, 0), 1.1, d);
       this.alpha.emit(
-        pos.x, pos.y, pos.z,
-        d.x * rand(1.5, 5) * s, Math.abs(d.y) * rand(2, 5) * s, d.z * rand(1.5, 5) * s,
-        now, rand(1.1, 2.0), rand(0.5, 0.9) * s, rand(2.4, 3.8) * s,
-        0.2, 0.18, 0.17, rand(0.24, 0.4),
-        -1.4, 1.2, 1, rand(-1.2, 1.2),
+        pos.x,
+        pos.y,
+        pos.z,
+        d.x * rand(1.5, 5) * s,
+        Math.abs(d.y) * rand(2, 5) * s,
+        d.z * rand(1.5, 5) * s,
+        now,
+        rand(1.1, 2.0),
+        rand(0.5, 0.9) * s,
+        rand(2.4, 3.8) * s,
+        0.2,
+        0.18,
+        0.17,
+        rand(0.24, 0.4),
+        -1.4,
+        1.2,
+        1,
+        rand(-1.2, 1.2),
       );
     }
     // Ground ring at the blast radius.
-    this.rings.emit(pos.x, 0.06, pos.z, now, 0.55, radius * 2, 0.5, 1, 0.6, 0.22);
+    this.rings.emit(
+      pos.x,
+      0.06,
+      pos.z,
+      now,
+      0.55,
+      radius * 2,
+      0.5,
+      1,
+      0.6,
+      0.22,
+    );
   }
   muzzleSmoke(t, e, n = 1) {
     const s = this.t;

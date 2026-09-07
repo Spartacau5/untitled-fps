@@ -7,7 +7,11 @@ import {
 } from "../data/weapons.js";
 import { EV_EJECT, EV_JUMP, EV_LAND, EV_SHOT } from "../sim/events.js";
 import { buildWeaponModel } from "./weapons/index.js";
-import { MuzzleFlash, makeRedDotMaterial, updateRedDot } from "./weapons/kit.js";
+import {
+  MuzzleFlash,
+  makeRedDotMaterial,
+  updateRedDot,
+} from "./weapons/kit.js";
 
 // First-person viewmodel. Reads sim Weapons/Player state each frame and derives
 // the pose; reacts to sim events for kicks, flash and bolt motion. Owns every
@@ -55,7 +59,7 @@ export class WeaponView {
     // the flash quads are transparent and would only smear.
     model.group.traverse((o) => {
       if (o.isMesh && o !== model.parts.lens)
-        (o.castShadow = !0), (o.receiveShadow = !0);
+        ((o.castShadow = !0), (o.receiveShadow = !0));
     });
     (this.built.set(key, model),
       this.rig.add(model.group),
@@ -161,6 +165,13 @@ export class WeaponView {
     this.reloadPose = damp(this.reloadPose, w.reloading ? 1 : 0, 13, dt);
     (this._animSwitch(sim),
       w.reloading ? this._animReload(w, dt) : this._restParts(this.parts),
+      // On a launcher the `mag` part IS the round, and it sits in the muzzle
+      // rather than in a magwell. With one in the tube, firing therefore has
+      // to leave the tube visibly EMPTY -- otherwise a rocket flies off
+      // downrange and an identical one is still sitting there waiting.
+      this.parts.magIsRound &&
+        !w.reloading &&
+        (this.parts.mag.visible = w.mag > 0),
       w.reloading || sim.switching || this.animPos.set(0, 0, 0),
       w.reloading || sim.switching || this.animRot.set(0, 0, 0),
       this._pose(sim, player, input, dt, time),
@@ -194,6 +205,14 @@ export class WeaponView {
           a.handL.position.copy(a.handLRest));
       (this.animPos.set(0.03 * u, -0.03 * u, 0.01 * u),
         this.animRot.set(0.12 * u, -0.2 * u, 0.55 * u));
+      return;
+    }
+    // A weapon whose loading has nothing in common with a magazine swap owns
+    // its own choreography. The launcher does: its `mag` part IS the rocket
+    // and it lives in the muzzle, so the generic magwell drop threw the round
+    // straight out of the front of the tube and floated a fresh one back up.
+    if (a.reloadAnim) {
+      a.reloadAnim(this, Math.min(1, s.t / s.dur), e);
       return;
     }
     const l = s.t / s.dur,
@@ -354,10 +373,7 @@ export class WeaponView {
       l.bolt &&
         (l.bolt.position.z =
           l.boltRest +
-          Math.max(
-            this.boltT[this.shown],
-            l.slideLock && r.mag === 0 ? 1 : 0,
-          ) *
+          Math.max(this.boltT[this.shown], l.slideLock && r.mag === 0 ? 1 : 0) *
             l.boltTravel),
       l.pump)
     )
