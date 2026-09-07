@@ -91,7 +91,7 @@ export class Game {
     this.progression = new Progression();
     this.world = new World({
       seed: this.seed,
-      mode: e.get("mode") === "horde" ? "horde" : "hardpoint",
+      mode: e.get("mode") === "horde" ? "horde" : "tdm",
       god: this.god,
       noSpawn: e.has("nospawn"),
       loadout: this.progression.loadout,
@@ -236,7 +236,7 @@ export class Game {
         (loadout, startKey) => this._applyLoadout(loadout, startKey),
       )),
       (this.controlsPanel = mountControls({
-        hardpoint: Boolean(this.world.match),
+        tdm: Boolean(this.world.match),
         panel: this.hud.el.controlsPanel,
         body: this.hud.el.controlsBody,
         btnOpen: this.hud.el.btnControls,
@@ -605,7 +605,7 @@ export class Game {
       this.hud.show(!0),
       (!this.debug || this.mobile) && this.input.lock(),
       (this.last = performance.now()),
-      this.world.match ? this.hud.banner("CAPTURE THE HARDPOINT", "HOLD UNCONTESTED TO SCORE · FIRST TO 120", 3) : this.hud.banner(...theme.strings.deployingBanner, 2.5),
+      this.world.match ? this.hud.banner("TEAM DEATHMATCH", "BLUE TEAM · FIRST TO 40 ELIMINATIONS", 3) : this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
   }
@@ -618,7 +618,7 @@ export class Game {
         "PAUSED",
         "RESUME",
         null,
-        w.match ? `HARDPOINT · YOU ${w.match.playerScore} : ${w.match.robotScore} ROBOTS` : `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
+        w.match ? `TEAM DEATHMATCH · BLUE ${w.match.playerScore} : ${w.match.robotScore} RED` : `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
       ),
       this.hud.setPauseActions(true),
       this._submitRun());
@@ -743,7 +743,7 @@ export class Game {
         (A.land(h.strength), this.weaponView.onEvent(h, w.weapons));
         break;
       case EV.EV_STEP:
-        A.footstep(h.sprint ? 1.25 : 0.85);
+        A.footstep(h.sprint ? 1.25 : 0.85, w.match ? (Math.abs(n.pos.x) > 17 ? "pavement" : "asphalt") : "default");
         break;
       case EV.EV_SLIDE:
         A.slide();
@@ -781,25 +781,40 @@ export class Game {
         H.setHealth(n.hp, n.maxHp);
         break;
       }
-      case "objective":
-        H.banner(`${h.point.id} / ${h.point.name}`, `CAPTURE AND HOLD · NEXT ${h.next.name}`, 2.5);
-        A.waveClear();
-        break;
       case "respawn":
         this.weaponView.reset(); this.syncWeapon(); this.hurtFx = 0;
-        H.banner("REDEPLOYED", "CAPTURE THE HARDPOINT", 1.6);
+        H.banner("REDEPLOYED", "REJOIN YOUR TEAM", 1.6);
         break;
       case "botShot": {
-        this.tracers.fire(h.origin, h.end, this.time, 300, 0.025, 2, [1, 0.62, 0.38]);
+        this.tracers.fire(h.origin, h.end, this.time, 300, 0.025, 2, [1, 0.82, 0.53]);
         const delta = this._v.subVectors(w.player.camPos, h.origin);
         const distance = delta.length();
         const occluded = Boolean(w.arena.raycast(h.origin, delta.normalize(), distance));
         A.robotShot([h.origin.x, h.origin.y, h.origin.z], occluded);
+        if (h.team === "red" && !occluded && !w.player.dead) {
+          const segment = this._v2.subVectors(h.end, h.origin);
+          const length = segment.length();
+          segment.normalize();
+          const along = MathUtils.clamp(this._v.subVectors(w.player.camPos, h.origin).dot(segment), 0, length);
+          this._v.copy(h.origin).addScaledVector(segment, along);
+          if (this._v.distanceTo(w.player.camPos) < 1.1 && h.end.distanceTo(w.player.camPos) > .7)
+            A.nearMiss([this._v.x, this._v.y, this._v.z]);
+        }
         break;
       }
+      case "botStep":
+        A.robotFootstep([h.pos.x,h.pos.y,h.pos.z]);
+        break;
+      case "botReload":
+        A.robotReload([h.pos.x,h.pos.y,h.pos.z]);
+        break;
+      case "teamKill":
+        H.feed(h.team === "blue" ? "ALLY ELIMINATION +1" : "ALLY DOWN", h.team === "blue" ? "" : "danger");
+        A.enemyDeath([h.pos.x, h.pos.y, h.pos.z]);
+        break;
       case "matchEnd":
         this.state = "over"; this.input.unlock(); this.audio.endSession();
-        H.showMenu(true, h.result, "PLAY AGAIN", `YOU ${w.match.playerScore} : ${w.match.robotScore} ROBOTS<br>${w.kills} ELIMINATIONS · ${w.match.deaths + (w.player.dead ? 1 : 0)} DEATHS`, "MIDTOWN CROSSING / SOLO PRACTICE");
+        H.showMenu(true, h.result, "PLAY AGAIN", `BLUE ${w.match.playerScore} : ${w.match.robotScore} RED<br>${w.kills} ELIMINATIONS · ${w.match.deaths} DEATHS`, "MIDTOWN CROSSING / TEAM DEATHMATCH");
         H.show(false); w.endRun(); this.runId = "";
         break;
       case EV.EV_DEAD:

@@ -883,11 +883,30 @@ export class Audio {
         decay: 0.12,
       }));
   }
-  footstep(t = 1) {
+  nearMiss(position) {
+    if (!this.ready || this.now - (this.lastNearMiss ?? -10) < .15) return;
+    this.lastNearMiss = this.now;
+    const { pan } = this.spatial(position, 1, 4);
+    this.noise(this.now, { type: "highpass", freq: 4200, gain: .12, decay: .025, pan });
+    this.noise(this.now + .015, { type: "bandpass", freq: 1400, freqEnd: 500, Q: 1.5, gain: .09, decay: .08, pan, send: .15 });
+  }
+  robotFootstep(position) {
+    if (!this.ready) return;
+    const { gain, pan } = this.spatial(position, 3, 22);
+    this.noise(this.now, { type: "bandpass", freq: 430, Q: .8, gain: gain * .16, decay: .07, pan, send: .14 });
+    this.tone(this.now, { type: "sine", freq: 105, freqEnd: 62, gain: gain * .08, decay: .055, pan });
+  }
+  robotReload(position) {
+    if (!this.ready) return;
+    const { gain, pan } = this.spatial(position, 3, 15);
+    for (const [delay, freq] of [[0, 2100], [.7, 1500], [1.9, 2800]])
+      this.noise(this.now + delay, { type: "bandpass", freq, Q: 2, gain: gain * .12, decay: .055, pan, send: .08 });
+  }
+  footstep(t = 1, surface = "default") {
     const e = this.now;
     (this.noise(e, {
       type: "bandpass",
-      freq: 250 + Math.random() * 150,
+      freq: (surface === "pavement" ? 470 : 250) + Math.random() * 150,
       Q: 0.8,
       gain: 0.2 * t,
       decay: 0.07,
@@ -895,8 +914,8 @@ export class Audio {
       this.noise(e, {
         type: "highpass",
         freq: 3e3,
-        gain: 0.05 * t,
-        decay: 0.03,
+        gain: (surface === "asphalt" ? 0.075 : 0.05) * t,
+        decay: surface === "asphalt" ? 0.06 : 0.03,
       }));
   }
   land(t) {

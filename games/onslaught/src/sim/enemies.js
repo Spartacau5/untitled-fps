@@ -110,10 +110,10 @@ export class Enemies {
       c
     );
   }
-  raycast(t, e, n) {
+  raycast(t, e, n, exclude = null) {
     let s = null;
     for (const r of this.list) {
-      if (r.state === "die") continue;
+      if (r.state === "die" || r === exclude) continue;
       const a = this.metrics[r.type],
         l = r.def.proportions,
         o = r.scale,
@@ -200,8 +200,10 @@ export class Enemies {
     out.sort((p, q) => p.dist - q.dist);
     return out;
   }
-  damage(t, e, n, s, world) {
+  damage(t, e, n, s, world, { team = "blue", player = true } = {}) {
     const r = t.enemy;
+    if (world.match && (r.team === team || r.shield > 0)) return { killed: false };
+    r.killerTeam = team; r.killedByPlayer = player;
     if (r.state === "die") return { killed: !1 };
     ((r.hp -= e), (r.flash = 1), (r.squash = Math.min(0.22, r.squash + 0.1)));
     const a = s.kbForce / r.def.mass;
@@ -210,7 +212,7 @@ export class Enemies {
       r.state === "spawn" && ((r.state = "chase"), (r.dissolve = 0)));
     const killed = r.hp <= 0;
     return (
-      world.emit(EV_HIT, {
+      player && world.emit(EV_HIT, {
         point: t.point,
         dir: n,
         head: t.head,

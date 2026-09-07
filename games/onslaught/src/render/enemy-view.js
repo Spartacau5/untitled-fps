@@ -315,8 +315,16 @@ export function buildEnemyRig(i) {
     );
   }
   if (i.tactical) {
-    p(h, f(0.12, 0.48, 0.13, 0, -i.armLL - 0.13, -0.03), "joint");
-    p(h, f(0.045, 0.3, 0.045, 0, -i.armLL - 0.5, -0.03), "joint");
+    // Carried carbine: receiver, stock, handguard, barrel, magazine and optic.
+    // Attached to the upper body; the two hands use a stable supporting pose.
+    p(r, f(.11, .13, .35, .15, .16, -.43, .012), "joint");
+    p(r, f(.1, .15, .18, .15, .14, -.18, .012), "joint");
+    p(r, f(.1, .11, .28, .15, .16, -.73, .01), "joint");
+    p(r, f(.038, .038, .19, .15, .17, -.96, .005), "joint");
+    p(r, f(.065, .2, .09, .15, .025, -.48, .008), "joint");
+    p(r, f(.07, .075, .085, .15, .265, -.42, .008), "joint");
+    p(r, f(.065, .065, .10, .15, .17, -1.08, .005), "muzzle");
+    p(r, f(.22, .038, .025, 0, .37, -.145, .005), "glow");
   }
   return {
     root: e,
@@ -400,6 +408,9 @@ ${NOISE_GLSL}`,
           (s.fragmentShader = s.fragmentShader.replace(
             "#include <emissivemap_fragment>",
             `#include <emissivemap_fragment>
+        #ifdef USE_INSTANCING_COLOR
+          totalEmissiveRadiance *= vColor;
+        #endif
         ${e ? "totalEmissiveRadiance *= 0.75 + 0.35 * sin(uTime * 6.0 + vWPos.x * 3.0 + vWPos.z * 2.0);" : ""}
         totalEmissiveRadiance += vec3(1.0, 0.45, 0.12) * dBurn * 1.4;
         totalEmissiveRadiance += vec3(1.0, 0.95, 0.9) * vFlash * 0.2;
@@ -417,6 +428,7 @@ ${NOISE_GLSL}`,
 export class EnemyView {
   constructor(scene, { tactical = false } = {}) {
     this.tactical = tactical;
+    this.teamColor = new Color();
     ((this.scene = scene), (this.uTime = { value: 0 }), (this.types = {}));
     for (const a in ENEMIES) this._buildType(ENEMIES[a]);
     this._buildProjectiles();
@@ -429,8 +441,8 @@ export class EnemyView {
       r = makeEnemyMaterial(
         new MeshStandardMaterial({
           color: colors.body,
-          roughness: 0.36,
-          metalness: 0.72,
+          roughness: this.tactical ? 0.54 : 0.36,
+          metalness: this.tactical ? 0.38 : 0.72,
         }),
         this.uTime,
         !1,
@@ -438,11 +450,11 @@ export class EnemyView {
       a = makeEnemyMaterial(
         new MeshStandardMaterial({
           color: 0,
-          emissive: new Color(...colors.glow),
+          emissive: this.tactical ? new Color(0xffffff) : new Color(...colors.glow),
           // Above the 1.6 bloom threshold, so the eye slots actually throw
           // light instead of just being pale paint. A lit face in a dark head
           // is most of the read.
-          emissiveIntensity: 2.1,
+          emissiveIntensity: this.tactical ? 1.1 : 2.1,
           roughness: 0.6,
           metalness: 0,
         }),
@@ -460,7 +472,7 @@ export class EnemyView {
       false,
     );
     for (const o of e.parts) {
-      const c = o.kind === "glow" || o.kind === "headGlow",
+      const c = o.kind === "glow" || o.kind === "headGlow" || o.kind === "muzzle",
         h = new InstancedBufferAttribute(n, 1),
         d = new InstancedBufferAttribute(s, 1);
       (h.setUsage(DynamicDrawUsage),
@@ -718,19 +730,25 @@ export class EnemyView {
           (s.elR.rotation.x = Math.max(0.04, elX + Math.max(0, swR) * 0.5)),
           (s.elL.rotation.z = -carry),
           (s.elR.rotation.z = carry),
-          l.tactical && (s.shR.rotation.set(0.4, 0, 0.1), s.elR.rotation.set(1.05, 0, 0), s.shL.rotation.set(0.5, 0, -0.1), s.elL.rotation.set(0.9, 0, 0)),
+          l.tactical && (s.shR.rotation.set(0.4, 0, 0.1), s.elR.rotation.set(1.05, 0, 0), s.shL.rotation.set(l.reloadT > 0 ? 0.2 + 0.15 * Math.sin(l.reloadT * 5) : 0.5, 0, -0.1), s.elL.rotation.set(l.reloadT > 0 ? 1.55 : 0.9, 0, 0)),
           n.root.updateMatrixWorld(!0));
         for (const p of e.meshes) {
           const f =
-            l.headless &&
-            (p.part.kind === "head" || p.part.kind === "headGlow");
+            (l.headless && (p.part.kind === "head" || p.part.kind === "headGlow")) ||
+            (p.part.kind === "muzzle" && !(l.shotFlash > 0));
           p.mesh.setMatrixAt(a, f ? ZERO_MATRIX : p.part.node.matrixWorld);
+          if (this.tactical) {
+            const glow = p.part.kind === "glow" || p.part.kind === "headGlow";
+            this.teamColor.set(p.part.kind === "muzzle" ? 0xffdf97 : glow ? (l.team === "blue" ? 0x5dc6f0 : 0xf08063) : (l.team === "blue" ? 0xb4c9d1 : 0xcdbbae));
+            p.mesh.setColorAt(a, this.teamColor);
+          }
         }
         ((e.flash[a] = l.flash), (e.dissolve[a] = l.dissolve), a++);
       }
       for (const l of e.meshes)
         ((l.mesh.count = a),
           (l.mesh.instanceMatrix.needsUpdate = !0),
+          l.mesh.instanceColor && (l.mesh.instanceColor.needsUpdate = true),
           (l.fa.needsUpdate = !0),
           (l.da.needsUpdate = !0));
     }

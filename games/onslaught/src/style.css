@@ -1516,9 +1516,9 @@ canvas#game {
 .touch-mode .menu button { min-height:44px; }
 .touch-mode .ctrl-cols { grid-template-columns:1fr; }
 
-/* Objective-practice shell. Existing horde HUD remains available with ?mode=horde. */
-.hardpoint-mode #prize, .hardpoint-mode #leaderboard, .hardpoint-mode #score,
-.hardpoint-mode .stat-row .stat:first-child { display: none !important; }
+/* Local TDM shell. Existing horde HUD remains available with ?mode=horde. */
+.tdm-mode #prize, .tdm-mode #leaderboard, .tdm-mode #score,
+.tdm-mode .stat-row .stat:first-child { display: none !important; }
 .match-panel { position:absolute; top:22px; left:50%; transform:translateX(-50%); width:min(410px,48vw); padding:14px 18px; color:#edf4f4; background:rgba(10,19,25,.84); border:1px solid #53636b66; border-radius:4px; font:12px/1.5 system-ui,sans-serif; font-variant-numeric:tabular-nums; }
 .match-heading { display:flex; justify-content:space-between; color:#a9bbc4; font-size:9px; letter-spacing:1.1px; }
 .match-score { display:flex; align-items:center; justify-content:space-between; margin:5px 0; font-size:11px; }
@@ -1531,5 +1531,5 @@ canvas#game {
 .match-objective { text-align:center; font-size:12px; letter-spacing:.6px; }
 .match-next { text-align:center; color:#a9bbc4; font-size:9px; margin-top:4px; }
 .match-map { position:absolute; left:22px; top:22px; width:162px; height:210px; border:1px solid #53636b66; border-radius:4px; }
-.hardpoint-mode .title { font-size:clamp(32px,5vw,68px); }
+.tdm-mode .title { font-size:clamp(32px,5vw,68px); }
 @media(max-width:700px) { .match-panel { top:8px; width:58vw; left:auto; right:8px; transform:none; padding:8px; } .match-map { left:8px; top:8px; width:97px; height:126px; } .match-heading { font-size:7px; } .match-score b { font-size:21px; } .match-next { font-size:8px; } .match-objective { font-size:10px; } }

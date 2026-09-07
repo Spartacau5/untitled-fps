@@ -18,6 +18,11 @@ export const MIDTOWN = {
     block("east-edge", "facade", 28, 0, 2, 72, 16),
     block("north-edge", "facade", 0, -36, 58, 2, 12),
     block("south-edge", "facade", 0, 36, 58, 2, 12),
+    ...[-1, 1].flatMap((side) =>
+      [-28, -2, 26].map((z) =>
+        block(`lamp-${side}-${z}`, "lamp", side * 26.1, z, 0.26, 0.26, 4.6),
+      ),
+    ),
     // Two broken spines make three lanes; the gaps are cross-streets.
     block("theater", "theater", -13, -18, 9, 16, 8),
     block("deli", "shop", -13, 3, 9, 12, 5),
@@ -37,11 +42,6 @@ export const MIDTOWN = {
     block("plaza-cover", "planter", 0, 18, 3.6, 1.4, 1.15),
     block("north-cover", "planter", 4, -18, 3.6, 1.4, 1.15),
   ],
-  objectives: [
-    { id: "A", name: "BROADWAY", x: 0, z: 0, radius: 3.4 },
-    { id: "B", name: "THEATER WALK", x: -22, z: 3, radius: 3.4 },
-    { id: "C", name: "SEVENTH AVE", x: 22, z: -6, radius: 3.4 },
-  ],
   spawns: [
     { x: -5, z: 31, yaw: 0 },
     { x: 6, z: 31, yaw: 0 },
@@ -53,11 +53,36 @@ export const MIDTOWN = {
     { x: 22, z: -30, yaw: Math.PI },
   ],
 };
-export const HARDPOINT = {
-  duration: 360,
-  target: 120,
-  rotation: 45,
+export const TDM = {
+  duration: 480,
+  target: 40,
   respawn: 3,
-  bots: 3,
-  botRespawn: 5,
+  botRespawn: 3,
+  allies: 2,
+  enemies: 3,
 };
+// Three connected patrol circuits. Bots investigate their lane until they
+// acquire a visible opponent, rather than tracking players through walls.
+export const PATROLS = [
+  [
+    [-22, -29],
+    [-22, -15],
+    [-24, 2],
+    [-20, 10],
+    [-22, 28],
+  ],
+  [
+    [-5, -30],
+    [-5, -17],
+    [3, -1],
+    [-3, 14],
+    [-5, 30],
+  ],
+  [
+    [22, -29],
+    [24, -12],
+    [20, 0],
+    [24, 14],
+    [22, 28],
+  ],
+];

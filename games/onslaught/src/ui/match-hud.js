@@ -1,10 +1,10 @@
-import { MIDTOWN, HARDPOINT } from "../data/midtown.js";
+import { MIDTOWN, TDM } from "../data/midtown.js";
 export class MatchHUD {
   constructor(hud) {
-    document.body.classList.add("hardpoint-mode");
+    document.body.classList.add("tdm-mode");
     this.panel = document.createElement("div");
     this.panel.className = "match-panel";
-    this.panel.innerHTML = `<div class="match-heading"><span>MIDTOWN CROSSING</span><span>SOLO PRACTICE</span></div><div class="match-score"><span class="friendly">YOU <b data-you>0</b></span><span data-clock>6:00</span><span class="hostile"><b data-robots>0</b> ROBOTS</span></div><div class="match-progress"><i data-blue></i><i data-red></i></div><div class="match-objective" data-point></div><div class="match-next" data-next></div>`;
+    this.panel.innerHTML = `<div class="match-heading"><span>MIDTOWN CROSSING</span><span>TEAM DEATHMATCH</span></div><div class="match-score"><span class="friendly">BLUE <b data-you>0</b></span><span data-clock>8:00</span><span class="hostile"><b data-robots>0</b> RED</span></div><div class="match-progress"><i data-blue></i><i data-red></i></div><div class="match-objective" data-point></div><div class="match-next" data-next></div>`;
     hud.el.hud.appendChild(this.panel);
     this.map = document.createElement("canvas");
     this.map.width = 216;
@@ -12,7 +12,7 @@ export class MatchHUD {
     this.map.className = "match-map";
     this.map.setAttribute(
       "aria-label",
-      "Midtown map: player, active objective and next objective. North is up.",
+      "Midtown map: player and allies. North is up. Enemies are not revealed.",
     );
     hud.el.hud.appendChild(this.map);
     this.ctx = this.map.getContext("2d");
@@ -32,18 +32,15 @@ export class MatchHUD {
     l.robots.textContent = m.robotScore;
     const left = Math.ceil(m.timeLeft);
     l.clock.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
-    l.blue.style.width = `${(m.playerScore / HARDPOINT.target) * 50}%`;
-    l.red.style.width = `${(m.robotScore / HARDPOINT.target) * 50}%`;
-    const state = {
-      player: "HOLDING",
-      robots: "ENEMY CONTROL",
-      contested: "CONTESTED",
-      neutral: "CAPTURE",
-    }[m.owner];
+    l.blue.style.width = `${(m.playerScore / TDM.target) * 50}%`;
+    l.red.style.width = `${(m.robotScore / TDM.target) * 50}%`;
     l.point.textContent = p.dead
-      ? `RESPAWNING IN ${Math.max(1, Math.ceil(HARDPOINT.respawn - world.deadT))}`
-      : `${m.point.id} / ${m.point.name} · ${state}`;
-    l.next.textContent = `ROTATES IN ${Math.ceil(m.rotationLeft)}s · NEXT ${m.next.id}: ${m.next.name}${m.spawnShield > 0 ? " · SPAWN PROTECTION" : ""}`;
+      ? `RESPAWNING IN ${Math.max(1, Math.ceil(TDM.respawn - world.deadT))}`
+      : `FIRST TO ${TDM.target} · ${world.kills} KILLS / ${m.deaths} DEATHS`;
+    l.next.textContent =
+      m.spawnShield > 0
+        ? "SPAWN PROTECTION"
+        : "YOU + 2 ALLIES · FRIENDLY FIRE OFF";
     this.nextPaint -= dt;
     if (this.nextPaint > 0) return;
     this.nextPaint = 0.1;
@@ -65,23 +62,12 @@ export class MatchHUD {
       c.strokeRect(-b.w / 2, -b.d / 2, b.w, b.d);
       c.restore();
     }
-    for (const point of MIDTOWN.objectives) {
+    for (const ally of world.enemies.list) {
+      if (ally.team !== "blue" || ally.state === "die") continue;
       c.beginPath();
-      c.arc(point.x, point.z, point.radius, 0, Math.PI * 2);
-      c.fillStyle =
-        point.id === m.point.id
-          ? m.owner === "robots"
-            ? "#be6555"
-            : m.owner === "contested"
-              ? "#b39450"
-              : "#498d83"
-          : "#243640";
+      c.arc(ally.pos.x, ally.pos.z, 0.7, 0, Math.PI * 2);
+      c.fillStyle = "#83d5ef";
       c.fill();
-      c.fillStyle = "#fff";
-      c.font = "bold 2.8px sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.fillText(point.id, point.x, point.z);
     }
     if (!p.dead) {
       c.translate(p.pos.x, p.pos.z);

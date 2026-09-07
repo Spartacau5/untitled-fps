@@ -4,7 +4,7 @@ import { composeWave } from "../data/waves.js";
 import { Arena } from "./arena.js";
 import { MidtownArena } from "./midtown-arena.js";
 import { TacticalEnemies } from "./tactical-enemies.js";
-import { Hardpoint } from "./hardpoint.js";
+import { TeamDeathmatch } from "./team-deathmatch.js";
 import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
 import {
@@ -46,11 +46,11 @@ export class World {
       (this.loadout = loadout),
       (this.startKey = startKey),
       (this.rng = new RNG(seed)),
-      (this.arena = new (mode === "hardpoint" ? MidtownArena : Arena)(this.rng.fork("layout"))),
+      (this.arena = new (mode === "tdm" ? MidtownArena : Arena)(this.rng.fork("layout"))),
       (this.flow = new FlowField(this.arena)),
       (this.player = new Player(this.arena)),
       (this.weapons = new Weapons(this.rng.fork("combat"), loadout, startKey)),
-      (this.enemies = new (mode === "hardpoint" ? TacticalEnemies : Enemies)(this.arena, this.rng.fork("ai"))),
+      (this.enemies = new (mode === "tdm" ? TacticalEnemies : Enemies)(this.arena, this.rng.fork("ai"))),
       (this.projectiles = new Projectiles(this.arena)),
       (this.waveRng = this.rng.fork("waves")),
       (this.stats = new RunStats()),
@@ -78,7 +78,7 @@ export class World {
       (this._cone = []),
       (this._cv = new Vector3()),
       (this._cp = new Vector3()));
-    this.match = mode === "hardpoint" ? new Hardpoint(this) : null;
+    this.match = mode === "tdm" ? new TeamDeathmatch(this) : null;
   }
   emit(type, data) {
     ((data.type = type), this.stats.record(data, this), this.events.push(data));
@@ -156,7 +156,7 @@ export class World {
       t = this.elapsed;
     (p.update(dt, input, t),
       // Reflood before the AI reads it; a no-op unless the player changed cell.
-      this.flow.update(this.match ? this.match.point.x : p.pos.x, this.match ? this.match.point.z : p.pos.z),
+      !this.match && this.flow.update(p.pos.x, p.pos.z),
       this.weapons.update(dt, input, p, t, this),
       this.enemies.update(dt, p, this),
       this.projectiles.update(dt, p, this),
@@ -169,6 +169,7 @@ export class World {
     // then forwarded to the presentation layer. They bypass emit(), so the
     // stats recorder is fed here; hurt events are tagged with their source.
     for (const ev of p.events) {
+      if (ev.type === EV_DEAD && this.match) { this.match.deaths++; this.match.recordElimination("blue"); }
       (ev.type === EV_LAND && p.addTrauma(ev.strength * 0.12),
         ev.type === EV_DEAD && !this.match && (this.slowmoRequest = 2.5),
         ev.type === EV_HURT && (ev.by = this._hurtBy),
@@ -293,7 +294,7 @@ export class World {
   }
   // n is the attacking enemy, or null for a spitter projectile.
   onPlayerHit(t, e, n) {
-    if (this.player.dead || this.match?.spawnShield > 0) return;
+    if (this.player.dead || this.match?.spawnShield > 0 || (this.match && n?.team === "blue")) return;
     ((this._hurtBy = n?.tactical ? "rifle" : n ? n.type : "spit"),
       this.god && (t = 0),
       this.player.damage(t, e),
@@ -312,6 +313,10 @@ export class World {
         this.player.knock(this._v, 5)));
   }
   onKill(t, e) {
+    if (this.match) {
+      this.match.recordElimination(t.team);
+      if (!t.killedByPlayer) { this.emit("teamKill", { team: t.killerTeam, victim: t.team, pos: t.pos.clone() }); return; }
+    }
     this.kills++;
     const n = this.elapsed;
     ((this.streak = n - this.lastKillT < 1.8 ? this.streak + 1 : 1),

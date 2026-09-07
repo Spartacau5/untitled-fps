@@ -100,7 +100,7 @@ export class HUD {
     e = this.matchMode ? "MIDTOWN CROSSING" : theme.strings.title,
     n = theme.strings.deploy,
     s = null,
-    r = this.matchMode ? "HARDPOINT / SOLO VS 3 ROBOTS / FIRST TO 120" : theme.strings.subtitle,
+    r = this.matchMode ? "TEAM DEATHMATCH / 3 VS 3 BOTS / FIRST TO 40" : theme.strings.subtitle,
   ) {
     (this.setPauseActions(false),
       this.el.runSummary && this.el.runSummary.classList.add("hidden"),
