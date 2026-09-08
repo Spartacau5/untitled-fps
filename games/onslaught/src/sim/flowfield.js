@@ -35,17 +35,22 @@ const NEIGHBOURS = [
 ];
 
 export class FlowField {
-  constructor(arena, cell = CELL) {
+  constructor(arena, cell = CELL, shared = null) {
     this.cell = cell;
-    const extent = arena.bounds ? Math.max(arena.bounds.x, arena.bounds.z) + 1 : ARENA_RADIUS + 1;
+    const extent = arena.bounds
+      ? Math.max(arena.bounds.x, arena.bounds.z) + 1
+      : ARENA_RADIUS + 1;
     this.origin = -extent;
     this.n = Math.ceil((extent * 2) / cell);
     const total = this.n * this.n;
-    this.open = new Uint8Array(total);
+    this.open =
+      shared && shared.cell === cell && shared.n === this.n
+        ? shared.open
+        : new Uint8Array(total);
     this.dist = new Int32Array(total);
     this.queue = new Int32Array(total);
     this.srcCell = -1;
-    this._bake(arena);
+    if (this.open !== shared?.open) this._bake(arena);
   }
   // A new run must not inherit the previous run's flood, or a replay from the
   // same seed can start from a different field than the original did.
@@ -60,7 +65,10 @@ export class FlowField {
       const z = origin + (gz + 0.5) * cell;
       for (let gx = 0; gx < n; gx++) {
         const x = origin + (gx + 0.5) * cell;
-        let ok = arena.bounds ? Math.abs(x) < arena.bounds.x - CLEARANCE && Math.abs(z) < arena.bounds.z - CLEARANCE : Math.hypot(x, z) < limit;
+        let ok = arena.bounds
+          ? Math.abs(x) < arena.bounds.x - CLEARANCE &&
+            Math.abs(z) < arena.bounds.z - CLEARANCE
+          : Math.hypot(x, z) < limit;
         if (ok)
           for (const b of arena.boxes) {
             if (b.y1 < 0.5) continue;

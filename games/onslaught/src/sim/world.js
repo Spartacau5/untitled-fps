@@ -5,6 +5,7 @@ import { Arena } from "./arena.js";
 import { MidtownArena } from "./midtown-arena.js";
 import { TacticalEnemies } from "./tactical-enemies.js";
 import { TeamDeathmatch } from "./team-deathmatch.js";
+import { FreeForAll } from "./free-for-all.js";
 import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
 import {
@@ -46,11 +47,15 @@ export class World {
       (this.loadout = loadout),
       (this.startKey = startKey),
       (this.rng = new RNG(seed)),
-      (this.arena = new (mode === "tdm" ? MidtownArena : Arena)(this.rng.fork("layout"))),
+      (this.arena = new (["tdm", "ffa"].includes(mode) ? MidtownArena : Arena)(
+        this.rng.fork("layout"),
+      )),
       (this.flow = new FlowField(this.arena)),
       (this.player = new Player(this.arena)),
       (this.weapons = new Weapons(this.rng.fork("combat"), loadout, startKey)),
-      (this.enemies = new (mode === "tdm" ? TacticalEnemies : Enemies)(this.arena, this.rng.fork("ai"))),
+      (this.enemies = new (
+        ["tdm", "ffa"].includes(mode) ? TacticalEnemies : Enemies
+      )(this.arena, this.rng.fork("ai"))),
       (this.projectiles = new Projectiles(this.arena)),
       (this.waveRng = this.rng.fork("waves")),
       (this.stats = new RunStats()),
@@ -78,7 +83,12 @@ export class World {
       (this._cone = []),
       (this._cv = new Vector3()),
       (this._cp = new Vector3()));
-    this.match = mode === "tdm" ? new TeamDeathmatch(this) : null;
+    this.match =
+      mode === "ffa"
+        ? new FreeForAll(this)
+        : mode === "tdm"
+          ? new TeamDeathmatch(this)
+          : null;
   }
   emit(type, data) {
     ((data.type = type), this.stats.record(data, this), this.events.push(data));
@@ -133,7 +143,10 @@ export class World {
       (this._hurtBy = null),
       this.stats.reset(),
       this.weapons._ammo(this));
-    if (this.match) { this.match.reset(); this.match.placePlayer(); }
+    if (this.match) {
+      this.match.reset();
+      this.match.placePlayer();
+    }
   }
   // Swap the carried guns between runs. startRun() re-forks the combat
   // stream, so rebuilding the weapons here cannot desync a seeded replay.
@@ -169,7 +182,10 @@ export class World {
     // then forwarded to the presentation layer. They bypass emit(), so the
     // stats recorder is fed here; hurt events are tagged with their source.
     for (const ev of p.events) {
-      if (ev.type === EV_DEAD && this.match) { this.match.deaths++; this.match.recordElimination("blue"); }
+      if (ev.type === EV_DEAD && this.match) {
+        if (this.mode !== "ffa") this.match.deaths++;
+        this.match.recordElimination("blue", this._lastAttacker);
+      }
       (ev.type === EV_LAND && p.addTrauma(ev.strength * 0.12),
         ev.type === EV_DEAD && !this.match && (this.slowmoRequest = 2.5),
         ev.type === EV_HURT && (ev.by = this._hurtBy),
@@ -227,8 +243,7 @@ export class World {
         1 -
         (1 - def.falloffMin) *
           MathUtils.clamp(
-            (h.dist - def.falloffStart) /
-              (def.falloffEnd - def.falloffStart),
+            (h.dist - def.falloffStart) / (def.falloffEnd - def.falloffStart),
             0,
             1,
           );
@@ -294,11 +309,18 @@ export class World {
   }
   // n is the attacking enemy, or null for a spitter projectile.
   onPlayerHit(t, e, n) {
-    if (this.player.dead || this.match?.spawnShield > 0 || (this.match && n?.team === "blue")) return;
+    if (
+      this.player.dead ||
+      this.match?.spawnShield > 0 ||
+      (this.match && n?.team === "blue")
+    )
+      return;
+    this._lastAttacker = n?.team ?? null;
     ((this._hurtBy = n?.tactical ? "rifle" : n ? n.type : "spit"),
       this.god && (t = 0),
       this.player.damage(t, e),
-      n && !n.tactical &&
+      n &&
+        !n.tactical &&
         (this._v.subVectors(this.player.pos, n.pos),
         (this._v.y = 0),
         this._v.normalize(),
@@ -306,7 +328,8 @@ export class World {
   }
   onSlam(t, e, n = 5) {
     (this.player.addTrauma(MathUtils.clamp(1 - e / 14, 0, 0.8)),
-      e < n && !n.tactical &&
+      e < n &&
+        !n.tactical &&
         (this._v.subVectors(this.player.pos, t),
         (this._v.y = 0),
         this._v.normalize(),
@@ -314,8 +337,15 @@ export class World {
   }
   onKill(t, e) {
     if (this.match) {
-      this.match.recordElimination(t.team);
-      if (!t.killedByPlayer) { this.emit("teamKill", { team: t.killerTeam, victim: t.team, pos: t.pos.clone() }); return; }
+      this.match.recordElimination(t.team, t.killerTeam);
+      if (!t.killedByPlayer) {
+        this.emit("teamKill", {
+          team: t.killerTeam,
+          victim: t.team,
+          pos: t.pos.clone(),
+        });
+        return;
+      }
     }
     this.kills++;
     const n = this.elapsed;
@@ -332,7 +362,8 @@ export class World {
         mult: s,
         groundY: this.arena.groundHeight(t.pos.x, t.pos.z),
       }),
-      (this.match || t.def.big || this.waveRng.chance(0.13)) && this.spawnPickup(t.pos));
+      (this.match || t.def.big || this.waveRng.chance(0.13)) &&
+        this.spawnPickup(t.pos));
   }
   startWave(t) {
     ((this.wave = t), (this.waveActive = !0));
@@ -436,7 +467,17 @@ export class World {
       }
     };
     const p = this.player;
-    if (this.match) { mix(this.match.playerScore); mix(this.match.robotScore); mix(this.match.time); mix(this.match.deaths); }
+    if (this.match) {
+      mix(this.match.playerScore);
+      mix(this.match.robotScore);
+      mix(this.match.time);
+      mix(this.match.deaths);
+    }
+    if (this.match?.standings)
+      for (const entry of this.match.standings) {
+        mix(entry.kills);
+        mix(entry.deaths);
+      }
     (mix(p.pos.x),
       mix(p.pos.y),
       mix(p.pos.z),

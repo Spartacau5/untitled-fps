@@ -270,12 +270,36 @@ export class Audio {
     if (!this.ready) return;
     const { gain, pan } = this.spatial(position, 5, 55);
     const level = gain * (occluded ? 0.22 : 1);
-    this.noise(this.now, { type: "lowpass", freq: occluded ? 650 : 4800, freqEnd: 350, gain: level * 0.7, attack: 0.001, decay: 0.12, pan, send: 0.3 });
-    this.tone(this.now, { type: "triangle", freq: 140, freqEnd: 48, gain: level * 0.38, attack: 0.001, decay: 0.16, pan, send: 0.25 });
+    if (this.groundedCombat)
+      return this.rifleReport(this.now, level * 0.7, pan, occluded);
+    this.noise(this.now, {
+      type: "lowpass",
+      freq: occluded ? 650 : 4800,
+      freqEnd: 350,
+      gain: level * 0.7,
+      attack: 0.001,
+      decay: 0.12,
+      pan,
+      send: 0.3,
+    });
+    this.tone(this.now, {
+      type: "triangle",
+      freq: 140,
+      freqEnd: 48,
+      gain: level * 0.38,
+      attack: 0.001,
+      decay: 0.16,
+      pan,
+      send: 0.25,
+    });
   }
   gunshot(key) {
     if (!this.ready) return;
     if (key === "flame") return this.flameLoop();
+    if (this.groundedCombat && !["rocket", "shotgun", "sniper"].includes(key)) {
+      const weight = ["pistol", "smg", "mp5"].includes(key) ? 0.68 : 1;
+      return this.rifleReport(this.now, weight, 0, false);
+    }
     // New weapons borrow the closest existing synthesis chain, retuned by
     // pitch and weight. The chain's fixed high-frequency crack stays put,
     // which is what keeps them recognisable as the same family of gun.
@@ -286,6 +310,82 @@ export class Audio {
     this.voiceGain = voice.gain;
     this._gunshotBody(t, e, n);
     this.voiceGain = 1;
+  }
+  // Original synthesis, not recordings: dry muzzle crack, low pressure body,
+  // mechanical tick and a delayed, filtered street reflection. No tonal laser.
+  rifleReport(time, gain, pan, occluded) {
+    const variation = 0.97 + Math.random() * 0.06;
+    this.noise(time, {
+      type: "highpass",
+      freq: occluded ? 500 : 2100,
+      gain: gain * (occluded ? 0.08 : 0.62),
+      attack: 0.001,
+      decay: 0.022,
+      pan,
+      rate: variation,
+      send: 0.04,
+    });
+    this.noise(time, {
+      type: "lowpass",
+      freq: occluded ? 520 : 1850,
+      freqEnd: 180,
+      gain: gain * 0.75,
+      attack: 0.001,
+      decay: 0.11,
+      pan,
+      send: 0.15,
+    });
+    this.tone(time, {
+      type: "sine",
+      freq: 112 * variation,
+      freqEnd: 47,
+      gain: gain * 0.4,
+      decay: 0.075,
+      pan,
+      send: 0.03,
+    });
+    this.noise(time + 0.065, {
+      type: "bandpass",
+      freq: occluded ? 480 : 1100,
+      freqEnd: 360,
+      Q: 0.65,
+      gain: gain * 0.14,
+      attack: 0.01,
+      decay: 0.23,
+      pan: pan * 0.6,
+      send: 0.32,
+    });
+  }
+  operatorFall(position) {
+    if (!this.ready) return;
+    const { gain, pan } = this.spatial(position, 4, 28),
+      time = this.now;
+    if (gain < 0.02) return;
+    this.noise(time + 0.2, {
+      type: "bandpass",
+      freq: 520,
+      Q: 0.6,
+      gain: gain * 0.18,
+      decay: 0.12,
+      pan,
+      send: 0.08,
+    });
+    this.noise(time + 0.45, {
+      type: "lowpass",
+      freq: 420,
+      gain: gain * 0.5,
+      decay: 0.16,
+      pan,
+      send: 0.14,
+    });
+    this.tone(time + 0.45, {
+      type: "sine",
+      freq: 92,
+      freqEnd: 38,
+      gain: gain * 0.22,
+      decay: 0.12,
+      pan,
+    });
   }
   // Rocket blast: a low body you feel, a mid crack, and a long tail.
   explosion(at) {
@@ -645,6 +745,23 @@ export class Audio {
   }
   kill(t = !1) {
     const e = this.now;
+    if (this.groundedCombat) {
+      this.noise(e, {
+        type: "bandpass",
+        freq: t ? 3100 : 2000,
+        Q: 1.6,
+        gain: 0.22,
+        decay: 0.035,
+      });
+      this.tone(e, {
+        type: "sine",
+        freq: t ? 1150 : 780,
+        freqEnd: 310,
+        gain: 0.1,
+        decay: 0.06,
+      });
+      return;
+    }
     (this.tone(e, {
       type: "sine",
       freq: t ? 1320 : 990,
@@ -884,23 +1001,65 @@ export class Audio {
       }));
   }
   nearMiss(position) {
-    if (!this.ready || this.now - (this.lastNearMiss ?? -10) < .15) return;
+    if (!this.ready || this.now - (this.lastNearMiss ?? -10) < 0.15) return;
     this.lastNearMiss = this.now;
     const { pan } = this.spatial(position, 1, 4);
-    this.noise(this.now, { type: "highpass", freq: 4200, gain: .12, decay: .025, pan });
-    this.noise(this.now + .015, { type: "bandpass", freq: 1400, freqEnd: 500, Q: 1.5, gain: .09, decay: .08, pan, send: .15 });
+    this.noise(this.now, {
+      type: "highpass",
+      freq: 4200,
+      gain: 0.12,
+      decay: 0.025,
+      pan,
+    });
+    this.noise(this.now + 0.015, {
+      type: "bandpass",
+      freq: 1400,
+      freqEnd: 500,
+      Q: 1.5,
+      gain: 0.09,
+      decay: 0.08,
+      pan,
+      send: 0.15,
+    });
   }
   robotFootstep(position) {
     if (!this.ready) return;
     const { gain, pan } = this.spatial(position, 3, 22);
-    this.noise(this.now, { type: "bandpass", freq: 430, Q: .8, gain: gain * .16, decay: .07, pan, send: .14 });
-    this.tone(this.now, { type: "sine", freq: 105, freqEnd: 62, gain: gain * .08, decay: .055, pan });
+    this.noise(this.now, {
+      type: "bandpass",
+      freq: 430,
+      Q: 0.8,
+      gain: gain * 0.16,
+      decay: 0.07,
+      pan,
+      send: 0.14,
+    });
+    this.tone(this.now, {
+      type: "sine",
+      freq: 105,
+      freqEnd: 62,
+      gain: gain * 0.08,
+      decay: 0.055,
+      pan,
+    });
   }
   robotReload(position) {
     if (!this.ready) return;
     const { gain, pan } = this.spatial(position, 3, 15);
-    for (const [delay, freq] of [[0, 2100], [.7, 1500], [1.9, 2800]])
-      this.noise(this.now + delay, { type: "bandpass", freq, Q: 2, gain: gain * .12, decay: .055, pan, send: .08 });
+    for (const [delay, freq] of [
+      [0, 2100],
+      [0.7, 1500],
+      [1.9, 2800],
+    ])
+      this.noise(this.now + delay, {
+        type: "bandpass",
+        freq,
+        Q: 2,
+        gain: gain * 0.12,
+        decay: 0.055,
+        pan,
+        send: 0.08,
+      });
   }
   footstep(t = 1, surface = "default") {
     const e = this.now;

@@ -2,6 +2,8 @@
 
 Branch: `v3/midtown-tdm-fidelity`.
 
+Historical notes for the previous branch. The active development pass is documented in [MIDTOWN-FFA.md](MIDTOWN-FFA.md).
+
 The direction is now simple local team deathmatch, with fidelity taking priority over new modes, progression or multiplayer. The previous hardpoint implementation is removed from this branch and remains recoverable in `v3/midtown-hardpoint` and Git history.
 
 ## Playable rules

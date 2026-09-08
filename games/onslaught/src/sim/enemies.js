@@ -124,7 +124,7 @@ export class Enemies {
       _rayTmp.set(d, r.pos.y + a.hipH * o, u);
       const m = raySphere(t, e, _rayTmp, a.headY * o * 0.75);
       if (m < 0 || m > n) continue;
-      const g = 0.2 * o * r.moveBlend;
+      const g = r.tactical ? 0 : 0.2 * o * r.moveBlend;
       this._headC.set(
         d + c * g,
         r.pos.y + a.headY * o - 0.04 * o * r.moveBlend + r.headBob,
@@ -202,24 +202,27 @@ export class Enemies {
   }
   damage(t, e, n, s, world, { team = "blue", player = true } = {}) {
     const r = t.enemy;
-    if (world.match && (r.team === team || r.shield > 0)) return { killed: false };
-    r.killerTeam = team; r.killedByPlayer = player;
+    if (world.match && (r.team === team || r.shield > 0))
+      return { killed: false };
+    r.killerTeam = team;
+    r.killedByPlayer = player;
     if (r.state === "die") return { killed: !1 };
     ((r.hp -= e), (r.flash = 1), (r.squash = Math.min(0.22, r.squash + 0.1)));
-    const a = s.kbForce / r.def.mass;
+    const a = (s.kbForce / r.def.mass) * (world.mode === "ffa" ? 0.12 : 1);
     ((r.kb.x += n.x * a),
       (r.kb.z += n.z * a),
       r.state === "spawn" && ((r.state = "chase"), (r.dissolve = 0)));
     const killed = r.hp <= 0;
     return (
-      player && world.emit(EV_HIT, {
-        point: t.point,
-        dir: n,
-        head: t.head,
-        killed,
-        kind: r.type,
-        damage: e,
-      }),
+      player &&
+        world.emit(EV_HIT, {
+          point: t.point,
+          dir: n,
+          head: t.head,
+          killed,
+          kind: r.type,
+          damage: e,
+        }),
       killed && this.kill(r, n, t.head, s, world),
       { killed }
     );
@@ -227,7 +230,7 @@ export class Enemies {
   kill(t, e, n, s, world) {
     ((t.state = "die"),
       (t.t = 0),
-      (t.headless = n),
+      (t.headless = world.mode === "ffa" ? false : n),
       (t.dissolve = 0),
       (t.attackLean = 0));
     const r = -Math.sin(t.yaw),

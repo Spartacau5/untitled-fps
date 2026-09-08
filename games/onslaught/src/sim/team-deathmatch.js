@@ -6,8 +6,8 @@ export class TeamDeathmatch {
   constructor(world) {
     this.world = world;
     this.navigation = Array.from(
-      { length: TDM.allies + TDM.enemies },
-      () => new FlowField(world.arena),
+      { length: world.mode === "ffa" ? 6 : TDM.allies + TDM.enemies },
+      () => new FlowField(world.arena, world.flow.cell, world.flow),
     );
     this.reset();
   }
@@ -34,7 +34,7 @@ export class TeamDeathmatch {
     const threats = w.enemies.list
       .filter((e) => e.state !== "die" && e.team !== team)
       .map((e) => e.pos);
-    if (team === "red" && !w.player.dead) threats.push(w.player.pos);
+    if (team !== "blue" && !w.player.dead) threats.push(w.player.pos);
     let best = MIDTOWN.spawns[team === "blue" ? 0 : 5],
       bestScore = -Infinity;
     for (const s of MIDTOWN.spawns) {
@@ -48,7 +48,7 @@ export class TeamDeathmatch {
           d - (w.arena.raycast(origin, dir.normalize(), d) ? 0 : 55),
         );
       }
-      score += (team === "blue" ? s.z : -s.z) * 0.2;
+      if (w.mode !== "ffa") score += (team === "blue" ? s.z : -s.z) * 0.2;
       const occupied = [
         ...w.enemies.list.filter((e) => e.state !== "die").map((e) => e.pos),
         ...(!w.player.dead ? [w.player.pos] : []),

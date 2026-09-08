@@ -1532,4 +1532,15 @@ canvas#game {
 .match-next { text-align:center; color:#a9bbc4; font-size:9px; margin-top:4px; }
 .match-map { position:absolute; left:22px; top:22px; width:162px; height:210px; border:1px solid #53636b66; border-radius:4px; }
 .tdm-mode .title { font-size:clamp(32px,5vw,68px); }
+.ffa-panel { left:auto; right:22px; transform:none; width:230px; padding:12px 14px; background:rgba(17,21,22,.8); border-color:#a49b7544; }
+.ffa-summary { display:flex; align-items:baseline; gap:6px; margin:4px 0; font-size:10px; color:#acafa5; }
+.ffa-summary b { font-size:28px; color:#f0e6cc; }
+.ffa-summary [data-rank] { margin-left:auto; }
+.ffa-panel .match-objective { font-size:9px; letter-spacing:.06em; color:#c4bc9f; }
+.ffa-board { width:100%; border-collapse:collapse; margin-top:8px; font-size:10px; text-align:left; }
+.ffa-board th { color:#999e94; font-size:8px; font-weight:500; padding:3px 4px; }
+.ffa-board td { padding:3px 4px; border-top:1px solid #ffffff09; }
+.ffa-board th:nth-child(n+3), .ffa-board td:nth-child(n+3) { text-align:right; }
+.ffa-board .is-you { color:#f0d495; background:#c3ae6820; }
+@media(max-width:700px) { .ffa-panel.match-panel { width:170px; } .ffa-board { font-size:8px; } .ffa-board td { padding:2px 3px; } .ffa-summary b { font-size:23px; } }
 @media(max-width:700px) { .match-panel { top:8px; width:58vw; left:auto; right:8px; transform:none; padding:8px; } .match-map { left:8px; top:8px; width:97px; height:126px; } .match-heading { font-size:7px; } .match-score b { font-size:21px; } .match-next { font-size:8px; } .match-objective { font-size:10px; } }

@@ -14,20 +14,65 @@ import { buildingDetail, fireEscape, busDetail } from "./city/architecture.js";
 import { ArenaView } from "./arena-view.js";
 import { MIDTOWN } from "../data/midtown.js";
 import { CAMPAIGNS } from "./city/ads.js";
+import { facadeTexture } from "./city/textures.js";
 
 // Playable art blockout. Buildings, buses and street furniture follow the
 // collision manifest. Fine trim is decorative and stays inside those solids.
 export class MidtownView extends ArenaView {
   _materials() {
-    super._materials();
-    const m = this.mats;
+    // Skip the old arena's unused 1024px wet pavement and shutter textures.
+    const mat = (color, roughness = 0.85, metalness = 0) =>
+      new MeshStandardMaterial({ color, roughness, metalness });
+    const m = (this.mats = {
+      dark: mat(0x292b29),
+      pillar: mat(0x535551),
+      crate: mat(0x5f685e),
+      barrier: mat(0x92918a),
+      stone: mat(0x9a978c),
+      paint: mat(0xb7b5a4),
+      yellow: mat(0xc69e3c),
+      red: mat(0x864336),
+      glass: mat(0x465559, 0.3, 0.22),
+      floor: streetMaterial("concrete", 0x8d8e87),
+      shedGreen: mat(0x3e4c3b),
+      shedGrey: mat(0x737779),
+      shedWhite: mat(0xb1b0a6),
+      netting: mat(0x3c4b55),
+      shrub: mat(0x4e5840),
+      shutter: mat(0x797974, 0.7, 0.15),
+      emCyan: mat(0x819498),
+      emCyanDim: mat(0x7e8685),
+      emOrange: new MeshStandardMaterial({
+        color: 0xd5ab6c,
+        emissive: 0xd79a4a,
+        emissiveIntensity: 0.2,
+      }),
+      emWhite: new MeshStandardMaterial({
+        color: 0xd4cdbb,
+        emissive: 0xffd9a1,
+        emissiveIntensity: 0.4,
+      }),
+    });
+    this.facades = [0, 1, 2, 3].map(
+      (i) =>
+        new MeshStandardMaterial({
+          map: facadeTexture(i),
+          roughness: 0.86,
+          metalness: 0.05,
+        }),
+    );
+    this.signs = new Map();
+    this.ledMats = [];
+    this.tickers = [];
+    this.boardMaps = new Map();
+    this.tickerMap = null;
     m.asphalt = streetMaterial("asphalt", 0x474b4c);
-    m.brick = streetMaterial("brick", 0x755044);
-    m.limestone = streetMaterial("stone", 0xa6a095);
+    m.brick = streetMaterial("brick", 0x827067);
+    m.limestone = streetMaterial("stone", 0x969186);
     m.granite = streetMaterial("stone", 0x555e62);
     m.brushed = streetMaterial("metal", 0x838c91, { metalness: 0.62 });
     m.wall = streetMaterial("concrete", 0x8e928d);
-    m.metal = streetMaterial("metal", 0x39444c, { metalness: 0.45 });
+    m.metal = streetMaterial("metal", 0x65706e, { metalness: 0.22 });
     m.frame = new MeshStandardMaterial({
       color: 0x263036,
       roughness: 0.6,
@@ -83,10 +128,42 @@ export class MidtownView extends ArenaView {
     g.translate(x, y, z);
     this._batch(g, mat);
   }
+  _flush() {
+    const start = this.scene.children.length;
+    super._flush();
+    // Only structural masses cast district shadows. Tiny mullions, curb paint
+    // and chrome strips do not need a second geometry pass every frame.
+    const casters = [
+      this.mats.brick,
+      this.mats.limestone,
+      this.mats.wall,
+      this.mats.metal,
+      this.mats.paint,
+      this.mats.granite,
+      ...(this.facades || []),
+    ];
+    for (const mesh of this.scene.children.slice(start))
+      mesh.castShadow = casters.includes(mesh.material);
+  }
 
   _ground() {
     const m = this.mats;
-    this._box(90, 0.2, 110, 0, -0.11, 0, m.asphalt);
+    // Adjacent strips share y=0 with collision. No coplanar overlapping boxes.
+    for (const [left, right, material] of [
+      [-45, -27, m.asphalt],
+      [-27, -18, m.floor],
+      [-18, 18, m.asphalt],
+      [18, 27, m.floor],
+      [27, 45, m.asphalt],
+    ]) {
+      const ground = new Mesh(new PlaneGeometry(right - left, 110), material);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.x = (left + right) / 2;
+      ground.receiveShadow = true;
+      ground.name = "midtown-ground";
+      ground.userData.span = [left, right];
+      this.scene.add(ground);
+    }
     // Expansion joints and drainage channels anchor the street at human scale.
     for (const x of [-18, 18]) {
       for (let z = -34; z < 35; z += 1.25)
@@ -120,9 +197,7 @@ export class MidtownView extends ArenaView {
       for (let k = -4; k <= 4; k++)
         this._box(0.72, 0.012, 0.025, 1, 0.03, z + k * 0.1, m.frame);
     }
-    for (const x of [-22, 22]) this._box(10, 0.018, 70, x, -0.002, 0, m.floor);
     for (const z of [-14, 13]) {
-      this._box(54, 0.015, 4, 0, 0.003, z, m.floor);
       for (let x = -6; x <= 6; x += 1.25)
         this._box(0.6, 0.012, 3, x, 0.018, z, m.paint);
     }

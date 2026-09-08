@@ -37,6 +37,7 @@ import { theme } from "../theme/theme.js";
 import { MidtownView } from "../render/midtown-view.js";
 import { ArenaView } from "../render/arena-view.js";
 import { EnemyView } from "../render/enemy-view.js";
+import { OperatorView } from "../render/operator-view.js";
 import { Decals } from "../render/fx/decals.js";
 import { ParticleSystem } from "../render/fx/particles.js";
 import { Shells } from "../render/fx/shells.js";
@@ -91,11 +92,17 @@ export class Game {
     this.progression = new Progression();
     this.world = new World({
       seed: this.seed,
-      mode: e.get("mode") === "horde" ? "horde" : "tdm",
+      mode: e.get("mode") === "horde" ? "horde" : "ffa",
       god: this.god,
       noSpawn: e.has("nospawn"),
-      loadout: this.progression.loadout,
-      startKey: this.progression.start,
+      loadout:
+        e.get("mode") === "horde"
+          ? this.progression.loadout
+          : this.progression.loadout.map((key) => (key === "ar" ? "m4" : key)),
+      startKey:
+        e.get("mode") !== "horde" && this.progression.start === "ar"
+          ? "m4"
+          : this.progression.start,
     });
     const n = new WebGLRenderer({
       canvas: t,
@@ -115,7 +122,12 @@ export class Game {
       (this.scene = new Scene()),
       (this.weaponScene = new Scene()));
     const s = window.innerWidth / window.innerHeight;
-    ((this.camera = new PerspectiveCamera(80, s, 0.08, 1200)),
+    ((this.camera = new PerspectiveCamera(
+      80,
+      s,
+      this.world.match ? 0.12 : 0.08,
+      this.world.match ? 260 : 1200,
+    )),
       (this.weaponCamera = new PerspectiveCamera(56, s, 0.012, 8)),
       this.scene.add(this.camera),
       this.weaponScene.add(this.weaponCamera),
@@ -126,10 +138,15 @@ export class Game {
       // constructing one costs tens of milliseconds. Only resume() needs the
       // gesture, and that is free.
       this.audio.init(),
+      (this.audio.groundedCombat = Boolean(this.world.match)),
       this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD({ match: Boolean(this.world.match) })),
       this.hud.initMatch(),
-      (this.arenaView = new (this.world.match ? MidtownView : ArenaView)(this.scene, this.world.arena, { mobile })),
+      (this.arenaView = new (this.world.match ? MidtownView : ArenaView)(
+        this.scene,
+        this.world.arena,
+        { mobile },
+      )),
       (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
@@ -140,10 +157,12 @@ export class Game {
         const o = this.audio.spatial([l.x, l.y, l.z], 3, 14);
         o.gain > 0.05 && this.audio.click(0.3 * o.gain, 4200);
       }),
-      (this.enemyView = new EnemyView(this.scene, { tactical: Boolean(this.world.match) })),
+      (this.enemyView = this.world.match
+        ? new OperatorView(this.scene)
+        : new EnemyView(this.scene)),
       (this.weaponView = new WeaponView(
         this.weaponCamera,
-        this.progression.loadout,
+        this.world.weapons.loadout.map((def) => def.key),
         this.world.weapons.startIndex,
         { mobile },
       )),
@@ -182,19 +201,24 @@ export class Game {
         theme.lights.weaponHemi.intensity,
       ),
     );
-    const a = mobile ? new Group() : new PointLight(
-      theme.lights.weaponFill.color,
-      theme.lights.weaponFill.intensity,
-      4,
-      2,
-    );
+    const a = mobile
+      ? new Group()
+      : new PointLight(
+          theme.lights.weaponFill.color,
+          theme.lights.weaponFill.intensity,
+          4,
+          2,
+        );
     (a.position.set(-0.6, -0.3, -0.6),
       this.weaponCamera.add(a),
-      (this.muzzleLight = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16752704, 0, 20, 2)),
+      (this.muzzleLight = mobile
+        ? Object.assign(new Group(), { intensity: 0 })
+        : new PointLight(16752704, 0, 20, 2)),
       this.scene.add(this.muzzleLight),
-      (this.impactLight = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16760960, 0, 9, 2)),
+      (this.impactLight = mobile
+        ? Object.assign(new Group(), { intensity: 0 })
+        : new PointLight(16760960, 0, 9, 2)),
       this.scene.add(this.impactLight),
-      !mobile && this._setupEnvironment(),
       this._buildPickupProto(),
       (this.state = "menu"),
       (this.time = 0),
@@ -253,9 +277,6 @@ export class Game {
       (this.runId = ""),
       this.hud.el.playerName &&
         (this.hud.el.playerName.value = loadPlayerName()),
-      // Build the guns the player did not deploy with once the page is idle:
-      // off the load path, but done well before anyone presses a number key.
-      this._warmViewmodels(),
       this.hud.setContest(Date.now()),
       this.hud.setSlots(this.world.weapons.weapons.length),
       this._renderLoadoutStrip(),
@@ -338,14 +359,35 @@ export class Game {
   // the page keeps painting - which is what lets the loading bar actually move.
   async warmup(onProgress) {
     const step = (v, label) => onProgress && onProgress(v, label);
+    const paint = () =>
+      new Promise((resolve) => requestAnimationFrame(resolve));
+    step(0.44, "PREPARING CARRIED WEAPONS");
+    await paint();
+    await this.weaponView.warmAsync((fraction) =>
+      step(0.44 + fraction * 0.14, "PREPARING CARRIED WEAPONS"),
+    );
+    step(0.6, "PREPARING LIGHTING");
+    await paint();
+    if (!this.mobile) this._setupEnvironment();
     try {
-      (step(0.5, "COMPILING CITY SHADERS"),
+      (step(0.68, "COMPILING CITY SHADERS"),
         await this.renderer.compileAsync(this.scene, this.camera));
       (step(0.82, "COMPILING WEAPON SHADERS"),
         await this.renderer.compileAsync(this.weaponScene, this.weaponCamera));
-    } catch {
-      // Best effort. A driver without the extension just pays the old cost on
-      // the first frames rather than failing to start.
+      step(0.91, "PREPARING SHADOWS AND POST PROCESSING");
+      await paint();
+      this.enemyView.prepareWarmup?.();
+      this.postfx.render(
+        this.scene,
+        this.camera,
+        this.weaponScene,
+        this.weaponCamera,
+        0,
+      );
+    } catch (error) {
+      console.warn("Rendering warmup was incomplete", error);
+    } finally {
+      this.enemyView.finishWarmup?.();
     }
     step(0.96, "STARTING");
   }
@@ -378,7 +420,9 @@ export class Game {
   // Everything else about the look is unchanged, so dropping quality trades
   // sharpness for framerate rather than turning the art off.
   _applyQuality(level) {
-    const tier = this.mobile ? QUALITY_TIERS[0] : QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
+    const tier = this.mobile
+      ? QUALITY_TIERS[0]
+      : QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
     this.renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, tier.pixelRatio),
     );
@@ -475,7 +519,10 @@ export class Game {
     }
   }
   async _endLiveRun(result) {
-    if (this.world.match) { this.runId = ""; return; }
+    if (this.world.match) {
+      this.runId = "";
+      return;
+    }
     if (!this.runId) return;
     this.lastRun = captureRun({
       world: this.world,
@@ -510,30 +557,18 @@ export class Game {
     return this.world.arena;
   }
   _setupEnvironment() {
-    // Capture the district itself once so steel and glass reflect buildings,
-    // billboard colors and the sky instead of the original orange arena ring.
     const generator = new PMREMGenerator(this.renderer);
-    // fromScene captures from the world origin, which here is a point on the
-    // ground plane and inside the granite plinth: the lower half of the
-    // capture was the underside of the floor, so every metal surface in the
-    // game reflected a dark hemisphere. Drop the scene to put the capture at
-    // roughly eye height instead.
-    const CAPTURE_Y = 3.2;
-    this.scene.position.y = -CAPTURE_Y;
-    this.scene.updateMatrixWorld(true);
-    const environment = generator.fromScene(this.scene, 0.06, 0.1, 1200);
-    this.scene.position.y = 0;
-    this.scene.updateMatrixWorld(true);
-    this.scene.environment = environment.texture;
-    // The city capture is intentionally dark between the tall buildings.
-    // A separate neutral reflection rig keeps high-metalness weapon surfaces
-    // readable without brightening or flattening the entire world.
+    // One small neutral reflection rig, not six extra renders of the district.
     const weaponRoom = new RoomEnvironment();
-    const weaponEnvironment = generator.fromScene(weaponRoom, 0.08);
-    this.weaponScene.environment = weaponEnvironment.texture;
+    this.environmentTarget?.dispose();
+    this.environmentTarget = generator.fromScene(weaponRoom, 0.08, 0.1, 100);
+    this.scene.environment = this.weaponScene.environment =
+      this.environmentTarget.texture;
     weaponRoom.dispose();
-    this.scene.environmentIntensity = theme.lights.envIntensity.world;
-    this.weaponScene.environmentIntensity = theme.lights.envIntensity.weapon;
+    this.scene.environmentIntensity = this.world.match
+      ? 0.55
+      : theme.lights.envIntensity.world;
+    this.weaponScene.environmentIntensity = 0.9;
     generator.dispose();
   }
   _buildPickupProto() {
@@ -559,14 +594,6 @@ export class Game {
       this.world.drainEvents(),
       this.hud.setSlots(this.world.weapons.weapons.length),
       this._renderLoadoutStrip());
-  }
-  // Deferred so it never lands inside the first frames. requestIdleCallback
-  // is not in every browser, so fall back to a timeout.
-  _warmViewmodels() {
-    const warm = () => this.weaponView.warm();
-    typeof requestIdleCallback === "function"
-      ? requestIdleCallback(warm, { timeout: 4000 })
-      : setTimeout(warm, 1200);
   }
   _renderLoadoutStrip() {
     const el = this.hud.el.loadoutStrip;
@@ -605,7 +632,9 @@ export class Game {
       this.hud.show(!0),
       (!this.debug || this.mobile) && this.input.lock(),
       (this.last = performance.now()),
-      this.world.match ? this.hud.banner("TEAM DEATHMATCH", "BLUE TEAM · FIRST TO 40 ELIMINATIONS", 3) : this.hud.banner(...theme.strings.deployingBanner, 2.5),
+      this.world.match
+        ? this.hud.banner("FREE FOR ALL", "6 OPERATORS · FIRST TO 40 KILLS", 3)
+        : this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
   }
@@ -618,7 +647,9 @@ export class Game {
         "PAUSED",
         "RESUME",
         null,
-        w.match ? `TEAM DEATHMATCH · BLUE ${w.match.playerScore} : ${w.match.robotScore} RED` : `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
+        w.match
+          ? `FREE FOR ALL · ${w.match.playerScore} KILLS · ${w.match.deaths} DEATHS`
+          : `WAVE ${w.wave} · SCORE ${w.score.toLocaleString("en-US")}`,
       ),
       this.hud.setPauseActions(true),
       this._submitRun());
@@ -653,7 +684,10 @@ export class Game {
       this.syncWeapon());
   }
   onDeath() {
-    if (this.world.match) { this.hud.banner("DOWN", "RESPAWNING IN 3 SECONDS", 2.5, true); return; }
+    if (this.world.match) {
+      this.hud.banner("DOWN", "RESPAWNING IN 3 SECONDS", 2.5, true);
+      return;
+    }
     if (this.mobile) this.input.unlock();
     ((this.state = "dead"),
       this.audio.gameOver(),
@@ -743,7 +777,14 @@ export class Game {
         (A.land(h.strength), this.weaponView.onEvent(h, w.weapons));
         break;
       case EV.EV_STEP:
-        A.footstep(h.sprint ? 1.25 : 0.85, w.match ? (Math.abs(n.pos.x) > 17 ? "pavement" : "asphalt") : "default");
+        A.footstep(
+          h.sprint ? 1.25 : 0.85,
+          w.match
+            ? Math.abs(n.pos.x) > 17
+              ? "pavement"
+              : "asphalt"
+            : "default",
+        );
         break;
       case EV.EV_SLIDE:
         A.slide();
@@ -782,40 +823,71 @@ export class Game {
         break;
       }
       case "respawn":
-        this.weaponView.reset(); this.syncWeapon(); this.hurtFx = 0;
+        this.weaponView.reset();
+        this.syncWeapon();
+        this.hurtFx = 0;
         H.banner("REDEPLOYED", "REJOIN YOUR TEAM", 1.6);
         break;
       case "botShot": {
-        this.tracers.fire(h.origin, h.end, this.time, 300, 0.025, 2, [1, 0.82, 0.53]);
+        this.tracers.fire(
+          h.origin,
+          h.end,
+          this.time,
+          300,
+          0.025,
+          2,
+          [1, 0.82, 0.53],
+        );
         const delta = this._v.subVectors(w.player.camPos, h.origin);
         const distance = delta.length();
-        const occluded = Boolean(w.arena.raycast(h.origin, delta.normalize(), distance));
+        const occluded = Boolean(
+          w.arena.raycast(h.origin, delta.normalize(), distance),
+        );
         A.robotShot([h.origin.x, h.origin.y, h.origin.z], occluded);
-        if (h.team === "red" && !occluded && !w.player.dead) {
+        if (h.team !== "blue" && !occluded && !w.player.dead) {
           const segment = this._v2.subVectors(h.end, h.origin);
           const length = segment.length();
           segment.normalize();
-          const along = MathUtils.clamp(this._v.subVectors(w.player.camPos, h.origin).dot(segment), 0, length);
+          const along = MathUtils.clamp(
+            this._v.subVectors(w.player.camPos, h.origin).dot(segment),
+            0,
+            length,
+          );
           this._v.copy(h.origin).addScaledVector(segment, along);
-          if (this._v.distanceTo(w.player.camPos) < 1.1 && h.end.distanceTo(w.player.camPos) > .7)
+          if (
+            this._v.distanceTo(w.player.camPos) < 1.1 &&
+            h.end.distanceTo(w.player.camPos) > 0.7
+          )
             A.nearMiss([this._v.x, this._v.y, this._v.z]);
         }
         break;
       }
       case "botStep":
-        A.robotFootstep([h.pos.x,h.pos.y,h.pos.z]);
+        A.robotFootstep([h.pos.x, h.pos.y, h.pos.z]);
         break;
       case "botReload":
-        A.robotReload([h.pos.x,h.pos.y,h.pos.z]);
+        A.robotReload([h.pos.x, h.pos.y, h.pos.z]);
         break;
       case "teamKill":
-        H.feed(h.team === "blue" ? "ALLY ELIMINATION +1" : "ALLY DOWN", h.team === "blue" ? "" : "danger");
-        A.enemyDeath([h.pos.x, h.pos.y, h.pos.z]);
+        H.feed(
+          `${w.match.standings.find((entry) => entry.id === h.team)?.name || "OPERATOR"} › ${w.match.standings.find((entry) => entry.id === h.victim)?.name || "OPERATOR"}`,
+        );
+        A.operatorFall([h.pos.x, h.pos.y, h.pos.z]);
         break;
       case "matchEnd":
-        this.state = "over"; this.input.unlock(); this.audio.endSession();
-        H.showMenu(true, h.result, "PLAY AGAIN", `BLUE ${w.match.playerScore} : ${w.match.robotScore} RED<br>${w.kills} ELIMINATIONS · ${w.match.deaths} DEATHS`, "MIDTOWN CROSSING / TEAM DEATHMATCH");
-        H.show(false); w.endRun(); this.runId = "";
+        this.state = "over";
+        this.input.unlock();
+        this.audio.endSession();
+        H.showMenu(
+          true,
+          h.result,
+          "PLAY AGAIN",
+          `${h.winner ? `${h.winner} WINS` : "TIED SCORE"}<br>${w.match.leaderboard.map((entry, i) => `${i + 1}. ${entry.name} · ${entry.kills} K / ${entry.deaths} D`).join("<br>")}`,
+          "MIDTOWN CROSSING / FREE FOR ALL",
+        );
+        H.show(false);
+        w.endRun();
+        this.runId = "";
         break;
       case EV.EV_DEAD:
         this.onDeath();
@@ -899,8 +971,10 @@ export class Game {
         break;
       }
       case EV.EV_HIT: {
-        const glow = theme.enemies[h.kind].glow;
-        (this.particles.fleshBurst(h.point, h.dir, h.head, glow),
+        const glow = w.match ? [0.3, 0.22, 0.17] : theme.enemies[h.kind].glow;
+        (w.match
+          ? this.particles.operatorImpact(h.point, h.dir, h.head)
+          : this.particles.fleshBurst(h.point, h.dir, h.head, glow),
           A.impactFlesh([h.point.x, h.point.y, h.point.z]),
           H.hitmarker(h.killed ? (h.head ? "head" : "kill") : "hit"),
           c - this.lastHitSound > 0.03 &&
@@ -948,6 +1022,7 @@ export class Game {
         break;
       // enemies
       case EV.EV_SPAWN:
+        if (w.match) break;
         (this.particles.spawnFx(h.pos, theme.enemies[h.kind].glow),
           A.enemyGrowl([h.pos.x, h.pos.y, h.pos.z], h.big));
         break;
@@ -970,18 +1045,22 @@ export class Game {
         const t = h.enemy,
           e = h.head,
           glow = theme.enemies[t.type].glow;
-        (this.particles.deathBurst(t.pos, glow, t.scale, e),
-          A.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big));
+        if (w.match) A.operatorFall([t.pos.x, t.pos.y, t.pos.z]);
+        else {
+          this.particles.deathBurst(t.pos, glow, t.scale, e);
+          A.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big);
+        }
         const a = this.project(t.pos.x, t.pos.y + 1.75 * t.scale, t.pos.z);
         (a &&
           H.popup(
-            "+" + h.points + (e ? " HEADSHOT" : ""),
+            (w.match ? "+1 ELIMINATION" : "+" + h.points) +
+              (e ? " HEADSHOT" : ""),
             a.x,
             a.y,
             e ? "head" : "kill",
           ),
           H.feed(
-            `${theme.enemies[t.type].name} ${e ? "HEADSHOT" : "DISABLED"}`,
+            `${w.match ? w.match.standings.find((entry) => entry.id === t.team)?.name || "OPERATOR" : theme.enemies[t.type].name} ${e ? "HEADSHOT" : w.match ? "ELIMINATED" : "DISABLED"}`,
             e ? "head" : "",
           ),
           h.streak >= 3 &&
@@ -1076,7 +1155,10 @@ export class Game {
     const s = this.time,
       fxDt = frameDt * this.timeScale,
       n = w.player;
-    if (w.match) { this.arenaView.syncMatch(w.match); this.hud.matchUI.update(w, frameDt); }
+    if (w.match) {
+      this.arenaView.syncMatch(w.match);
+      this.hud.matchUI.update(w, frameDt);
+    }
     (this.arenaView.update(s, fxDt),
       this.sky.update(s),
       this.particles.update(s, fxDt, this.camera.position),
@@ -1157,7 +1239,8 @@ export class Game {
       this.camera.quaternion.slerpQuaternions(n.prevCamQuat, n.camQuat, alpha));
     // Trauma shake, scaled by the user's setting. Purely visual: the sim's
     // camQuat (and so the fire ray) never carries it.
-    const z = n.trauma * n.trauma * this.settings.get("shake");
+    const z =
+      n.trauma * n.trauma * this.settings.get("shake") * (w.match ? 0.45 : 1);
     if (z > 0) {
       const U = this.time * 30;
       (this._e.set(
@@ -1231,7 +1314,9 @@ export class Game {
         this.grade.chromatic +
         this.hurtFx * 0.002 +
         n.trauma * n.trauma * 0.003),
-      (o.uRadial.value = n.slideBlend * 0.1 + n.sprintBlend * 0.025),
+      (o.uRadial.value = w.match
+        ? 0
+        : n.slideBlend * 0.1 + n.sprintBlend * 0.025),
       (o.uFlash.value = r * 0.008),
       (o.uExposure.value = this.grade.exposure + W.adsSmooth * 0.06),
       (o.uDesat.value = n.dead ? Math.min(1, w.deadT / 2.5) : 0));

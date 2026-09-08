@@ -339,6 +339,30 @@ export class ParticleSystem {
           rand(-2, 2),
         ));
   }
+  operatorImpact(point, direction, head = false) {
+    // Small non-emissive dust/fabric puff. Operators never spray glowing parts.
+    for (let i = 0; i < (head ? 7 : 4); i++)
+      this.alpha.emit(
+        point.x,
+        point.y,
+        point.z,
+        direction.x * 0.7 + rand(-0.5, 0.5),
+        rand(0.1, 0.8),
+        direction.z * 0.7 + rand(-0.5, 0.5),
+        this.t,
+        rand(0.16, 0.28),
+        0.035,
+        0.15,
+        0.27,
+        0.23,
+        0.2,
+        0.45,
+        1.5,
+        3,
+        1,
+        rand(-1, 1),
+      );
+  }
   fleshBurst(t, e, n = !1, s = [1, 0.42, 0.1]) {
     const r = this.t,
       a = new Vector3(),

@@ -183,9 +183,13 @@ export class Player {
     this.sprinting = v && !this.sliding;
     const p = e.crouch;
     if (!this.sliding && this.sprinting && this.onGround && e.crouchPressed) {
-      ((this.sliding = !0), (this.slideT = 0.95), (this.sprinting = !1));
+      ((this.sliding = !0),
+        (this.slideT = this.groundedCombat ? 0.55 : 0.95),
+        (this.sprinting = !1));
       const K = m.lengthSq() > 0.1 ? m : new Vector3(c, 0, h),
-        nt = Math.max(10.5, this.speed + 3);
+        nt = this.groundedCombat
+          ? Math.min(6.4, this.speed + 0.4)
+          : Math.max(10.5, this.speed + 3);
       ((this.vel.x = K.x * nt),
         (this.vel.z = K.z * nt),
         s.push({ type: "slide" }));
@@ -197,9 +201,9 @@ export class Player {
     }
     this.crouch =
       (p && !this.sliding && !this.sprinting && !this.dead) || this.sliding;
-    let f = 5.3;
+    let f = this.groundedCombat ? 4.3 : 5.3;
     if (
-      (this.sprinting && (f = 7.7),
+      (this.sprinting && (f = this.groundedCombat ? 6.2 : 7.7),
       this.crouch && !this.sliding && (f = 2.8),
       (f *= MathUtils.lerp(1, 0.62 * this.moveMult, this.ads)),
       this.onGround)
@@ -283,7 +287,10 @@ export class Player {
         ((this.regenDelay -= t),
         this.regenDelay <= 0 &&
           this.hp < this.maxHp &&
-          (this.hp = Math.min(this.maxHp, this.hp + 120 * t))),
+          (this.hp = Math.min(
+            this.maxHp,
+            this.hp + (this.groundedCombat ? 22 : 120) * t,
+          ))),
       (this.hurtFlash = Math.max(0, this.hurtFlash - t * 2.5)),
       (this.eye = damp4(
         this.eye,

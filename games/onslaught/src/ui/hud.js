@@ -75,7 +75,10 @@ export class HUD {
       }));
   }
   initMatch() {
-    if (this.matchMode) { this.matchUI = new MatchHUD(this); this.showMenu(true); }
+    if (this.matchMode) {
+      this.matchUI = new MatchHUD(this);
+      this.showMenu(true);
+    }
   }
   _set(t, e, n) {
     this.cache[t] !== n && ((this.cache[t] = n), (e.textContent = n));
@@ -100,7 +103,9 @@ export class HUD {
     e = this.matchMode ? "MIDTOWN CROSSING" : theme.strings.title,
     n = theme.strings.deploy,
     s = null,
-    r = this.matchMode ? "TEAM DEATHMATCH / 3 VS 3 BOTS / FIRST TO 40" : theme.strings.subtitle,
+    r = this.matchMode
+      ? "FREE FOR ALL / 6 OPERATORS / FIRST TO 40"
+      : theme.strings.subtitle,
   ) {
     (this.setPauseActions(false),
       this.el.runSummary && this.el.runSummary.classList.add("hidden"),

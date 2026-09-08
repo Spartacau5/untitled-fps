@@ -29,7 +29,10 @@ const BRIEF = [
 function capsFor(binding) {
   if (binding.caps) return binding.caps;
   return (binding.codes || []).map((code) =>
-    code.replace(/^Key/, "").replace(/^Digit/, "").toUpperCase(),
+    code
+      .replace(/^Key/, "")
+      .replace(/^Digit/, "")
+      .toUpperCase(),
   );
 }
 
@@ -117,19 +120,35 @@ export function mountControls(els) {
     return `<div class="ctrl-group"><h3 class="ctrl-heading">${heading}</h3>${items}</div>`;
   }).join("");
 
-  const brief = (els.tdm ? [
-    ["TEAM DEATHMATCH", "You and two blue-marked allies fight three red-marked robots. First team to 40 eliminations wins. Eight-minute limit; tied scores draw."],
-    ["RESPAWNS", "Respawn after three seconds. Friendly fire is off. Eliminations replenish ammunition. There are no capture points or rotations."],
-    ["READ THE FIGHT", "Blue markers identify allies. Your minimap shows teammates, not enemy positions. Use cover and listen for footsteps and reloads. Local bot matches do not award horde XP or leaderboard scores."],
-  ] : BRIEF).map(
-    ([k, v]) => `<div class="ctrl-brief-row"><b>${k}</b><span>${v}</span></div>`,
-  ).join("");
+  const brief = (
+    els.tdm
+      ? [
+          [
+            "FREE FOR ALL",
+            "You fight six independent operators. Everyone can eliminate everyone. First to 40 kills wins, with an eight-minute limit. Equal leading kill totals draw.",
+          ],
+          [
+            "RESPAWNS",
+            "Respawn after three seconds with full ammunition and 100 health. Brief spawn protection ends when you fire. Individual kills and deaths persist across respawns.",
+          ],
+          [
+            "READ THE FIGHT",
+            "There are no allies or capture points. The map shows only your position. Use cover, aimed bursts and footsteps to locate opponents. This is an offline bot match with a local match leaderboard, not online multiplayer.",
+          ],
+        ]
+      : BRIEF
+  )
+    .map(
+      ([k, v]) =>
+        `<div class="ctrl-brief-row"><b>${k}</b><span>${v}</span></div>`,
+    )
+    .join("");
 
-  els.body.innerHTML =
-    `<div class="ctrl-brief">${brief}</div><div class="ctrl-cols">${groups}</div>`;
+  els.body.innerHTML = `<div class="ctrl-brief">${brief}</div><div class="ctrl-cols">${groups}</div>`;
 
   if (els.mobile) {
-    els.summary.innerHTML = "<div><b>LEFT THUMB</b> move · <b>RIGHT THUMB</b> look</div><div>Auto-run on · Tap AIM to toggle sights · Hold FIRE to shoot</div>";
+    els.summary.innerHTML =
+      "<div><b>LEFT THUMB</b> move · <b>RIGHT THUMB</b> look</div><div>Auto-run on · Tap AIM to toggle sights · Hold FIRE to shoot</div>";
     els.body.innerHTML = `<div class="ctrl-brief">${brief}</div><div class="ctrl-brief"><p>Drag the left half to move, and the right half to look. You can drag FIRE to aim while shooting.</p><p>Tap AIM to toggle sights. Hold CROUCH to crouch or slide while running. Tap JUMP, RELOAD or WEAPON to act or cycle your equipped guns.</p><p>AUTO RUN starts on and yields while aiming or firing. Tap it to walk. PAUSE opens the menu; rotating upright or leaving the page pauses play.</p></div>`;
   }
   const open = () => {

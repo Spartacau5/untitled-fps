@@ -126,8 +126,7 @@ export class Weapons {
     ((r.cooldown -= t), (r.bloom = Math.max(0, r.bloom - a.bloomDecay * t)));
     let o = e.switchTo;
     const n1 = this.weapons.length;
-    (e.wheel !== 0 &&
-      (o = (this.current + (e.wheel > 0 ? 1 : n1 - 1)) % n1),
+    (e.wheel !== 0 && (o = (this.current + (e.wheel > 0 ? 1 : n1 - 1)) % n1),
       e.swapLast && (o = this.lastWeapon),
       o >= n1 && (o = -1),
       o >= 0 &&
@@ -198,6 +197,7 @@ export class Weapons {
           r.reserve > 0 && this.startReload(r, world)));
   }
   fire(t, e, world) {
+    if (world.match) world.match.spawnShield = 0;
     const n = t.def;
     // During sustained fire, carry the small negative remainder so the fixed
     // tick doesn't quantize the rpm (75 ms on a 16.7 ms tick would become
@@ -240,7 +240,12 @@ export class Weapons {
         this.rng.range(0.85, 1.15) *
         (1 - r * n.adsRecoilReduce),
       v = n.recoilYaw * DEG * (m + this.rng.range(-0.6, 0.6)) * (1 - r * 0.3);
-    (e.addRecoil(g, v, n.recoilPermanent), e.addTrauma(n.trauma));
+    (e.addRecoil(
+      g * (e.groundedCombat ? 1.2 : 1),
+      v * (e.groundedCombat ? 0.72 : 1),
+      n.recoilPermanent,
+    ),
+      e.addTrauma(n.trauma * (e.groundedCombat ? 0.4 : 1)));
     // What the action does between shots: eject on the spot, run a pump
     // stroke, or throw the bolt after a short delay.
     (world.emit(EV_SHOT, { def: n, index: this.current, ads: r }),

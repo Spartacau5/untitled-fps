@@ -3,8 +3,14 @@ import { damp, lerpAngle, rayCapsule } from "../core/mathx.js";
 import { Enemies } from "./enemies.js";
 import { PATROLS } from "../data/midtown.js";
 
-const RIFLE = { key: "robot-rifle", damage: 20, kbForce: 0.4 };
+const RIFLE = { key: "operator-rifle", damage: 25, kbForce: 0.15 };
 export class TacticalEnemies extends Enemies {
+  constructor(arena, rng) {
+    super(arena, rng);
+    this.eye = new Vector3();
+    this.sight = new Vector3();
+    this.targetPoint = new Vector3();
+  }
   update(dt, player, world) {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
@@ -30,42 +36,56 @@ export class TacticalEnemies extends Enemies {
         if (e.t >= 0.7) e.state = "chase";
         continue;
       }
-      const origin = new Vector3(e.pos.x, e.pos.y + 1.35, e.pos.z);
-      const targets = this.list
-        .filter(
-          (a) =>
-            a !== e &&
-            a.state !== "die" &&
-            a.state !== "spawn" &&
-            a.team !== e.team,
-        )
-        .map((a) => ({
-          id: a.id,
-          actor: a,
-          point: a.pos.clone().add(new Vector3(0, 1.25, 0)),
-        }));
-      if (e.team === "red" && !player.dead)
-        targets.push({
-          id: 0,
-          actor: null,
-          point: player.camPos.clone().add(new Vector3(0, -0.3, 0)),
-        });
-      let target = null,
-        best = 32;
-      for (const t of targets) {
-        const dir = t.point.clone().sub(origin),
-          d = dir.length();
-        if (d < best && !this.arena.raycast(origin, dir.normalize(), d)) {
-          best = d;
-          target = t;
-        }
+      const origin = this.eye.set(e.pos.x, e.pos.y + 1.35, e.pos.z);
+      // Perception runs at 8 Hz, staggered by slot. Locomotion stays at 60 Hz.
+      e.thinkT = (e.thinkT ?? e.slot * 0.02) - dt;
+      if (e.thinkT <= 0) {
+        e.thinkT = 0.125;
+        let best = 32,
+          seen = null;
+        const consider = (actor, point, offset) => {
+          this.sight
+            .copy(point)
+            .addScaledVector(TacticalEnemies.up, offset)
+            .sub(origin);
+          const distance = this.sight.length();
+          if (
+            distance < best &&
+            !this.arena.raycast(origin, this.sight.normalize(), distance)
+          ) {
+            best = distance;
+            seen = actor;
+          }
+        };
+        for (const actor of this.list)
+          if (
+            actor !== e &&
+            actor.state === "chase" &&
+            actor.team !== e.team &&
+            actor.shield <= 0
+          )
+            consider(actor, actor.pos, 1.25);
+        if (e.team !== "blue" && !player.dead && world.match.spawnShield <= 0)
+          consider(player, player.camPos, -0.3);
+        if (seen !== e.seen) e.reaction = 0;
+        e.seen = seen;
       }
-      if (target?.id !== e.targetId) e.reaction = 0;
+      const seen = e.seen;
+      const valid = seen && !seen.dead && seen.state !== "die";
+      const point = valid
+        ? this.targetPoint
+            .copy(seen === player ? player.camPos : seen.pos)
+            .addScaledVector(TacticalEnemies.up, seen === player ? -0.3 : 1.25)
+        : null;
+      const target = valid
+        ? { id: seen === player ? 0 : seen.id, point }
+        : null;
+      const best = point ? point.distanceTo(origin) : 32;
       e.targetId = target?.id ?? null;
       e.reaction = target ? e.reaction + dt : 0;
       e.cooldown -= dt;
       e.reloadT = Math.max(0, e.reloadT - dt);
-      const engaged = target && e.reaction >= 0.65;
+      const engaged = target && e.reaction >= 0.38 + (e.slot % 3) * 0.09;
       if (engaged && e.cooldown <= 0 && e.reloadT <= 0) {
         const end = target.point
           .clone()
@@ -74,7 +94,7 @@ export class TacticalEnemies extends Enemies {
               this.rng.range(-1, 1),
               this.rng.range(-0.65, 0.65),
               this.rng.range(-1, 1),
-            ).multiplyScalar(0.35 + best * 0.026),
+            ).multiplyScalar(0.18 + best * 0.019 + e.moveBlend * 0.1),
           );
         const dir = end.sub(origin).normalize();
         const wall = this.arena.raycast(origin, dir, 60);
@@ -82,7 +102,7 @@ export class TacticalEnemies extends Enemies {
         let distance = wall ? wall.dist : 60;
         let victim = hit?.enemy;
         if (hit) distance = hit.t;
-        // The human capsule blocks both sides' bullets. Friendly fire is off.
+        // Resolve the nearest body, not just the intended target. FFA includes everyone.
         const human = player.dead
           ? -1
           : rayCapsule(
@@ -95,14 +115,14 @@ export class TacticalEnemies extends Enemies {
         if (human >= 0 && human < distance) {
           distance = human;
           victim = null;
-          if (e.team === "red") world.onPlayerHit(RIFLE.damage, origin, e);
+          if (e.team !== "blue") world.onPlayerHit(RIFLE.damage, origin, e);
         } else if (victim)
           this.damage(hit, RIFLE.damage, dir, RIFLE, world, {
             team: e.team,
             player: false,
           });
         world.emit("botShot", {
-          origin,
+          origin: origin.clone(),
           end: origin.clone().addScaledVector(dir, distance),
           team: e.team,
         });
@@ -115,7 +135,7 @@ export class TacticalEnemies extends Enemies {
           e.rounds = 18;
           world.emit("botReload", { pos: e.pos.clone() });
         }
-        e.cooldown = e.reloadT > 0 ? e.reloadT : e.burst >= 3 ? 1.2 : 0.16;
+        e.cooldown = e.reloadT > 0 ? e.reloadT : e.burst >= 3 ? 0.65 : 0.13;
         if (e.burst >= 3) e.burst = 0;
       }
       const route = PATROLS[e.patrol],
@@ -132,9 +152,20 @@ export class TacticalEnemies extends Enemies {
         goal = route[e.waypoint];
       flow.update(goal[0], goal[1]);
       let dir = flow.dirAt(e.pos.x, e.pos.z);
-      if (engaged && e.reloadT <= 0) dir = null;
       let vx = dir ? dir[0] * 3.8 : 0,
         vz = dir ? dir[1] * 3.8 : 0;
+      if (target) {
+        const dx = target.point.x - e.pos.x,
+          dz = target.point.z - e.pos.z;
+        const distance = Math.hypot(dx, dz) || 1;
+        const side = Math.sin(world.elapsed * 0.85 + e.slot * 2.1) > 0 ? 1 : -1;
+        // Short lateral peeks, close distance only at range, back off to reload.
+        const advance =
+          e.reloadT > 0 ? -2.2 : distance > 18 ? 2 : distance < 7 ? -1 : 0;
+        vx = (dx * advance + dz * side * 1.15) / distance;
+        vz = (dz * advance - dx * side * 1.15) / distance;
+        e.aimPitch = Math.atan2(target.point.y - origin.y, distance);
+      } else e.aimPitch = 0;
       for (const other of this.list) {
         if (other === e || other.state === "die") continue;
         const dx = e.pos.x - other.pos.x,
@@ -164,7 +195,7 @@ export class TacticalEnemies extends Enemies {
       );
       const speed = Math.hypot(e.vel.x, e.vel.z);
       e.moveBlend = damp(e.moveBlend, Math.min(1, speed / 3.8), 8, dt);
-      e.phase += dt * (1 + speed * 2);
+      e.phase += e.pos.distanceTo(e.prevPos) * 5.1;
       e.headBob = Math.abs(Math.sin(e.phase)) * 0.025 * e.moveBlend;
       e.stepDistance += e.pos.distanceTo(e.prevPos);
       if (e.stepDistance > 1.5) {
@@ -175,4 +206,5 @@ export class TacticalEnemies extends Enemies {
       e.pos.y = 0;
     }
   }
+  static up = new Vector3(0, 1, 0);
 }

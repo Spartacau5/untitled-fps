@@ -8,9 +8,11 @@ This repo is a fork of that catalog, stripped down to a single game. I am buildi
 
 ---
 
-Browser arena FPS. Placeholder title **UNTITLED ARENA**. Horde waves in a Times Square-inspired ring, eight guns, sprint / slide / ADS, and a top-5 all-time leaderboard.
+Browser FPS. This branch defaults to **Midtown Crossing free for all**: you and six independent operator bots, individual kills/deaths, first to 40 or eight minutes. The original survival arena remains available with `?mode=horde`.
 
-Live: [untitled-fps.vercel.app](https://untitled-fps.vercel.app)
+See [the FFA pass notes](docs/MIDTOWN-FFA.md) for changes, performance measurements and remaining fidelity work. The procedural operators and synthesized audio are interim assets, not final TTK-level art or recordings.
+
+Main deployment: [untitled-fps.vercel.app](https://untitled-fps.vercel.app). This development branch is intended for local testing.
 
 `games/onslaught-fable-5.1/` is a frozen copy of the original one-shot build, kept for before/after comparison. It is not part of the production build — open that folder on its own if you want the pristine version.
 
@@ -27,6 +29,7 @@ Vite serves the game at [http://localhost:5173](http://localhost:5173). Query fl
 - `?god` — no damage
 - `?nospawn` — empty arena
 - `?seed=<n>` — replay a specific run
+- `?mode=horde` - original survival mode and its progression/online score board
 
 **GRAPHICS** in settings has three tiers — performance, balanced, high. It
 drives render scale, the scene target's MSAA and the shadow maps, which are the

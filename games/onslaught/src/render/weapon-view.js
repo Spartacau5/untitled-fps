@@ -71,6 +71,13 @@ export class WeaponView {
   warm() {
     for (const key of this.keys) this._build(key);
   }
+  async warmAsync(onProgress) {
+    for (let i = 0; i < this.keys.length; i++) {
+      this._build(this.keys[i]);
+      onProgress?.((i + 1) / this.keys.length);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  }
   // Point the rig at a set of weapon keys, in slot order. Called once at
   // construction and again whenever the armory changes what is carried.
   setLoadout(keys, startIndex = 0) {
