@@ -15,10 +15,20 @@ import { ArenaView } from "./arena-view.js";
 import { MIDTOWN } from "../data/midtown.js";
 import { CAMPAIGNS } from "./city/ads.js";
 import { facadeTexture } from "./city/textures.js";
+import { weatherStreet } from "./city/weathering.js";
+import { shopInteriorMaterial } from "./city/shop-interiors.js";
+import { districtDetails } from "./city/district-details.js";
+import { DISTRICT_LOOK } from "./city/district-look.js";
 
 // Playable art blockout. Buildings, buses and street furniture follow the
 // collision manifest. Fine trim is decorative and stays inside those solids.
 export class MidtownView extends ArenaView {
+  _board(campaign, ...args) {
+    const board = super._board(campaign, ...args);
+    if (campaign.id === "after-hours")
+      board.material.userData.billboard = "/ads/after-hours-v6.jpg";
+    return board;
+  }
   _materials() {
     // Skip the old arena's unused 1024px wet pavement and shutter textures.
     const mat = (color, roughness = 0.85, metalness = 0) =>
@@ -66,7 +76,8 @@ export class MidtownView extends ArenaView {
     this.tickers = [];
     this.boardMaps = new Map();
     this.tickerMap = null;
-    m.asphalt = streetMaterial("asphalt", 0x474b4c);
+    m.asphalt = weatherStreet(streetMaterial("asphalt", 0x474b4c));
+    weatherStreet(m.floor);
     m.brick = streetMaterial("brick", 0x827067);
     m.limestone = streetMaterial("stone", 0x969186);
     m.granite = streetMaterial("stone", 0x555e62);
@@ -93,11 +104,7 @@ export class MidtownView extends ArenaView {
       color: 0x262522,
       roughness: 0.9,
     });
-    m.shopGlass = new MeshStandardMaterial({
-      color: 0x334446,
-      roughness: 0.27,
-      metalness: 0.25,
-    });
+    m.shopGlass = shopInteriorMaterial();
     m.tailLamp = new MeshStandardMaterial({
       color: 0x541512,
       roughness: 0.22,
@@ -465,6 +472,7 @@ export class MidtownView extends ArenaView {
   }
   _streetDetails() {
     const m = this.mats;
+    districtDetails(this);
     // Shared soft contact shadow. It adds grounding even on the mobile tier;
     // directional shadows still provide the actual building and vehicle shape.
     const canvas = document.createElement("canvas");
@@ -488,9 +496,7 @@ export class MidtownView extends ArenaView {
       g.rotateX(-Math.PI / 2);
       g.rotateY(b.yaw);
       g.translate(b.x, 0.035, b.z);
-      const mesh = new Mesh(g, shadow);
-      mesh.renderOrder = 1;
-      this.scene.add(mesh);
+      this._batch(g, shadow);
     }
     // Route signage belongs to the district rather than the match rules.
     this._sign(
@@ -535,11 +541,25 @@ export class MidtownView extends ArenaView {
   }
   _lights() {
     super._lights();
-    this.sun.intensity = 1.75;
+    this.sun.position.copy(DISTRICT_LOOK.sun).multiplyScalar(90);
+    this.sun.color.set(0xffe0b2);
+    this.sun.intensity = 2.05;
+    Object.assign(this.sun.shadow.camera, {
+      left: -42,
+      right: 42,
+      top: 42,
+      bottom: -42,
+    });
+    this.sun.shadow.camera.updateProjectionMatrix();
     this.scene.children
       .filter((o) => o.isHemisphereLight)
-      .forEach((o) => (o.intensity = 1.15));
-    this.scene.fog.density = 0.0028;
+      .forEach((o) => {
+        o.intensity = 0.95;
+        o.color.set(0xb5c6d0);
+        o.groundColor.set(0x625d50);
+      });
+    this.scene.fog.color.set(DISTRICT_LOOK.sky.fog);
+    this.scene.fog.density = 0.0038;
     // Two restrained local pools under the canopy and the deli awning.
     // Desktop only; avoids placing a point light at every window or billboard.
     if (!this.mobile)

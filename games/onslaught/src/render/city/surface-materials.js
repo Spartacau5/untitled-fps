@@ -5,6 +5,7 @@ import {
   LinearMipmapLinearFilter,
   LinearFilter,
 } from "three";
+import { SCANNED_SURFACES } from "./scanned-surfaces.js";
 
 const CACHE = new Map();
 const TILE = { brick: 0.98, concrete: 1.5, asphalt: 2, stone: 1, metal: 0.5 };
@@ -88,17 +89,23 @@ export function streetMaterial(
     bumpScale: kind === "brick" ? 0.009 : kind === "metal" ? 0.001 : 0.006,
   });
   mat.onBeforeCompile = (shader) => {
+    const metres = mat.userData.scanned
+      ? SCANNED_SURFACES[kind].metres
+      : TILE[kind];
     shader.vertexShader = shader.vertexShader.replace(
       "#include <begin_vertex>",
       `#include <begin_vertex>
       vec3 streetWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
       vec3 streetAxis = abs(normalize(mat3(modelMatrix) * normal));
-      vec2 streetUV = (streetAxis.y > .7 ? streetWorld.xz : (streetAxis.x > streetAxis.z ? streetWorld.zy : streetWorld.xy)) / ${TILE[kind].toFixed(3)};
+      vec2 streetUV = (streetAxis.y > .7 ? streetWorld.xz : (streetAxis.x > streetAxis.z ? streetWorld.zy : streetWorld.xy)) / ${metres.toFixed(3)};
       #ifdef USE_MAP
         vMapUv = streetUV;
       #endif
       #ifdef USE_BUMPMAP
         vBumpMapUv = streetUV;
+      #endif
+      #ifdef USE_NORMALMAP
+        vNormalMapUv = streetUV;
       #endif
       #ifdef USE_ROUGHNESSMAP
         vRoughnessMapUv = streetUV;
@@ -106,7 +113,8 @@ export function streetMaterial(
     `,
     );
   };
-  mat.customProgramCacheKey = () => `midtown-baked-v2-${kind}`;
+  mat.customProgramCacheKey = () =>
+    `midtown-surface-v6-${kind}-${!!mat.userData.scanned}`;
   mat.userData.surface = kind;
   return mat;
 }

@@ -2,8 +2,11 @@ import { BackSide, Color, Mesh, ShaderMaterial, SphereGeometry } from "three";
 import { NOISE_GLSL } from "./shaders/noise.glsl.js";
 import { theme } from "../theme/theme.js";
 
-export function createSky(sunDir) {
-  const geo = new SphereGeometry(700, 48, 24);
+export function createSky(
+  sunDir,
+  { radius = 700, palette = theme.sky, clouds = 0 } = {},
+) {
+  const geo = new SphereGeometry(radius, 32, 16);
   const mat = new ShaderMaterial({
     side: BackSide,
     depthWrite: false,
@@ -11,11 +14,12 @@ export function createSky(sunDir) {
     uniforms: {
       uTime: { value: 0 },
       uSunDir: { value: sunDir.clone().normalize() },
-      uHorizon: { value: new Color(theme.sky.horizon) },
-      uZenith: { value: new Color(theme.sky.zenith) },
-      uFog: { value: new Color(theme.sky.fog) },
-      uSun: { value: new Color(theme.sky.sun) },
-      uDust: { value: new Color(theme.sky.dust) },
+      uHorizon: { value: new Color(palette.horizon) },
+      uZenith: { value: new Color(palette.zenith) },
+      uFog: { value: new Color(palette.fog) },
+      uSun: { value: new Color(palette.sun) },
+      uDust: { value: new Color(palette.dust) },
+      uClouds: { value: clouds },
     },
     vertexShader: `
       varying vec3 vWorldPos;
@@ -25,7 +29,7 @@ export function createSky(sunDir) {
       }
     `,
     fragmentShader: `
-      uniform float uTime; uniform vec3 uSunDir;
+      uniform float uTime; uniform vec3 uSunDir; uniform float uClouds;
       uniform vec3 uHorizon; uniform vec3 uZenith; uniform vec3 uFog; uniform vec3 uSun; uniform vec3 uDust;
       varying vec3 vWorldPos;
       ${NOISE_GLSL}
@@ -39,6 +43,10 @@ export function createSky(sunDir) {
         float band = exp(-pow(max(h, 0.0) * 9.0, 1.6));
         float dn = fbm2(vec2(atan(d.z, d.x) * 3.0 + uTime * 0.01, h * 12.0));
         col = mix(col, uDust, band * (0.35 + 0.45 * dn));
+        if (uClouds > 0.0) {
+          float cloud = smoothstep(0.38, 0.7, fbm2(d.xz / (max(h, 0.08) + 0.35) * 2.0 + uTime * 0.0015));
+          col = mix(col, uHorizon * 0.92, cloud * uClouds * smoothstep(0.02, 0.3, h));
+        }
         // sun disc + corona (HDR values so bloom picks it up)
         float m = dot(d, uSunDir);
         float disc = smoothstep(0.9993, 0.9996, m);

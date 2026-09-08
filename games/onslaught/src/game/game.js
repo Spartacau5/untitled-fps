@@ -48,6 +48,15 @@ import { mountTouchControls } from "../ui/touch-controls.js";
 import { createSky } from "../render/sky.js";
 import { WeaponView } from "../render/weapon-view.js";
 import { isScoped } from "../render/weapons/framing.js";
+import {
+  loadScannedSurfaces,
+  loadDistrictArtwork,
+} from "../render/city/scanned-surfaces.js";
+import {
+  DISTRICT_LOOK,
+  districtReflectionScene,
+} from "../render/city/district-look.js";
+import { FrameMeter } from "../ui/frame-meter.js";
 import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
@@ -87,8 +96,12 @@ export class Game {
     this.canvas = t;
     const e = new URLSearchParams(location.search);
     ((this.debug = e.has("debug")), (this.god = e.has("god")));
+    this.frameMeter = e.has("perf") ? new FrameMeter() : null;
     // Mutable copy so the debug panel can tune the grade live.
-    this.grade = { ...theme.grade };
+    this.grade = {
+      ...theme.grade,
+      ...(e.get("mode") !== "horde" ? DISTRICT_LOOK.grade : {}),
+    };
     this.seed = parseSeed(location.search);
     this.progression = new Progression();
     this.world = new World({
@@ -148,7 +161,13 @@ export class Game {
         this.world.arena,
         { mobile },
       )),
-      (this.sky = createSky(SUN_DIR)),
+      (this.sky = this.world.match
+        ? createSky(DISTRICT_LOOK.sun, {
+            radius: 210,
+            palette: DISTRICT_LOOK.sky,
+            clouds: 0.68,
+          })
+        : createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
       (this.tracers = new Tracers(this.scene)),
@@ -169,6 +188,16 @@ export class Game {
       )),
       (this.pickupMeshes = new Map()),
       (this.postfx = mobile ? new DirectRenderer(n) : new PostFX(n)));
+    if (!mobile) {
+      for (const [key, uniform] of Object.entries({
+        saturation: "uSat",
+        contrast: "uContrast",
+        vignette: "uVignette",
+        grain: "uGrain",
+        bloom: "uBloom",
+      }))
+        this.postfx.u[uniform].value = this.grade[key];
+    }
     const r = new DirectionalLight(
       theme.lights.weaponKey.color,
       theme.lights.weaponKey.intensity,
@@ -362,6 +391,18 @@ export class Game {
     const step = (v, label) => onProgress && onProgress(v, label);
     const paint = () =>
       new Promise((resolve) => requestAnimationFrame(resolve));
+    if (this.world.match) {
+      step(0.42, "LOADING DISTRICT MATERIALS");
+      this.surfaceLoad = await loadScannedSurfaces(this.scene, {
+        onProgress: (fraction) =>
+          step(0.42 + fraction * 0.015, "LOADING DISTRICT MATERIALS"),
+      });
+      for (const result of this.surfaceLoad)
+        if (!result.loaded)
+          console.warn("Using fallback surface", result.kind, result.reason);
+      step(0.437, "LOADING BROADWAY ARTWORK");
+      this.artworkLoad = await loadDistrictArtwork(this.scene);
+    }
     step(0.44, "PREPARING CARRIED WEAPONS");
     await paint();
     await this.weaponView.warmAsync((fraction) =>
@@ -560,14 +601,16 @@ export class Game {
   _setupEnvironment() {
     const generator = new PMREMGenerator(this.renderer);
     // One small neutral reflection rig, not six extra renders of the district.
-    const weaponRoom = new RoomEnvironment();
+    const district = this.world.match ? districtReflectionScene() : null;
+    const weaponRoom = district ? district.scene : new RoomEnvironment();
     this.environmentTarget?.dispose();
     this.environmentTarget = generator.fromScene(weaponRoom, 0.08, 0.1, 100);
     this.scene.environment = this.weaponScene.environment =
       this.environmentTarget.texture;
-    weaponRoom.dispose();
+    if (district) district.dispose();
+    else weaponRoom.dispose();
     this.scene.environmentIntensity = this.world.match
-      ? 0.55
+      ? 0.72
       : theme.lights.envIntensity.world;
     this.weaponScene.environmentIntensity = 0.9;
     generator.dispose();
@@ -1140,6 +1183,7 @@ export class Game {
           (this.scene.remove(mesh), m.delete(id));
   }
   loop(t) {
+    const rawFrameMs = t - this.last;
     let frameDt = Math.min(0.05, (t - this.last) / 1e3);
     this.last = t;
     frameDt <= 0 && (frameDt = 1e-4);
@@ -1196,6 +1240,7 @@ export class Game {
       ),
       this.audio.update(frameDt, this.state === "playing" ? n.hp / n.maxHp : 1),
       this.render(),
+      this.frameMeter?.sample(rawFrameMs, this.renderer.info),
       this.input.endFrame());
   }
   // ---- menu / game-over diorama ------------------------------------------
@@ -1343,6 +1388,10 @@ export class Game {
       (o.uDesat.value = n.dead ? Math.min(1, w.deadT / 2.5) : 0));
   }
   render() {
+    if (this.frameMeter) {
+      this.renderer.info.autoReset = false;
+      this.renderer.info.reset();
+    }
     this.postfx.render(
       this.scene,
       this.camera,

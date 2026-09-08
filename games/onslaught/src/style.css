@@ -1580,3 +1580,18 @@ canvas#game {
   height: 100%;
   filter: drop-shadow(0 0 0.5px #ddd);
 }
+.frame-meter {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 6px 10px;
+  background: #12191de6;
+  color: #e7dbb8;
+  border: 1px solid #cbb77555;
+  border-radius: 3px;
+  font: 11px/1.4 monospace;
+  white-space: nowrap;
+  pointer-events: none;
+}

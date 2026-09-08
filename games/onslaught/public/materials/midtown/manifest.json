@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "path": "materials/midtown/asphalt-diff.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 425772,
+      "sha256": "25692f1518975a45c8a92f22bd5a28c99cdaf58354b5239901db0162fbafe655"
+    },
+    {
+      "path": "materials/midtown/asphalt-nor_gl.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 632695,
+      "sha256": "df486dd382a594c3b7637a924e3c56d2a66c541643dd767bbeaf634be32eb030"
+    },
+    {
+      "path": "materials/midtown/asphalt-rough.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_rough_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 325172,
+      "sha256": "999b4ec2e10646ece71bf5e6e33fa4e5bfa2b509fd6c633a62f1ac0a87cc8006"
+    },
+    {
+      "path": "materials/midtown/brick-diff.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_wall_001/brick_wall_001_diffuse_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 247722,
+      "sha256": "02a7d022615169cba2760314085eb52061b05b9cbd8aa9e765ecbe49465e8012"
+    },
+    {
+      "path": "materials/midtown/brick-nor_gl.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_wall_001/brick_wall_001_nor_gl_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 363282,
+      "sha256": "d38dde6744396e4f93efd29b08abc27fc4129c7f940ed8911ec5bedb0d927e82"
+    },
+    {
+      "path": "materials/midtown/brick-rough.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brick_wall_001/brick_wall_001_rough_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 114497,
+      "sha256": "52219dce70137f1c361b55a6ec2c733290d232037f8d421b8dd3e01a280341db"
+    },
+    {
+      "path": "materials/midtown/concrete-diff.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers_02/concrete_layers_02_diff_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 148536,
+      "sha256": "e60ac5fb48a56cd067fcac1b624bb82d862fd3de65eac66637edfc877013eaa0"
+    },
+    {
+      "path": "materials/midtown/concrete-nor_gl.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers_02/concrete_layers_02_nor_gl_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 293615,
+      "sha256": "5e56efdd98f214624f77fa07b446e56d92bc6d74af7c2c9b2f8a08015defd49c"
+    },
+    {
+      "path": "materials/midtown/concrete-rough.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers_02/concrete_layers_02_rough_1k.jpg",
+      "license": "CC0-1.0",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 98921,
+      "sha256": "cb4ba2b75871187e3272f55c7a57b18f7f80232cdc3ad72821fd653fa7b5bba4"
+    },
+    {
+      "path": "ads/after-hours-v6.jpg",
+      "source": "Generated for this project; docs/art/v6-billboard.md",
+      "license": "Original generated project artwork",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 196342,
+      "sha256": "7fd8183244bc49e7adc58f286943ee3ee6be44e7aa112f4853976998cb141150"
+    }
+  ]
+}
