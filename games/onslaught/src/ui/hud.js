@@ -73,10 +73,31 @@ export class HUD {
       window.addEventListener("resize", () => {
         ((this.w = window.innerWidth), (this.h = window.innerHeight));
       }));
+    this.scope = document.createElement("div");
+    this.scope.className = "scope-overlay hidden";
+    this.scope.setAttribute("aria-hidden", "true");
+    this.scope.innerHTML = `<div class="scope-aperture"><svg viewBox="0 0 400 400"><g fill="none" stroke="#0c1010" stroke-width="1.1"><path d="M0 200H193M207 200H400M200 0V193M200 207V400M150 194V206M100 192V208M250 194V206M300 192V208M194 250H206M192 300H208M194 150H206M192 100H208"/><circle cx="200" cy="200" r="1.5" fill="#bc4639" stroke="none"/></g></svg></div>`;
+    this.el.hud.prepend(this.scope);
+  }
+  setScope(active) {
+    this.scope.classList.toggle("hidden", !active);
+  }
+  setGunGame(match) {
+    if (!match?.gunGame) return;
+    this.el.slots.forEach((slot, i) =>
+      slot.classList.toggle(
+        "gun-locked",
+        !match.freeSelection && i !== match.gunStage,
+      ),
+    );
   }
   initMatch() {
     if (this.matchMode) {
       this.matchUI = new MatchHUD(this);
+      this.el.btnArmory.disabled = true;
+      this.el.btnArmory.textContent = "FIXED GUN LADDER";
+      this.el.btnArmory.title =
+        "Earn weapons through kills. Eight kills unlock free selection.";
       this.showMenu(true);
     }
   }
@@ -104,9 +125,10 @@ export class HUD {
     n = theme.strings.deploy,
     s = null,
     r = this.matchMode
-      ? "FREE FOR ALL / 6 OPERATORS / FIRST TO 40"
+      ? "GUN GAME / 6 OPERATORS / FIRST TO 40"
       : theme.strings.subtitle,
   ) {
+    if (t) this.setScope(false);
     (this.setPauseActions(false),
       this.el.runSummary && this.el.runSummary.classList.add("hidden"),
       this.el.runActions && this.el.runActions.classList.add("hidden"),
@@ -208,7 +230,7 @@ export class HUD {
       (this.el.hpFill.style.width = s),
       this.el.hpFill.classList.toggle("low", n < 0.35),
       (this.el.lowhp.style.opacity =
-        n < 0.5 ? String((1 - n * 2) * 0.85) : "0"));
+        n < 0.5 ? String((1 - n * 2) * (this.matchMode ? 0.45 : 0.85)) : "0"));
   }
   setStats(t, e, n, s) {
     (this._set("wave", this.el.wave, String(t)),

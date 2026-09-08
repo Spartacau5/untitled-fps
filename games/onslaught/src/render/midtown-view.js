@@ -140,6 +140,7 @@ export class MidtownView extends ArenaView {
       this.mats.metal,
       this.mats.paint,
       this.mats.granite,
+      this.mats.shedGreen,
       ...(this.facades || []),
     ];
     for (const mesh of this.scene.children.slice(start))
@@ -236,6 +237,51 @@ export class MidtownView extends ArenaView {
     MIDTOWN.solids
       .filter((b) => b.kind !== "facade")
       .forEach((b, index) => {
+        if (b.kind === "hoarding") {
+          this._box(b.w, b.h, b.d, b.x, b.h / 2, b.z, m.shedGreen);
+          this._box(b.w + 0.02, 0.12, b.d + 0.02, b.x, 0.12, b.z, m.limestone);
+          for (let x = -2.8; x < 3; x += 1.4)
+            this._box(0.075, b.h, b.d + 0.025, b.x + x, b.h / 2, b.z, m.frame);
+          for (const side of [-1, 1]) {
+            this._box(
+              b.w,
+              0.13,
+              0.035,
+              b.x,
+              0.85,
+              b.z + side * (b.d / 2 + 0.025),
+              m.yellow,
+            );
+            this._sign(
+              "MIDTOWN WORKS",
+              "PEDESTRIAN ACCESS",
+              2.5,
+              0.5,
+              b.x,
+              2.1,
+              b.z + side * (b.d / 2 + 0.03),
+              side < 0 ? Math.PI : 0,
+              "#233f37",
+              "#d6cfb8",
+            );
+          }
+          return;
+        }
+        if (b.kind === "step" || b.kind === "platform") {
+          this._box(b.w, b.h - 0.035, b.d, b.x, (b.h - 0.035) / 2, b.z, m.wall);
+          for (let z = -b.d / 2 + 0.15; z < b.d / 2; z += 0.3)
+            this._box(b.w, 0.035, 0.27, b.x, b.h - 0.0175, b.z + z, m.stone);
+          this._box(
+            b.w,
+            0.08,
+            0.02,
+            b.x,
+            b.h - 0.08,
+            b.z + b.d / 2 + 0.015,
+            m.yellow,
+          );
+          return;
+        }
         if (b.kind === "bus") {
           this._bus(b);
           busDetail(this, b);

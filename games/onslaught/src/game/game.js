@@ -47,6 +47,7 @@ import { TouchInput } from "../core/touch-input.js";
 import { mountTouchControls } from "../ui/touch-controls.js";
 import { createSky } from "../render/sky.js";
 import { WeaponView } from "../render/weapon-view.js";
+import { isScoped } from "../render/weapons/framing.js";
 import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
@@ -587,6 +588,7 @@ export class Game {
   // states and the viewmodel rebuilds its rig; both are safe between runs
   // because startRun() re-forks the combat RNG stream.
   _applyLoadout(loadout, startKey) {
+    if (this.world.match?.gunGame) return;
     (this.world.setLoadout(loadout, startKey),
       this.weaponView.setLoadout(loadout, this.world.weapons.startIndex),
       this.weaponView.reset(),
@@ -598,6 +600,11 @@ export class Game {
   _renderLoadoutStrip() {
     const el = this.hud.el.loadoutStrip;
     if (!el) return;
+    if (this.world.match?.gunGame) {
+      el.textContent =
+        "PISTOL START · KILLS UPGRADE YOUR GUN · FREE SELECTION AT 8 KILLS";
+      return;
+    }
     // Too many guns to name them all on the deploy screen: show which one you
     // start on, and how many keys are live.
     const l = this.world.weapons.loadout,
@@ -633,7 +640,11 @@ export class Game {
       (!this.debug || this.mobile) && this.input.lock(),
       (this.last = performance.now()),
       this.world.match
-        ? this.hud.banner("FREE FOR ALL", "6 OPERATORS · FIRST TO 40 KILLS", 3)
+        ? this.hud.banner(
+            "GUN GAME",
+            "PISTOL START · FREE SELECTION AT 8 KILLS · FIRST TO 40",
+            3,
+          )
         : this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
@@ -826,7 +837,7 @@ export class Game {
         this.weaponView.reset();
         this.syncWeapon();
         this.hurtFx = 0;
-        H.banner("REDEPLOYED", "REJOIN YOUR TEAM", 1.6);
+        H.banner("REDEPLOYED", "HUNT THE NEXT UPGRADE", 1.6);
         break;
       case "botShot": {
         this.tracers.fire(
@@ -873,6 +884,12 @@ export class Game {
           `${w.match.standings.find((entry) => entry.id === h.team)?.name || "OPERATOR"} › ${w.match.standings.find((entry) => entry.id === h.victim)?.name || "OPERATOR"}`,
         );
         A.operatorFall([h.pos.x, h.pos.y, h.pos.z]);
+        break;
+      case "gunPromotion":
+        H.banner(`WEAPON ${h.stage + 1}/8`, h.name, 1.3);
+        break;
+      case "gunMastery":
+        H.banner("ARSENAL OPEN", "CHOOSE ANY WEAPON · KEYS 1–8 / WHEEL / Q", 2);
         break;
       case "matchEnd":
         this.state = "over";
@@ -1292,6 +1309,8 @@ export class Game {
         W.adsSmooth < 0.45 && !n.dead && W.sprintBlend < 0.6,
       ),
       this.hud.setHealth(n.hp, n.maxHp),
+      this.hud.setScope(isScoped(W, n)),
+      this.hud.setGunGame(w.match),
       this.hud.setStats(
         w.wave,
         w.enemies.alive + w.queue.length,
@@ -1309,7 +1328,9 @@ export class Game {
     }
     const o = this.postfx.u,
       c = n.hp / n.maxHp;
-    ((o.uDamage.value = Math.pow(1 - c, 1.7) * 0.85 + this.hurtFx * 0.4),
+    ((o.uDamage.value =
+      Math.pow(1 - c, 1.7) * (w.match ? 0.45 : 0.85) +
+      this.hurtFx * (w.match ? 0.22 : 0.4)),
       (o.uCA.value =
         this.grade.chromatic +
         this.hurtFx * 0.002 +

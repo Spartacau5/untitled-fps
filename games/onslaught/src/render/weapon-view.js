@@ -7,6 +7,7 @@ import {
 } from "../data/weapons.js";
 import { EV_EJECT, EV_JUMP, EV_LAND, EV_SHOT } from "../sim/events.js";
 import { buildWeaponModel } from "./weapons/index.js";
+import { solidBounds, keepGunInFront, isScoped } from "./weapons/framing.js";
 import {
   MuzzleFlash,
   makeRedDotMaterial,
@@ -55,6 +56,7 @@ export class WeaponView {
   _build(key) {
     if (this.built.has(key)) return this.built.get(key);
     const model = buildWeaponModel(key, this.redDotMat);
+    if (model.parts.keepInFront) model.parts.safeBounds = solidBounds(model);
     // Opt every solid part into the weapon scene's shadow map. The lens and
     // the flash quads are transparent and would only smear.
     model.group.traverse((o) => {
@@ -182,6 +184,7 @@ export class WeaponView {
       w.reloading || sim.switching || this.animPos.set(0, 0, 0),
       w.reloading || sim.switching || this.animRot.set(0, 0, 0),
       this._pose(sim, player, input, dt, time),
+      (this.rig.visible = !isScoped(sim, player)),
       this.cam.updateMatrixWorld(!0),
       this.parts.muzzle.getWorldPosition(this.muzzleWorld),
       this.parts.lens && updateRedDot(this.redDotMat, this.parts.sight, time),
@@ -389,6 +392,7 @@ export class WeaponView {
         l.pump.position.z = l.pumpRest + Math.sin(nt * Math.PI) * l.pumpTravel;
       } else l.pump.position.z = l.pumpRest;
     l.lens && (this.redDotMat.uniforms.uBright.value = 0.7 + o * 0.5);
+    if (l.safeBounds) keepGunInFront(this.rig, l.safeBounds);
   }
   _spring(t, e, n, s, r, a) {
     ((e.x += (-n * t.x - s * e.x) * r),

@@ -35,9 +35,17 @@ export const MIDTOWN = {
     // Full-height spawn baffles prevent direct base-to-base fire.
     block("north-baffle", "service", 0, -27, 7, 2, 3),
     block("south-baffle", "service", 0, 27, 7, 2, 3),
-    block("west-truck", "service", -22, -8, 2.5, 5, 2.6),
-    block("west-kiosk", "kiosk", -23, 14, 2.2, 3, 2.4),
-    block("east-van", "service", 22, 6, 2.7, 5.5, 2.8),
+    // Alternating screens leave a 3.5 m passage and break standing sightlines.
+    ...[-25, -9, 9, 25].flatMap((z, i) => [
+      block(`west-screen-${i}`, "hoarding", i % 2 ? -20.5 : -24, z, 6, 1.6, 3),
+      block(`east-screen-${i}`, "hoarding", i % 2 ? 24 : 20.5, z, 6, 1.6, 3),
+    ]),
+    block("theater-step", "step", -20, -15, 2.8, 1.2, 0.55),
+    block("theater-deck", "platform", -20, -18, 2.8, 4, 1.1),
+    block("avenue-step", "step", 23, 14, 2.8, 1.2, 0.55),
+    block("avenue-deck", "platform", 23, 17, 3, 4, 1.1),
+    block("plaza-step", "step", 5, 20.7, 2.8, 1.3, 0.8),
+    block("plaza-deck", "platform", 5, 23, 3, 3, 1.6),
     block("east-planter", "planter", 21, -18, 3.4, 1.5, 1.15),
     block("plaza-cover", "planter", 0, 18, 3.6, 1.4, 1.15),
     block("north-cover", "planter", 4, -18, 3.6, 1.4, 1.15),
@@ -51,6 +59,24 @@ export const MIDTOWN = {
     { x: 6, z: -31, yaw: Math.PI },
     { x: -22, z: -30, yaw: Math.PI },
     { x: 22, z: -30, yaw: Math.PI },
+    { x: -25, z: -18, yaw: 0 },
+    { x: -19, z: -29, yaw: 0 },
+    { x: -25, z: -3, yaw: Math.PI },
+    { x: -19, z: 12, yaw: 0 },
+    { x: -25, z: 20, yaw: Math.PI },
+    { x: -19, z: 32, yaw: Math.PI },
+    { x: 25, z: -19, yaw: 0 },
+    { x: 19, z: -29, yaw: 0 },
+    { x: 19, z: -3, yaw: Math.PI },
+    { x: 25, z: 3, yaw: 0 },
+    { x: 19, z: 18, yaw: Math.PI },
+    { x: 25, z: 32, yaw: Math.PI },
+    { x: -6, z: -22, yaw: 0 },
+    { x: 6, z: -12, yaw: 0 },
+    { x: -6, z: 11, yaw: Math.PI },
+    { x: 7, z: 28, yaw: Math.PI },
+    { x: -5, z: 0, yaw: Math.PI / 2 },
+    { x: 6, z: 1, yaw: -Math.PI / 2 },
   ],
 };
 export const TDM = {
@@ -66,9 +92,9 @@ export const TDM = {
 export const PATROLS = [
   [
     [-22, -29],
-    [-22, -15],
-    [-24, 2],
-    [-20, 10],
+    [-25, -15],
+    [-25, 1],
+    [-19, 14],
     [-22, 28],
   ],
   [
@@ -80,9 +106,9 @@ export const PATROLS = [
   ],
   [
     [22, -29],
-    [24, -12],
+    [25, -15],
     [20, 0],
-    [24, 14],
+    [19, 17],
     [22, 28],
   ],
 ];

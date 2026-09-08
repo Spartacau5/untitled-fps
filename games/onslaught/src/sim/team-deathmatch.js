@@ -65,6 +65,7 @@ export class TeamDeathmatch {
   placePlayer() {
     const p = this.world.player,
       s = this.chooseSpawn("blue");
+    if (!s) return false;
     p.reset();
     p.pos.set(s.x, 0, s.z);
     p.yaw = s.yaw;
@@ -77,6 +78,7 @@ export class TeamDeathmatch {
     p.forward.set(0, 0, -1).applyQuaternion(p.camQuat);
     p.right.set(1, 0, 0).applyQuaternion(p.camQuat);
     this.spawnShield = 1.5;
+    return true;
   }
   recordElimination(victimTeam) {
     if (this.finished) return;
@@ -107,11 +109,12 @@ export class TeamDeathmatch {
     this.time = Math.min(TDM.duration, this.time + dt);
     this.spawnShield = Math.max(0, this.spawnShield - dt);
     if (w.player.dead && w.deadT >= TDM.respawn) {
-      this.placePlayer();
-      w.deadT = 0;
-      w.weapons.resetAll(w);
-      w.weapons._ammo(w);
-      w.emit("respawn", {});
+      if (this.placePlayer()) {
+        w.deadT = 0;
+        w.weapons.resetAll(w);
+        w.weapons._ammo(w);
+        w.emit("respawn", {});
+      }
     }
     if (!w.noSpawn)
       for (let i = 0; i < this.slots.length; i++) {
@@ -122,6 +125,10 @@ export class TeamDeathmatch {
         }
         if (slot.actor || this.time < slot.due) continue;
         const s = this.chooseSpawn(slot.team);
+        if (!s) {
+          slot.due = this.time + 0.25;
+          continue;
+        }
         const e = w.enemies.spawn(
           "runner",
           {

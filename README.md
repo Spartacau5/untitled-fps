@@ -8,9 +8,9 @@ This repo is a fork of that catalog, stripped down to a single game. I am buildi
 
 ---
 
-Browser FPS. This branch defaults to **Midtown Crossing free for all**: you and six independent operator bots, individual kills/deaths, first to 40 or eight minutes. The original survival arena remains available with `?mode=horde`.
+Browser FPS. This branch defaults to **Midtown Crossing Gun Game**: you and six independent operator bots, individual kills/deaths, first to 40 or eight minutes. Start with a pistol, upgrade after each kill, then choose freely from all eight guns after kill eight. The original survival arena remains available with `?mode=horde`.
 
-See [the FFA pass notes](docs/MIDTOWN-FFA.md) for changes, performance measurements and remaining fidelity work. The procedural operators and synthesized audio are interim assets, not final TTK-level art or recordings.
+See [the Gun Game pass notes](docs/MIDTOWN-GUN-GAME.md) for rules, health tuning, cover changes and sight fixes. [The earlier FFA notes](docs/MIDTOWN-FFA.md) record the previous art/performance pass. The procedural operators and synthesized audio are interim assets, not final TTK-level art or recordings.
 
 Main deployment: [untitled-fps.vercel.app](https://untitled-fps.vercel.app). This development branch is intended for local testing.
 

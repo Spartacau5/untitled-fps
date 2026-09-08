@@ -49,7 +49,7 @@ test("FFA creates six independent bots and shares only immutable navigation occu
   assert.equal(w.match.standings.length, 7);
   assert.equal(new Set(w.enemies.list.map((e) => e.team)).size, 6);
   assert.ok(w.enemies.list.every((e) => e.team !== "blue" && e.hp === 100));
-  assert.equal(w.player.hp, 100);
+  assert.equal(w.player.hp, 150);
   for (const flow of w.match.navigation) assert.equal(flow.open, w.flow.open);
   assert.notEqual(w.match.navigation[0].dist, w.match.navigation[1].dist);
 });
@@ -71,7 +71,7 @@ test("human death credits the lethal bot, then respawns with a fresh loadout", (
   const w = setup({ god: false });
   const attacker = w.enemies.list[0];
   w.match.spawnShield = 0;
-  w.onPlayerHit(100, attacker.pos, attacker);
+  w.onPlayerHit(150, attacker.pos, attacker);
   w.step(1 / 60, idle);
   assert.equal(w.match.standings[1].kills, 1);
   assert.equal(w.match.deaths, 1);
@@ -80,7 +80,7 @@ test("human death credits the lethal bot, then respawns with a fresh loadout", (
   w.enemies.clear();
   tick(w, 182);
   assert.equal(w.player.dead, false);
-  assert.equal(w.player.hp, 100);
+  assert.equal(w.player.hp, 150);
   assert.equal(w.weapons.weapon.mag, w.weapons.weapon.def.magSize);
   assert.equal(w._lastAttacker, null);
 });
@@ -97,7 +97,7 @@ test("spawn shields reject damage and player shooting forfeits protection", () =
   );
   assert.equal(target.hp, 100);
   w.onPlayerHit(100, target.pos, target);
-  assert.equal(w.player.hp, 100);
+  assert.equal(w.player.hp, 150);
   w.weapons.fire(w.weapons.weapon, w.player, w);
   assert.equal(w.match.spawnShield, 0);
 });

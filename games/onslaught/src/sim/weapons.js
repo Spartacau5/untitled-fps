@@ -272,6 +272,8 @@ export class Weapons {
     );
   }
   startSwitch(t, world) {
+    if (world.match?.gunGame && !world.match.freeSelection) return;
+    if (!Number.isInteger(t) || t < 0 || t >= this.weapons.length) return;
     const e = this.weapon;
     (e.reloading && ((e.reload = null), e.reset(), this._ammo(world)),
       (e.pumping = !1),

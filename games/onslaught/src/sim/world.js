@@ -6,6 +6,7 @@ import { MidtownArena } from "./midtown-arena.js";
 import { TacticalEnemies } from "./tactical-enemies.js";
 import { TeamDeathmatch } from "./team-deathmatch.js";
 import { FreeForAll } from "./free-for-all.js";
+import { GUN_GAME_LOADOUT } from "../data/gun-game.js";
 import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
 import {
@@ -38,6 +39,10 @@ export class World {
     loadout = null,
     startKey = null,
   } = {}) {
+    if (mode === "ffa") {
+      loadout = [...GUN_GAME_LOADOUT];
+      startKey = "pistol";
+    }
     ((this.mode = mode),
       (this.seed = seed),
       (this.god = god),
@@ -151,6 +156,7 @@ export class World {
   // Swap the carried guns between runs. startRun() re-forks the combat
   // stream, so rebuilding the weapons here cannot desync a seeded replay.
   setLoadout(keys, startKey = this.startKey) {
+    if (this.mode === "ffa") return;
     ((this.loadout = keys),
       (this.startKey = startKey),
       (this.weapons = new Weapons(this.rng.fork("combat"), keys, startKey)));

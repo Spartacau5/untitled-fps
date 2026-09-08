@@ -124,16 +124,16 @@ export function mountControls(els) {
     els.tdm
       ? [
           [
-            "FREE FOR ALL",
-            "You fight six independent operators. Everyone can eliminate everyone. First to 40 kills wins, with an eight-minute limit. Equal leading kill totals draw.",
+            "GUN GAME",
+            "Fight six independent operators. Start with a pistol and advance one weapon per kill. The eighth kill opens all eight weapons for free selection. First to 40 wins, with an eight-minute limit. Equal leading kill totals draw.",
           ],
           [
             "RESPAWNS",
-            "Respawn after three seconds with full ammunition and 100 health. Brief spawn protection ends when you fire. Individual kills and deaths persist across respawns.",
+            "Respawn after three seconds with full ammunition and 150 health, waiting briefly if no spawn is safe. Your earned weapon and score survive death. Health regenerates after 4.5 seconds without damage. Firing ends spawn protection.",
           ],
           [
             "READ THE FIGHT",
-            "There are no allies or capture points. The map shows only your position. Use cover, aimed bursts and footsteps to locate opponents. This is an offline bot match with a local match leaderboard, not online multiplayer.",
+            "Construction screens break up the outer lanes. Jump from the marked steps onto loading decks for higher angles. Use cross-streets, aimed bursts and footsteps to locate opponents. This is an offline bot match with an individual leaderboard.",
           ],
         ]
       : BRIEF

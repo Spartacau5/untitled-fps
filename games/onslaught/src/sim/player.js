@@ -137,7 +137,7 @@ export class Player {
   damage(t, e) {
     if (this.dead) return;
     ((this.hp -= t),
-      (this.regenDelay = 4.2),
+      (this.regenDelay = this.groundedCombat ? 4.5 : 4.2),
       this.addTrauma(Math.min(0.7, 0.25 + t / 50)),
       (this.hurtFlash = 1));
     let n = 0;
@@ -289,7 +289,7 @@ export class Player {
           this.hp < this.maxHp &&
           (this.hp = Math.min(
             this.maxHp,
-            this.hp + (this.groundedCombat ? 22 : 120) * t,
+            this.hp + (this.groundedCombat ? 45 : 120) * t,
           ))),
       (this.hurtFlash = Math.max(0, this.hurtFlash - t * 2.5)),
       (this.eye = damp4(

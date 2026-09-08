@@ -8,6 +8,9 @@ export class MatchHUD {
     this.panel.className = "match-panel ffa-panel";
     this.panel.innerHTML = `<div class="match-heading"><span>FREE FOR ALL</span><span data-clock>8:00</span></div><div class="ffa-summary"><b data-you>0</b><span> / ${FFA.target} KILLS</span><span data-rank></span></div><div class="match-objective" data-status></div><table class="ffa-board" aria-label="Individual match leaderboard"><thead><tr><th>#</th><th>OPERATOR</th><th>K</th><th>D</th></tr></thead><tbody>${Array.from({ length: 7 }, (_, i) => `<tr><td>${i + 1}</td><td></td><td>0</td><td>0</td></tr>`).join("")}</tbody></table>`;
     hud.el.hud.appendChild(this.panel);
+    this.progress = document.createElement("div");
+    this.progress.className = "gun-progress";
+    this.panel.querySelector(".ffa-board").before(this.progress);
     this.rows = [...this.panel.querySelectorAll("tbody tr")];
     this.labels = Object.fromEntries(
       ["clock", "you", "rank", "status"].map((key) => [
@@ -39,10 +42,17 @@ export class MatchHUD {
     this.labels.you.textContent = m.playerScore;
     this.labels.rank.textContent = `#${ranked.findIndex((entry) => entry.id === "blue") + 1} / 7`;
     this.labels.status.textContent = p.dead
-      ? `RESPAWN ${Math.max(1, Math.ceil(FFA.respawn - world.deadT))}s`
+      ? m.awaitingSafeSpawn
+        ? "WAITING FOR A SAFE SPAWN"
+        : `RESPAWN ${Math.max(1, Math.ceil(FFA.respawn - world.deadT))}s`
       : m.spawnShield > 0
         ? "SPAWN PROTECTED"
         : "EVERY OPERATOR IS HOSTILE";
+    this.progress.textContent = m.freeSelection
+      ? "ARSENAL OPEN · KEYS 1–8"
+      : m.gunStage === 7
+        ? "FINAL GUN · 1 KILL TO FREE SELECTION"
+        : `GUN ${m.gunStage + 1}/8 · NEXT: ${world.weapons.loadout[m.gunStage + 1].name}`;
     for (let i = 0; i < ranked.length; i++) {
       const row = this.rows[i],
         entry = ranked[i];

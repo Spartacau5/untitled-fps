@@ -51,7 +51,9 @@ export function buildLmgModel() {
 
   // Belt stub feeding out of the tray into the receiver.
   for (let i = 0; i < 4; i++)
-    g.add(box(0.012, 0.02, 0.011, M.metalLight, 0.045, 0.02 - i * 0.016, -0.02));
+    g.add(
+      box(0.012, 0.02, 0.011, M.metalLight, 0.045, 0.02 - i * 0.016, -0.02),
+    );
 
   // Bipod, folded back under the barrel.
   for (const dx of [-1, 1]) {
@@ -73,10 +75,12 @@ export function buildLmgModel() {
   g.add(box(0.05, 0.05, 0.09, M.polymer, 0, 0.075, 0.2, 0.008));
 
   // Irons sit high to clear the feed cover.
-  g.add(box(0.012, 0.02, 0.008, M.metalDark, 0, 0.078, -0.5));
-  g.add(sphere(0.003, M.white, 0, 0.088, -0.501));
+  g.add(box(0.012, 0.132, 0.012, M.metalDark, 0, 0.106, -0.66));
+  const frontPost = sphere(0.0025, M.white, 0, 0.176, -0.661);
+  g.add(frontPost);
+  p.frontSight = frontPost;
   g.add(box(0.024, 0.012, 0.02, M.metalDark, 0, 0.166, -0.02));
-  g.add(torus(0.0105, 0.002, M.metalDark, 0, 0.176, -0.02));
+  g.add(torus(0.015, 0.0018, M.metalDark, 0, 0.176, -0.02));
 
   p.muzzle = new Object3D();
   p.muzzle.position.set(0, 0.03, -0.845);

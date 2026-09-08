@@ -21,6 +21,9 @@ const SCOPE_GLASS = new MeshStandardMaterial({
   color: 0x0d1a24,
   roughness: 0.08,
   metalness: 0.2,
+  transparent: true,
+  opacity: 0.04,
+  depthWrite: false,
 });
 
 // MERIDIAN — bolt action, one shot at a time, and long enough that the muzzle
@@ -52,7 +55,15 @@ export function buildSniperModel(lensMaterial) {
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     g.add(
-      box(0.005, 0.005, 0.42, M.metal, Math.cos(a) * 0.015, 0.03 + Math.sin(a) * 0.015, -0.92),
+      box(
+        0.005,
+        0.005,
+        0.42,
+        M.metal,
+        Math.cos(a) * 0.015,
+        0.03 + Math.sin(a) * 0.015,
+        -0.92,
+      ),
     );
   }
   g.add(cyl(0.026, 0.023, 0.13, M.metalDark, 0, 0.03, -1.22, "z", 24));
@@ -79,10 +90,10 @@ export function buildSniperModel(lensMaterial) {
   g.add(grip);
   g.add(box(0.007, 0.024, 0.009, M.metalLight, 0, -0.056, 0.045));
   g.add(box(0.005, 0.005, 0.06, M.metalDark, 0, -0.072, 0.044));
-  g.add(box(0.056, 0.078, 0.34, M.polymer2, 0, 0.014, 0.32, 0.009));
-  g.add(box(0.06, 0.05, 0.13, M.polymer, 0, 0.066, 0.28, 0.007));
-  g.add(box(0.062, 0.13, 0.03, M.polymer, 0, 0.006, 0.48, 0.006));
-  g.add(box(0.026, 0.03, 0.05, M.metalDark, 0, -0.05, 0.46, 0.005));
+  g.add(box(0.056, 0.078, 0.2, M.polymer2, 0, 0.014, 0.24, 0.009));
+  g.add(box(0.06, 0.05, 0.13, M.polymer, 0, 0.066, 0.24, 0.007));
+  g.add(box(0.062, 0.13, 0.03, M.polymer, 0, 0.006, 0.35, 0.006));
+  g.add(box(0.026, 0.03, 0.05, M.metalDark, 0, -0.05, 0.32, 0.005));
 
   // Scope: two rings, a long tube, an ocular bell and the reticle lens.
   // The tube and both bells are open-ended and double-sided -- a capped
@@ -134,8 +145,10 @@ export function buildSniperModel(lensMaterial) {
   p.sight = new Object3D();
   p.sight.position.set(0, 0.118, 0.164);
   g.add(p.sight);
-  p.adsOffset = new Vector3(0, -0.118, -0.42);
-  p.hipOffset = new Vector3(0.152, -0.176, -0.44);
+  p.adsOffset = new Vector3(0, -0.118, -0.46);
+  p.hipOffset = new Vector3(0.152, -0.176, -0.5);
+  p.keepInFront = true;
+  p.scope = true;
   p.hipRot = new Euler(0, 0.028, 0.018);
 
   p.handR = makeRightHand([0.004, -0.118, 0.105], -0.3);

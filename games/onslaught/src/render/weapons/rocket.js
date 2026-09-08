@@ -64,23 +64,23 @@ export function buildRocketModel(lensMaterial) {
   // construction as the M4's red dot: open tube, ring at each end, and the
   // shared reticle material on a disc at the ocular end.
   //
-  // The optic sits well forward, over the heat shield. That is not styling:
-  // aiming puts the camera at the ocular, and with the optic at the tube's
-  // balance point the flared venturi ended up level with the player's face
-  // and clipped through the near plane. Nobody puts their eye behind a blast
-  // cone, and the frustum test in tests/weapon-models.test.mjs says so too.
-  g.add(box(0.03, 0.05, 0.08, M.metalDark, 0, 0.104, -0.19, 0.005));
-  g.add(cyl(0.024, 0.024, 0.16, M.tube, 0, 0.142, -0.19, "z", 24, !0));
+  // Raise the optic and bring its ocular aft. The matching eye relief keeps
+  // the venturi ahead of the camera; the pose guard also covers recoil/reload.
+  const optic = new Group();
+  optic.position.set(0, 0.04, 0.36);
+  g.add(optic);
+  optic.add(box(0.03, 0.09, 0.08, M.metalDark, 0, 0.084, -0.19, 0.005));
+  optic.add(cyl(0.024, 0.024, 0.16, M.tube, 0, 0.142, -0.19, "z", 24, !0));
   for (const z of [-0.268, -0.112])
-    g.add(cyl(0.027, 0.027, 0.008, M.metalDark, 0, 0.142, z, "z", 24, !0));
+    optic.add(cyl(0.027, 0.027, 0.008, M.metalDark, 0, 0.142, z, "z", 24, !0));
   const lens = new Mesh(new CircleGeometry(0.0225, 36), lensMaterial);
   lens.position.set(0, 0.142, -0.118);
   lens.renderOrder = 5;
-  g.add(lens);
+  optic.add(lens);
   p.lens = lens;
   // Backup iron ahead of the optic, for the silhouette.
-  g.add(box(0.008, 0.012, 0.008, M.metalDark, 0, 0.166, -0.26));
-  g.add(sphere(0.0028, M.white, 0, 0.172, -0.262));
+  optic.add(box(0.008, 0.012, 0.008, M.metalDark, 0, 0.166, -0.26));
+  optic.add(sphere(0.0028, M.white, 0, 0.172, -0.262));
 
   // The loaded rocket, nose poking out of the tube. This is parts.mag, so the
   // reload animation pulls a spent round and slides a fresh one home.
@@ -124,9 +124,10 @@ export function buildRocketModel(lensMaterial) {
   // Aim through the ocular, not the middle of the tube: sitting the eye at
   // the tube's centre put half the optic body behind the camera.
   p.sight = new Object3D();
-  p.sight.position.set(0, 0.142, -0.118);
+  p.sight.position.set(0, 0.182, 0.242);
   g.add(p.sight);
-  p.adsOffset = new Vector3(0, -0.142, -0.132);
+  p.adsOffset = new Vector3(0, -0.182, -0.502);
+  p.keepInFront = true;
   // A launcher is shouldered, not held out front, so its mass sits much
   // further from the eye than a rifle's. At the rifle standoff the tube's
   // rear was 6 cm from the camera and flared across the whole corner while
