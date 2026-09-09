@@ -502,7 +502,9 @@ canvas#game {
     "left center right"
     "bottom bottom bottom";
   gap: 20px 22px;
-  align-items: start;
+  /* The three panels share one row height, so their tops and bottoms line
+     up whatever each one holds. */
+  align-items: stretch;
 }
 .menu-panel {
   box-sizing: border-box;
@@ -522,11 +524,19 @@ canvas#game {
 }
 .menu-center {
   grid-area: center;
-  align-self: center;
   text-align: center;
-  padding: 30px 40px 24px;
+  /* Stretched to the row, with its content held in the vertical middle and
+     breathing room beneath the button row so the card never looks cut off. */
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  padding: 34px 40px 44px;
   border: 2px solid rgba(243, 246, 248, 0.35);
   box-shadow: 12px 12px 0 var(--accent);
+}
+.menu-center > button,
+.menu-center > .xp-award {
+  justify-self: center;
 }
 .menu-center .title {
   font-size: clamp(34px, 4.4vw, 64px);
@@ -679,17 +689,15 @@ body:has(#menu.hidden) .rank-xp {
   gap: 8px;
   margin: 0 0 12px;
 }
+/* Every carried gun reads as selected - these are all yours, all live on
+   their keys. The spawn gun only carries a small tag. */
 .lo-card {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(243, 246, 248, 0.22);
-  background: rgba(243, 246, 248, 0.04);
-}
-.lo-card.is-spawn {
-  border-color: var(--accent);
+  border: 1px solid var(--accent);
   background: rgba(255, 90, 31, 0.1);
 }
 .lo-card.is-new {
@@ -701,18 +709,14 @@ body:has(#menu.hidden) .rank-xp {
   place-items: center;
   width: 26px;
   height: 26px;
-  border: 1px solid rgba(243, 246, 248, 0.5);
-  font: 800 14px/1 var(--font-title);
-  color: var(--ui);
-}
-.lo-card.is-spawn .lo-key {
   background: var(--accent);
-  border-color: var(--accent);
+  border: 1px solid var(--accent);
+  font: 800 14px/1 var(--font-title);
   color: #141210;
 }
 .lo-card.is-new .lo-key {
+  background: var(--warn);
   border-color: var(--warn);
-  color: var(--warn);
 }
 .lo-body {
   display: grid;
