@@ -2,7 +2,7 @@
 
 Branch: `v6/fidelity-overhaul`, based on `v5/midtown-gun-game` at `9db0856`.
 
-This first v6 delivery changes the NYC environment and rendering. Gun Game, six bots, weapon progression, 150 player health, safe spawns and the collision layout remain the v5 rules. Production operator/weapon assets, mocap and recorded audio are still subsequent milestones; this environment pass is not a claim of TTK or AAA parity.
+V6 upgrades the NYC environment, authored operator rigs, first-person hands/materials and combat audio. Gun Game, six bots, weapon progression, 150 player health, safe spawns and the collision layout remain the v5 rules. This is an incremental fidelity pass, not a claim of TTK or AAA parity. Production character assets and mocap remain future work.
 
 ## Art direction
 
@@ -22,6 +22,14 @@ An original photographic After Hours poster replaces the text-only Broadway bill
 - Colour grading reduces grain and chromatic distortion. Sun direction and sky agree. Existing dynamic-light count is unchanged.
 - `?perf` displays frame rate, the 95th-percentile frame interval, draw submissions and texture count. It uses raw frame intervals, so long stalls are not hidden by the simulation's 50 ms clamp. It is local-only diagnostic UI.
 
+## Operator, weapon and recorded-audio pass
+
+Operators now have rounded carriers and pouches, webbing, helmet/headset details, shaped boots and rifle furniture. Separate cloth, equipment and skin palettes no longer multiply already-dark material colours. Two-bone arm constraints keep hands on the rifle grips through recoil and reload; leg constraints keep stance ankles at floor level and raise recovery steps. These are authored procedural characters and motion, not scanned humans or mocap. Their existing hitboxes and aiming rules are unchanged.
+
+First-person support fingers wrap at their joints. Static hand pieces are merged by material into three meshes per hand. Gloves and polymer use non-metallic standard PBR, metals use restrained environment response, and wear follows bevel curvature instead of artificial radial stripes. Rounded parts use fewer subdivisions. Existing LMG sights, sniper scope masking and animated sniper/launcher near-plane guards remain covered by their regression tests.
+
+Eleven local recorded gunfire/mechanical clips now feed all eight weapon mix profiles, magazine/bolt/pump/dry-fire events and spatial bot reports/reloads. Several profiles share source recordings. The 458,084-byte bank loads with two workers and per-file deadlines, falls back individually to procedural sound, and limits recorded voices to 24 with player priority and explicit node cleanup. Recorded bot reports have a low-pass filter when occluded. Source descriptions and licensing are documented in [the audio manifest and credits](../games/onslaught/public/audio/README.md). Footsteps, impacts, ambience and kill feedback remain synthesized.
+
 ## Measured here
 
 Headless scene construction with a real Canvas implementation, same desktop configuration:
@@ -36,7 +44,11 @@ These exclude operator instances, weapons and effects. Fewer meshes means fewer 
 
 Automated checks cover partial-load cleanup, fallback preservation, colour spaces, shared textures, weathering integration, asset integrity/download budget, finite reflection geometry, sky clipping range and raw frame diagnostics. The existing Gun Game, spawn, jumping, weapon framing and deterministic simulation checks remain required.
 
-The cloud browser could not open localhost (`ERR_BLOCKED_BY_CLIENT`). GPU shader compilation, final lighting, reflection accuracy and frame time must therefore be validated locally. Reflection probes are approximate and are not screen-space or ray-traced reflections. Operators, weapon models and sound remain interim assets.
+Operator rendering remains 26 instanced part/material batches, now 6,808 triangles per operator. Each first-person hand uses three meshes (2,540 trigger-hand / 3,836 support-hand triangles). These are geometry counts, not hardware FPS measurements.
+
+Validation for the operator/audio update: all 178 automated tests, source lint, simulation boundary checks and the production Vite build pass. New checks cover grip/stance constraints, geometry budgets, audio file integrity, fallback isolation, voice priorities, spatial filtering and session cleanup.
+
+The cloud browser again could not open localhost (`ERR_BLOCKED_BY_CLIENT`) for the operator/audio pass. GPU shader compilation, final lighting, reflection accuracy, perceived audio balance and frame time must therefore be validated locally. Reflection probes are approximate and are not screen-space or ray-traced reflections. Operators and weapon models remain authored procedural assets.
 
 ## Playtest
 
@@ -48,3 +60,5 @@ npm run dev
 ```
 
 Open the Vite URL with `?perf`. For a quiet inspection use `?nospawn&perf`. Check the first minute of a cold load, glance across storefronts from several angles, inspect the brick scale and road normal maps, then play a full match. Record the performance overlay along with any hitch or visual artifact. Vercel Preview can host this branch without promoting it to production.
+
+For this pass, inspect operators strafing/backpedaling and reloading, compare all eight gun reports, and check LMG/sniper ADS plus sniper/launcher framing while moving and reloading. Test once with an audio file blocked to confirm that its fallback still fires; listen for excessive mix compression during a six-bot exchange. A local playtest is still required before judging whether the fidelity target has been reached.

@@ -1,3 +1,6 @@
+import { RecordedBank } from "./recorded-bank.js";
+import { RECORDED_SFX, COMBAT_PROFILES } from "./combat-samples.js";
+
 export function noiseBuffer(i, t) {
   const e = Math.floor(i.sampleRate * t),
     n = i.createBuffer(1, e, i.sampleRate),
@@ -56,6 +59,7 @@ export class Audio {
       (this._nextBeat = 0),
       (this._beat = 0),
       (this._heartT = 0));
+    this.samples = null;
   }
   // Building the graph is cheap; filling the PCM buffers is not. The impulse
   // response and noise bed together run Math.pow/Math.exp/Math.random across
@@ -109,6 +113,9 @@ export class Audio {
         this._applyVolumes(),
         this._startAmbience(),
         (this._nextBeat = t.currentTime + 0.1));
+      this.samples = new RecordedBank(t, this.dry, this.reverb);
+      // Optional, two decodes at a time. Never blocks the match or first shot.
+      this.sampleLoad = this.samples.load(RECORDED_SFX);
     };
     // After the next paint, so the click that started the run is already on
     // screen before any of this runs.
@@ -141,6 +148,7 @@ export class Audio {
   // to the run, and it is the same bed the first menu plays.
   endSession() {
     ((this.intensity = 0), (this._heartT = 0));
+    this.samples?.stop();
     if (!this.ready) return;
     const t = this.ctx.currentTime;
     (this.musicBus.gain.cancelScheduledValues(t),
@@ -200,6 +208,10 @@ export class Audio {
       ((u.gain.value = o), d.connect(u), u.connect(this.reverb));
     }
     return h;
+  }
+  _sample(keys, options = {}) {
+    if (!this.ready || !this.groundedCombat || !this.samples) return false;
+    return this.samples.play(keys, options);
   }
   noise(
     t,
@@ -270,8 +282,19 @@ export class Audio {
     if (!this.ready) return;
     const { gain, pan } = this.spatial(position, 5, 55);
     const level = gain * (occluded ? 0.22 : 1);
-    if (this.groundedCombat)
-      return this.rifleReport(this.now, level * 0.7, pan, occluded);
+    if (level < 0.005) return;
+    if (this.groundedCombat) {
+      const played = this._sample(["rifle-a", "rifle-b"], {
+        gain: level * 0.58,
+        pan,
+        rate: 0.96 + Math.random() * 0.08,
+        lowpass: occluded ? 900 : 10500,
+        priority: 1,
+        send: occluded ? 0.2 : 0.08,
+      });
+      if (!played) this.rifleReport(this.now, level * 0.7, pan, occluded);
+      return;
+    }
     this.noise(this.now, {
       type: "lowpass",
       freq: occluded ? 650 : 4800,
@@ -296,6 +319,11 @@ export class Audio {
   gunshot(key) {
     if (!this.ready) return;
     if (key === "flame") return this.flameLoop();
+    const profile = COMBAT_PROFILES[key];
+    if (profile && this._sample(profile.keys, {
+      ...profile, rate: profile.rate * (0.985 + Math.random() * 0.03),
+      priority: 3, group: `player-${key}`, send: 0.07,
+    })) return;
     if (this.groundedCombat && !["rocket", "shotgun", "sniper"].includes(key)) {
       const weight = ["pistol", "smg", "mp5"].includes(key) ? 0.68 : 1;
       return this.rifleReport(this.now, weight, 0, false);
@@ -583,6 +611,7 @@ export class Audio {
           }));
   }
   dryFire() {
+    if (this._sample(["click"], { gain: 0.22, priority: 2, send: 0.015 })) return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -617,6 +646,7 @@ export class Audio {
       }));
   }
   magOut() {
+    if (this._sample(["mag-out"], { gain: 0.32, priority: 2, send: 0.025 })) return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -633,6 +663,7 @@ export class Audio {
       }));
   }
   magIn() {
+    if (this._sample(["mag-in"], { gain: 0.4, priority: 2, send: 0.025 })) return;
     const t = this.now;
     (this.noise(t, { type: "lowpass", freq: 700, gain: 0.5, decay: 0.08 }),
       this.tone(t, {
@@ -651,6 +682,7 @@ export class Audio {
       }));
   }
   bolt() {
+    if (this._sample(["bolt"], { gain: 0.35, priority: 2, send: 0.025 })) return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -675,6 +707,7 @@ export class Audio {
       }));
   }
   pump() {
+    if (this._sample(["bolt"], { gain: 0.4, rate: 1.18, priority: 2, send: 0.025 })) return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -699,6 +732,7 @@ export class Audio {
       }));
   }
   shellIn() {
+    if (this._sample(["click"], { gain: 0.24, rate: 0.85, priority: 2, send: 0.02 })) return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -716,6 +750,7 @@ export class Audio {
       }));
   }
   weaponSwitch() {
+    if (this._sample(["mag-out"], { gain: 0.2, rate: 1.3, priority: 2, send: 0.015 })) return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -1046,11 +1081,14 @@ export class Audio {
   robotReload(position) {
     if (!this.ready) return;
     const { gain, pan } = this.spatial(position, 3, 15);
-    for (const [delay, freq] of [
-      [0, 2100],
-      [0.7, 1500],
-      [1.9, 2800],
-    ])
+    if (gain < 0.005) return;
+    for (const [delay, freq, key] of [
+      [0, 2100, "mag-out"],
+      [0.7, 1500, "mag-in"],
+      [1.9, 2800, "bolt"],
+    ]) {
+      if (this._sample([key], { gain: gain * 0.16, pan, delay,
+        priority: 0, lowpass: 6000, send: 0.06 })) continue;
       this.noise(this.now + delay, {
         type: "bandpass",
         freq,
@@ -1060,6 +1098,7 @@ export class Audio {
         pan,
         send: 0.08,
       });
+    }
   }
   footstep(t = 1, surface = "default") {
     const e = this.now;

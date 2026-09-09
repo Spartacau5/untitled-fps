@@ -1,0 +1,144 @@
+{
+  "collection": "USC Cinema / Sunset Editorial sound effects, preserved by Craig Smith, archived by Jason Scott",
+  "sourcePage": "https://archive.org/details/SSE_Library_GUNS",
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "licenseEvidence": "https://archive.org/metadata/SSE_Library_GUNS",
+  "sources": {
+    "pistol": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/PISTOL/GUNPis_Exterior%20pistol%20shots%20with%20no%20reverb_CS_USC.flac",
+      "sha256": "f77645c6d594cf316b8b6e12dd11ed3b7e52db983fd6043793e5f7c20410ff55"
+    },
+    "marksman": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/RIFLE/GUNRif_30%2030%20rifle%20shots_CS_USC.flac",
+      "sha256": "c99d04d5f179d6e4859c547dbe5988e88620f5c65eef4210d825e2abf3c87214"
+    },
+    "shotgun": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/SHOTGUN/GUNShotg_Shotgun_CS_USC.flac",
+      "sha256": "c93935b5b60760409906dff422e12d478d09bc995685e76f4eb70396ef2c2291"
+    },
+    "launcher": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/ARTILLERY/GUNArtl_Bazooka%20shot_CS_USC.flac",
+      "sha256": "a73fb802cdce815541eda432aada7e4e8557ad87d26a9e8f4e785cfb7e556feb"
+    },
+    "bolt": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Cocking%20a%20rifle%3B%20indoors_CS_USC.flac",
+      "sha256": "d0a447cb918182e250c8602fe825124e75fb850fe12ded7c7c1a9a2f74811152"
+    },
+    "magazine": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Loading%20a%20clip%20into%20a%20rifle_CS_USC.flac",
+      "sha256": "da64182a8c27bc34645eab4426a6dc996ab06cd809d7e989e24aa596e126576f"
+    }
+  },
+  "assets": [
+    {
+      "key": "pistol",
+      "path": "pistol.wav",
+      "source": "pistol",
+      "start": 0.01,
+      "duration": 0.52,
+      "bytes": 33324,
+      "sha256": "7d97cffcfa8e3614e1278b782d160bfcb5ffc4d583119ac9a17023814fb6650e",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.338:d=0.182,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "rifle-a",
+      "path": "rifle-a.wav",
+      "source": "marksman",
+      "start": 0.105,
+      "duration": 0.32,
+      "bytes": 20524,
+      "sha256": "ac9c89eb36afab8c233f6f3a4e4d92952d96618202cd6896d80548137c83beb7",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.20800000000000002:d=0.11199999999999999,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "rifle-b",
+      "path": "rifle-b.wav",
+      "source": "marksman",
+      "start": 3.18,
+      "duration": 0.32,
+      "bytes": 20524,
+      "sha256": "59a608b8225b8c97e8e3fc3b956d9c7afe4eae50de624023d07977abafb567e2",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.20800000000000002:d=0.11199999999999999,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "marksman-a",
+      "path": "marksman-a.wav",
+      "source": "marksman",
+      "start": 0.105,
+      "duration": 1.3,
+      "bytes": 83244,
+      "sha256": "0624a6e090b7ec738c5631055ad7f651fbde069b6b9a7fb8d4763e23a284baf5",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.8450000000000001:d=0.45499999999999996,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "marksman-b",
+      "path": "marksman-b.wav",
+      "source": "marksman",
+      "start": 6.325,
+      "duration": 1.3,
+      "bytes": 83244,
+      "sha256": "31cbdeed19deb21a85caba8552dfbde2c04565da9e7451a8e8995691d8a6e604",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.8450000000000001:d=0.45499999999999996,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "shotgun",
+      "path": "shotgun.wav",
+      "source": "shotgun",
+      "start": 0.007,
+      "duration": 1.1,
+      "bytes": 70444,
+      "sha256": "8d419968a21d22172cea9e893d06b09b2c418ef2e50407e5e4ed60a9598aac86",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.7150000000000001:d=0.385,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "launcher",
+      "path": "launcher.wav",
+      "source": "launcher",
+      "start": 0.008,
+      "duration": 0.65,
+      "bytes": 41644,
+      "sha256": "c5ccf609f1027cf10e03db99a58358c179032027b0c0cba91ef74b7f0bfc022f",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.42250000000000004:d=0.22749999999999998,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "mag-out",
+      "path": "mag-out.wav",
+      "source": "magazine",
+      "start": 4.568,
+      "duration": 0.4,
+      "bytes": 25644,
+      "sha256": "3362d15404958a798802851db16e46e848ef1ea69b1601b2f9c45f7e96304dc9",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.26:d=0.13999999999999999,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "mag-in",
+      "path": "mag-in.wav",
+      "source": "magazine",
+      "start": 5.654,
+      "duration": 0.4,
+      "bytes": 25644,
+      "sha256": "94d43079fe82c08fd39838bb44bab870fc418327add2c7d38da8110b990d4f17",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.26:d=0.13999999999999999,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "bolt",
+      "path": "bolt.wav",
+      "source": "bolt",
+      "start": 0.56,
+      "duration": 0.68,
+      "bytes": 43564,
+      "sha256": "99358fc2147103827581efb8969880ffb9823bb9c5ef40ce0b76f2f2fa40a703",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.44200000000000006:d=0.238,peak-normalize=-2.5dBFS"
+    },
+    {
+      "key": "click",
+      "path": "click.wav",
+      "source": "bolt",
+      "start": 1.105,
+      "duration": 0.16,
+      "bytes": 10284,
+      "sha256": "be912f296c0ed46375d87476256a052a21cefa9a1dee43c1521afad79e0732f9",
+      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.10400000000000001:d=0.055999999999999994,peak-normalize=-2.5dBFS"
+    }
+  ]
+}

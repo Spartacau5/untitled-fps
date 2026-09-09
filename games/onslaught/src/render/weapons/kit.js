@@ -17,6 +17,7 @@ import {
   Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { rand } from "../../core/mathx.js";
 import { NOISE_GLSL } from "../shaders/noise.glsl.js";
 import { applyGunWear } from "../shaders/gunwear.js";
@@ -32,12 +33,14 @@ export const VIEWMODEL_MATS = {
     color: 4014409,
     roughness: 0.5,
     metalness: 0.68,
+    envMapIntensity: 0.72,
   }),
   // Parkerised black: the flattest metal on the gun.
   metalDark: new MeshStandardMaterial({
     color: 1711394,
     roughness: 0.62,
     metalness: 0.6,
+    envMapIntensity: 0.48,
   }),
   // Bolts, triggers and charging handles keep some polish -- these are the
   // parts that actually get rubbed bright in use.
@@ -45,16 +48,19 @@ export const VIEWMODEL_MATS = {
     color: 6054508,
     roughness: 0.34,
     metalness: 0.82,
+    envMapIntensity: 0.9,
   }),
   polymer: new MeshStandardMaterial({
     color: 1118741,
     roughness: 0.84,
-    metalness: 0.1,
+    metalness: 0,
+    envMapIntensity: 0.25,
   }),
   polymer2: new MeshStandardMaterial({
     color: 1974566,
     roughness: 0.72,
-    metalness: 0.2,
+    metalness: 0,
+    envMapIntensity: 0.32,
   }),
   accent: new MeshStandardMaterial({
     color: 0,
@@ -80,7 +86,8 @@ export const VIEWMODEL_MATS = {
   glove: new MeshStandardMaterial({
     color: 1250073,
     roughness: 0.88,
-    metalness: 0.05,
+    metalness: 0,
+    envMapIntensity: 0.16,
   }),
   // Knuckles and the backs of the phalanges, a stop lighter than the glove.
   // Without this every digit is the same near-black as its neighbour and the
@@ -88,18 +95,21 @@ export const VIEWMODEL_MATS = {
   knuckle: new MeshStandardMaterial({
     color: 1908260,
     roughness: 0.82,
-    metalness: 0.06,
+    metalness: 0,
+    envMapIntensity: 0.18,
   }),
   sleeve: new MeshStandardMaterial({
     color: 1645345,
     roughness: 0.95,
-    metalness: 0.02,
+    metalness: 0,
+    envMapIntensity: 0.1,
   }),
   tube: new MeshStandardMaterial({
     color: 1711394,
     roughness: 0.62,
     metalness: 0.6,
     side: DoubleSide,
+    envMapIntensity: 0.52,
   }),
 };
 // Machining, wear and grain on the viewmodel surfaces. Object-space, so the
@@ -111,6 +121,7 @@ for (const [name, style] of [
   ["polymer", "polymer"],
   ["polymer2", "polymer"],
   ["glove", "glove"],
+  ["knuckle", "glove"],
   ["sleeve", "glove"],
   ["tube", "metalDark"],
 ])
@@ -118,7 +129,7 @@ for (const [name, style] of [
 
 export function box(i, t, e, n, s = 0, r = 0, a = 0, l = 0) {
   const o =
-      l > 0 ? new RoundedBoxGeometry(i, t, e, 2, l) : new BoxGeometry(i, t, e),
+      l > 0 ? new RoundedBoxGeometry(i, t, e, 1, l) : new BoxGeometry(i, t, e),
     c = new Mesh(o, n);
   return (c.position.set(s, r, a), c);
 }
@@ -151,6 +162,30 @@ export function torus(i, t, e, n, s, r) {
   return (l.position.set(n, s, r), l);
 }
 const G = () => VIEWMODEL_MATS.glove;
+
+// Fingers are posed once by the builder; only the whole hand animates.
+// Baking those meshes into one batch per material preserves the sculpted
+// silhouette and saves dozens of draw calls on every equipped weapon.
+function finishHand(group) {
+  group.updateMatrixWorld(true);
+  const batches = new Map();
+  group.traverse((mesh) => {
+    if (!mesh.isMesh) return;
+    const geometry = mesh.geometry.index
+      ? mesh.geometry.toNonIndexed()
+      : mesh.geometry.clone();
+    geometry.applyMatrix4(mesh.matrixWorld);
+    if (!batches.has(mesh.material)) batches.set(mesh.material, []);
+    batches.get(mesh.material).push(geometry);
+    mesh.geometry.dispose();
+  });
+  group.clear();
+  for (const [material, geometries] of batches) {
+    group.add(new Mesh(mergeGeometries(geometries, false), material));
+    for (const geometry of geometries) geometry.dispose();
+  }
+  return group;
+}
 
 // A gloved finger wrapping a grip: three phalanges stepping around the front
 // of the hand, each shorter and slightly tucked, so the silhouette curls
@@ -230,6 +265,18 @@ function wrist(group, x, y, z, w = 0.046) {
   (group.add(box(w, 0.052, 0.03, G(), x, y, z, 0.012)),
     group.add(
       box(w * 1.12, 0.02, 0.036, VIEWMODEL_MATS.sleeve, x, y - 0.026, z, 0.008),
+    ),
+    group.add(
+      box(
+        w * 0.85,
+        0.012,
+        0.01,
+        VIEWMODEL_MATS.knuckle,
+        x,
+        y - 0.009,
+        z + 0.017,
+        0.003,
+      ),
     ));
 }
 
@@ -263,6 +310,7 @@ export function makeRightHand(i, t = -0.3) {
         VIEWMODEL_MATS.sleeve,
       ),
     ),
+    finishHand(e),
     e.position.set(i[0], i[1], i[2]),
     (e.rotation.x = t),
     e
@@ -282,12 +330,24 @@ export function makeLeftHand(i, t = [-0.13, -0.34, 0.24]) {
   for (let n = 0; n < 4; n++) {
     const z = -0.031 + n * 0.0202,
       L = lens[n];
-    (e.add(box(0.019, 0.03 * L, 0.0165, G(), 0.033, 0.014, z, 0.005)),
-      e.add(
-        box(0.017, 0.024 * L, 0.0155, G(), 0.03, 0.038 * L, z - 0.002, 0.005),
-      ),
-      // Knuckle over the first joint.
-      e.add(box(0.017, 0.011, 0.017, G(), 0.034, 0.001, z, 0.0055)));
+    const digit = new Group();
+    digit.position.set(0.033, 0.014, z);
+    digit.rotation.z = 0.12;
+    digit.add(box(0.019, 0.03 * L, 0.0165, G(), 0, 0, 0, 0.005));
+    const middle = new Group();
+    middle.position.y = 0.015 * L;
+    middle.rotation.z = 0.65;
+    middle.add(box(0.017, 0.024 * L, 0.0155, G(), 0, 0.012 * L, 0, 0.005));
+    const tip = new Group();
+    tip.position.y = 0.024 * L;
+    tip.rotation.z = 0.65;
+    tip.add(box(0.015, 0.016 * L, 0.0145, G(), 0, 0.008 * L, 0, 0.004));
+    middle.add(tip);
+    digit.add(middle);
+    e.add(digit);
+    e.add(
+      box(0.018, 0.012, 0.017, VIEWMODEL_MATS.knuckle, 0.036, 0.001, z, 0.005),
+    );
   }
   // Thumb across the near side.
   const thumb = new Group();
@@ -299,6 +359,7 @@ export function makeLeftHand(i, t = [-0.13, -0.34, 0.24]) {
   return (
     wrist(e, -0.006, -0.052, 0.026, 0.044),
     e.add(tube([-0.01, -0.062, 0.02], t, 0.034, 0.055, VIEWMODEL_MATS.sleeve)),
+    finishHand(e),
     e.position.set(i[0], i[1], i[2]),
     e
   );
@@ -419,7 +480,9 @@ export class MuzzleFlash {
       (this.inner = new Group()),
       this.inner.add(s, r, a, l),
       this.group.add(this.inner),
-      (this.light = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16752704, 0, 3, 2)),
+      (this.light = mobile
+        ? Object.assign(new Group(), { intensity: 0 })
+        : new PointLight(16752704, 0, 3, 2)),
       (this.light.position.z = -0.05),
       this.group.add(this.light),
       (this.group.visible = !1),
