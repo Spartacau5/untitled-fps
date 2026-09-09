@@ -60,6 +60,16 @@ export const theme = {
       body: 0xa9b3b1,
       glow: [0.3, 0.58, 1.0],
     },
+    // The flyers get their own half of the spectrum. Orange, red and blue are
+    // already spoken for on the ground, and the whole point of a drone is that
+    // you have to pick it out of the sky in a hurry - so green and violet,
+    // which nothing else in the arena wears.
+    drone: { name: "RECON DRONE", body: 0x8d979c, glow: [0.35, 1.0, 0.45] },
+    missileDrone: {
+      name: "GUNSHIP DRONE",
+      body: 0x767f86,
+      glow: [0.78, 0.32, 1.0],
+    },
   },
   fx: {
     tracer: [1, 0.85, 0.6],

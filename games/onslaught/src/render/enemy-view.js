@@ -23,6 +23,116 @@ import { wearSnippet } from "./shaders/gunwear.js";
 
 const ZERO_MATRIX = new Matrix4().makeScale(0, 0, 0);
 
+// A flyer's rig. Same contract as buildEnemyRig - { root, n, parts } where
+// every part names the node whose world matrix positions it - but nothing else
+// is shared, because a drone has no skeleton to pose. What moves on one of
+// these is the four rotors and the gimbal the eye sits in.
+//
+// `p` is the def, so the hull scales with radius and the gunship reads as the
+// same machine built heavier rather than as a different species.
+export function buildDroneRig(p) {
+  const R = p.radius,
+    root = new Object3D(),
+    at = (parent, x, y, z) => {
+      const o = new Object3D();
+      return (o.position.set(x, y, z), parent.add(o), o);
+    },
+    parts = [],
+    // Everything that shares a node and a material is merged into one part,
+    // because a part is an InstancedMesh and an InstancedMesh is a draw call.
+    // Built naively this rig was 27 of them per drone type - 54 in the render
+    // list at all times, whether or not anything was flying. This is nine.
+    //
+    // RoundedBoxGeometry is non-indexed and the primitives are indexed, so
+    // everything is flattened before merging: mergeGeometries refuses a mixed
+    // batch, and it refuses it by returning null rather than throwing.
+    add = (node, geoms, kind) => {
+      const flat = geoms.map((g) => (g.index ? g.toNonIndexed() : g));
+      const geom = flat.length > 1 ? mergeGeometries(flat) : flat[0];
+      if (!geom) throw new Error(`drone rig: could not merge ${kind} parts`);
+      parts.push({ node, geom, kind });
+    },
+    box = (w, h, d, x, y, z, bevel = 0.02) => {
+      const g = new RoundedBoxGeometry(w, h, d, 1, bevel);
+      return (g.translate(x, y, z), g);
+    };
+  const hull = at(root, 0, 0, 0),
+    body = [],
+    glow = [],
+    joints = [];
+  // A flattened shell with a spine ridge, so it has a readable facing from
+  // below - which is the only angle most players will ever see it from.
+  (body.push(box(R * 1.6, R * 0.66, R * 1.9, 0, 0, 0, R * 0.2)),
+    body.push(box(R * 0.46, R * 0.3, R * 1.4, 0, R * 0.4, R * 0.1, R * 0.1)));
+  // A thin lit strip down each flank. This is what carries the threat colour
+  // at range - a lens alone is too small to pick out of a skyline, and a body
+  // that glows all over stops reading as a machine.
+  for (const sx of [-1, 1])
+    glow.push(
+      box(R * 0.06, R * 0.12, R * 1.3, sx * R * 0.8, R * 0.06, 0, R * 0.02),
+    );
+  // Tail light, so a drone behind you still announces itself.
+  glow.push(new SphereGeometry(R * 0.13, 8, 6).translate(0, R * 0.26, R * 0.9));
+  // Four arms out to four nacelles. The arms are hull, the nacelles are the
+  // darker joint material, and both are fixed to the body - only the rotors
+  // above them turn, so all eight pieces merge into two parts.
+  const nodes = { root, hull, eye: null, rotors: [] };
+  const armLen = R * 1.3;
+  for (let i = 0; i < 4; i++) {
+    const sx = i % 2 ? 1 : -1,
+      sz = i < 2 ? -1 : 1,
+      ax = sx * armLen * 0.66,
+      az = sz * armLen * 0.66;
+    (body.push(
+      box(R * 0.2, R * 0.14, armLen, ax * 0.5, R * 0.04, az * 0.5, R * 0.05),
+    ),
+      joints.push(
+        box(R * 0.38, R * 0.28, R * 0.38, ax, R * 0.1, az, R * 0.11),
+      ));
+    // Hub plus two blades, unlit: sync spins them fast enough that they read
+    // as a disc, and an emissive blade would smear into a solid ring of light
+    // that hides the machine underneath it.
+    const rot = at(hull, ax, R * 0.29, az);
+    const blades = [new CylinderGeometry(R * 0.14, R * 0.14, R * 0.07, 8)];
+    for (const turn of [0, Math.PI / 2]) {
+      const blade = new RoundedBoxGeometry(
+        R * 1.15,
+        R * 0.035,
+        R * 0.15,
+        1,
+        0.01,
+      );
+      (blade.rotateY(turn), blades.push(blade));
+    }
+    (add(rot, blades, "body"), nodes.rotors.push(rot));
+  }
+  // Sensor gimbal under the nose. The sim treats a hit inside coreRadius as a
+  // headshot; the lens is drawn well under that, so the glow reads as an eye
+  // rather than as a lamp with a drone attached to it.
+  const eye = at(hull, 0, -R * 0.36, -R * 0.7);
+  nodes.eye = eye;
+  (add(
+    eye,
+    [box(R * 0.5, R * 0.38, R * 0.36, 0, R * 0.14, R * 0.04, R * 0.1)],
+    "joint",
+  ),
+    add(
+      eye,
+      [
+        new SphereGeometry(p.coreRadius * 0.5, 10, 8).translate(
+          0,
+          0,
+          -R * 0.12,
+        ),
+      ],
+      "headGlow",
+    ),
+    add(hull, body, "body"),
+    add(hull, joints, "joint"),
+    add(hull, glow, "glow"));
+  return { root, n: nodes, parts, hipH: 0, drone: !0 };
+}
+
 export function buildEnemyRig(i) {
   const t = (M, _, L, R) => {
       const A = new Object3D();
@@ -418,7 +528,10 @@ export class EnemyView {
   }
   _buildType(t) {
     const colors = theme.enemies[t.key],
-      e = buildEnemyRig(t.proportions),
+      // A flyer has no proportions to build a skeleton from; everything
+      // below this line - materials, instancing, flash and dissolve - is
+      // identical either way, which is why the two rigs share a shape.
+      e = t.fly ? buildDroneRig(t) : buildEnemyRig(t.proportions),
       n = new Float32Array(MAX_PER_TYPE),
       s = new Float32Array(MAX_PER_TYPE),
       r = makeEnemyMaterial(
@@ -508,6 +621,44 @@ export class EnemyView {
         if (m.part.kind !== "glow" && m.part.kind !== "headGlow")
           ((m.mesh.castShadow = on), (m.mesh.receiveShadow = on));
   }
+  // Flyers, posed. Far less to do than a skeleton: hold the hull, bank it
+  // into the turn, spin the rotors, and let the sim's own topple carry the
+  // tumble when one is shot down.
+  _syncDrones(type, e, enemies, alpha, time) {
+    const n = e.rig,
+      s = n.n;
+    let a = 0;
+    for (const l of enemies.list) {
+      if (l.type !== type || a >= MAX_PER_TYPE) continue;
+      const o = l.scale;
+      n.root.position.lerpVectors(l.prevPos, l.pos, alpha);
+      // Bank into the direction of travel, the way a quadrotor has to tilt to
+      // accelerate at all. Reading it off velocity rather than off a state
+      // flag means it eases in and out for free.
+      const yaw = lerpAngle(l.prevYaw, l.yaw, alpha),
+        fwd = -Math.cos(yaw) * l.vel.z - Math.sin(yaw) * l.vel.x,
+        side = -Math.sin(yaw) * l.vel.z + Math.cos(yaw) * l.vel.x,
+        cap = Math.max(1, l.def.speed);
+      (n.root.rotation.set(
+        l.toppleX + Math.max(-0.5, Math.min(0.5, fwd / cap)) * 0.34,
+        yaw,
+        l.toppleZ - Math.max(-0.5, Math.min(0.5, side / cap)) * 0.4,
+      ),
+        n.root.scale.setScalar(o * (1 - l.squash * 0.5)));
+      // Rotors spin whenever it is flying and wind down once it is falling,
+      // which is most of what says "this one is dead" before it lands.
+      const rate = l.state === "die" ? 4 : 46;
+      for (let i = 0; i < s.rotors.length; i++)
+        s.rotors[i].rotation.y = (time * rate + i * 1.7) % 6.283;
+      // The eye tracks the attack: it noses down through the windup and
+      // snaps level on the shot.
+      s.eye.rotation.x = l.attackLean * 0.9;
+      n.root.updateMatrixWorld(!0);
+      for (const p of e.meshes) p.mesh.setMatrixAt(a, p.part.node.matrixWorld);
+      ((e.flash[a] = l.flash), (e.dissolve[a] = l.dissolve), a++);
+    }
+    return a;
+  }
   sync(enemies, projectiles, alpha, time) {
     this.uTime.value = time;
     for (const t in this.types) {
@@ -516,6 +667,15 @@ export class EnemyView {
         s = n.n,
         r = e.def.proportions;
       let a = 0;
+      if (n.drone) {
+        a = this._syncDrones(t, e, enemies, alpha, time);
+        for (const l of e.meshes)
+          ((l.mesh.count = a),
+            (l.mesh.instanceMatrix.needsUpdate = !0),
+            (l.fa.needsUpdate = !0),
+            (l.da.needsUpdate = !0));
+        continue;
+      }
       for (const l of enemies.list) {
         if (l.type !== t || a >= MAX_PER_TYPE) continue;
         const o = l.scale,

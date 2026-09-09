@@ -1,15 +1,36 @@
 // Wave composition. Pure: same wave number + same rng stream → same queue.
+
+// Air support arrives late and stays a minority. The point of a flyer is that
+// it changes where you look, not that it replaces the swarm - a wave of drones
+// would be a different game, and the ground pressure is what makes looking up
+// cost something.
+export const DRONE_WAVE = 8;
+export const GUNSHIP_WAVE = 12;
+
 export function composeWave(wave, rng) {
   const t = wave,
     count = Math.min(6 + t * 5 + Math.floor(t * t * 0.45), 130),
-    brutes =
-      t >= 3 ? 1 + Math.floor((t - 3) / 2) + (t % 5 === 0 ? 2 : 0) : 0,
+    brutes = t >= 3 ? 1 + Math.floor((t - 3) / 2) + (t % 5 === 0 ? 2 : 0) : 0,
     spitters = t >= 2 ? Math.floor(count * 0.18) : 0,
+    // Two on their debut, then one more every other wave, capped so the sky
+    // never gets busier than a player can clear while a swarm is on them.
+    drones =
+      t >= DRONE_WAVE ? Math.min(7, 2 + Math.floor((t - DRONE_WAVE) / 2)) : 0,
+    gunships =
+      t >= GUNSHIP_WAVE
+        ? Math.min(3, 1 + Math.floor((t - GUNSHIP_WAVE) / 4))
+        : 0,
     queue = [];
   for (let a = 0; a < count; a++) queue.push("runner");
   for (let a = 0; a < spitters; a++) queue[rng.int(count)] = "spitter";
   for (let a = 0; a < brutes; a++)
     queue[Math.floor(rng.range(count * 0.2, count * 0.9))] = "brute";
+  // Drones are written last and over the back half of the queue, so a wave
+  // opens on the ground and the sky arrives once the player is committed.
+  for (let a = 0; a < drones; a++)
+    queue[Math.floor(rng.range(count * 0.35, count * 0.95))] = "drone";
+  for (let a = 0; a < gunships; a++)
+    queue[Math.floor(rng.range(count * 0.5, count * 0.95))] = "missileDrone";
   const heavy = t % 5 === 0;
   return {
     queue: queue.reverse(),

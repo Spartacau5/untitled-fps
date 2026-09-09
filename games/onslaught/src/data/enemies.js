@@ -108,5 +108,81 @@ export const ENEMIES = {
       sac: !0,
     },
   },
+  // --- flyers ---------------------------------------------------------------
+  // Drones do not walk, so `proportions` is absent and the rig fields with it.
+  // What they carry instead: `fly` (the sim keeps them at flyHeight above the
+  // ground and steers them over low cover), a sphere hitbox of `radius`, and a
+  // core the size of `coreRadius` that counts as a headshot.
+  //
+  // The gunner arrives at wave 8. Small, quick and hard to lead - the answer
+  // to a player who has learned to hold a lane at head height and never look
+  // up. It fires a flat, fast bolt in short bursts, so it punishes standing
+  // still without deleting anyone who moves.
+  drone: {
+    key: "drone",
+    name: "WASP DRONE",
+    hp: 90,
+    speed: 9.2,
+    scale: 1,
+    damage: 9,
+    range: 0,
+    cooldown: 2.1,
+    windup: 0.28,
+    swing: 0.5,
+    score: 250,
+    radius: 0.34,
+    coreRadius: 0.17,
+    mass: 0.8,
+    ranged: !0,
+    big: !1,
+    slam: !1,
+    fly: !0,
+    // High enough to clear every barrier and read against the sky, low enough
+    // that a hipfire flick can still reach it.
+    flyHeight: 4.6,
+    bobAmp: 0.35,
+    bobRate: 2.4,
+    // Circles this far out rather than closing: a flyer that touches you has
+    // no counterplay, and the whole point is that you have to look up.
+    standoff: 16,
+    strafe: 1.35,
+    projSpeed: 62,
+    burst: 3,
+    burstGap: 0.11,
+  },
+  // The wave 12 answer to players who ignore the gunners: slower, tougher, and
+  // it lobs a missile whose blast only hurts you. Enemies are deliberately
+  // immune to it - a drone that could clear its own wave would be a gift, not
+  // a threat.
+  missileDrone: {
+    key: "missileDrone",
+    name: "HORNET GUNSHIP",
+    hp: 340,
+    speed: 5.4,
+    scale: 1.55,
+    damage: 26,
+    range: 0,
+    cooldown: 3.4,
+    windup: 0.55,
+    swing: 0.7,
+    score: 550,
+    radius: 0.62,
+    coreRadius: 0.3,
+    mass: 2.4,
+    ranged: !0,
+    big: !0,
+    slam: !1,
+    fly: !0,
+    flyHeight: 6.2,
+    bobAmp: 0.22,
+    bobRate: 1.5,
+    standoff: 20,
+    strafe: 0.8,
+    projSpeed: 21,
+    missile: !0,
+    // Small enough that the blast is a reason to move, not an unavoidable tax.
+    splashRadius: 3.6,
+    splashMin: 0.35,
+  },
 };
 export const MAX_PER_TYPE = 128;

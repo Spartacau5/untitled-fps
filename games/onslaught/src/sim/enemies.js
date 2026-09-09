@@ -35,8 +35,15 @@ export class Enemies {
       (this.list = []),
       (this.metrics = {}),
       (this.nextId = 1));
-    for (const a in ENEMIES)
-      this.metrics[a] = rigMetrics(ENEMIES[a].proportions);
+    // Flyers carry no proportions: there is no skeleton to measure, and
+    // their hitbox is a sphere. Give them the one metric the shared code
+    // reads - where the body sits - so nothing downstream needs a branch.
+    for (const a in ENEMIES) {
+      const def = ENEMIES[a];
+      this.metrics[a] = def.proportions
+        ? rigMetrics(def.proportions)
+        : { hipH: 0, headY: def.radius, torsoTop: def.radius, torsoBot: 0 };
+    }
     ((this._v = new Vector3()),
       (this._headC = new Vector3()),
       (this._a = new Vector3()),
@@ -99,10 +106,19 @@ export class Enemies {
         growlT: this.rng.range(0.5, 3),
         lunge: 0,
         attackLean: 0,
-        headBob: 0,
+        // Flyers only. bobT is the hover wobble's own clock so two drones
+        // at the same altitude do not rise and fall in lockstep; burstLeft
+        // and burstT run the gunner's three-round burst.
+        fly: !!s.fly,
+        flyY: 0,
+        bobT: this.rng.float() * 6.28,
+        burstLeft: 0,
+        burstT: 0,
+        fallVel: 0,
       };
     return (
       (c.pos.y = this.arena.groundHeight(c.pos.x, c.pos.z)),
+      c.fly && ((c.flyY = s.flyHeight), (c.pos.y += s.flyHeight)),
       c.prevPos.copy(c.pos),
       this.list.push(c),
       world &&
@@ -114,6 +130,30 @@ export class Enemies {
     let s = null;
     for (const r of this.list) {
       if (r.state === "die") continue;
+      // A drone is a shell with a core: hitting the core is the headshot.
+      // Testing it as a skeleton would be a lie about a body that has none.
+      if (r.fly) {
+        const o = r.scale;
+        // Not _rayTmp: raySphere uses it as its own scratch, so a centre held
+        // there is clobbered by the first call and the second one reads noise.
+        this._headC.copy(r.pos);
+        const shell = raySphere(t, e, this._headC, r.def.radius * o),
+          core = raySphere(t, e, this._headC, r.def.coreRadius * o);
+        const hit = core >= 0 ? core : shell;
+        !(hit < 0 || hit > n) &&
+          (!s || hit < s.t) &&
+          (s = {
+            enemy: r,
+            t: hit,
+            head: core >= 0,
+            point: new Vector3(
+              t.x + e.x * hit,
+              t.y + e.y * hit,
+              t.z + e.z * hit,
+            ),
+          });
+        continue;
+      }
       const a = this.metrics[r.type],
         l = r.def.proportions,
         o = r.scale,
@@ -182,9 +222,10 @@ export class Enemies {
       const a = this.metrics[r.type],
         o = r.scale,
         // Aim at mid-torso rather than the origin, so a stream levelled at
-        // chest height does not miss over a crouching target's feet.
+        // chest height does not miss over a crouching target's feet. A
+        // flyer's centre is the hull itself.
         dx = r.pos.x - origin.x,
-        dy = r.pos.y + a.torsoBot * o - origin.y,
+        dy = (r.fly ? r.pos.y : r.pos.y + a.torsoBot * o) - origin.y,
         dz = r.pos.z - origin.z,
         dist = Math.hypot(dx, dy, dz);
       if (dist > range || dist < 1e-4) continue;
@@ -234,7 +275,12 @@ export class Enemies {
     ((t.toppleTX = (l < 0 ? 1 : -1) * (Math.PI / 2) * this.rng.range(0.85, 1)),
       (t.toppleTZ = this.rng.range(-0.5, 0.5)));
     const o = ((s ? s.kbForce : 2) * 1.6) / t.def.mass;
-    ((t.kb.x += e.x * o), (t.kb.z += e.z * o), world.onKill(t, n));
+    ((t.kb.x += e.x * o), (t.kb.z += e.z * o));
+    // A drone has nothing to topple onto; it falls, and the fall is the
+    // kill feedback. Starting the drop slightly upward reads as the rotors
+    // cutting out rather than the model being switched off.
+    t.fly && ((t.fallVel = 1.5), (t.toppleTX *= 1.6));
+    world.onKill(t, n);
   }
   update(t, e, world) {
     const s = this.list,
@@ -247,6 +293,10 @@ export class Enemies {
         for (let c = l + 1; c < s.length; c++) {
           const h = s[c];
           if (h.state === "die") continue;
+          // Separation is a plan-view test, so it only means anything
+          // between bodies sharing an altitude band.
+          if (Math.abs(o.pos.y - h.pos.y) > (o.fly || h.fly ? 1.4 : 3))
+            continue;
           const d = o.pos.x - h.pos.x,
             u = o.pos.z - h.pos.z,
             m = (o.radius + h.radius) * 1.15,
@@ -282,6 +332,15 @@ export class Enemies {
         d = a.z - o.pos.z,
         u = Math.hypot(h, d) || 0.001,
         m = Math.atan2(-h, -d);
+      // Flyers run their own state machine end to end. Sharing the ground
+      // one would mean a flag in every branch of it, and the two have
+      // almost nothing in common: no gait, no melee, no topple, and height
+      // is the thing they are actually about.
+      if (o.fly) {
+        if (this._updateFlyer(o, t, e, u, h, d, m, world) === "remove")
+          s.splice(l, 1);
+        continue;
+      }
       if (o.state === "spawn")
         ((o.t += t),
           (o.dissolve = Math.max(0, 1 - o.t / 0.7)),
@@ -416,6 +475,137 @@ export class Enemies {
         (o.headBob =
           Math.abs(Math.sin(o.phase)) * 0.05 * o.scale * o.moveBlend));
     }
+  }
+  // One drone, one tick. `dist` is the plan-view range to the player and
+  // `toX`/`toZ` the unit vector to them; `face` is the yaw that looks at them.
+  //
+  // Drones hold a standoff and orbit rather than closing: something that can
+  // ignore cover and touch you has no counterplay, so the threat is that you
+  // have to break off and look up, not that it lands on your head.
+  _updateFlyer(o, t, player, dist, dx, dz, face, world) {
+    const c = o.def,
+      toX = dx / dist,
+      toZ = dz / dist;
+    ((o.bobT += t * c.bobRate), (o.attackLean = 0));
+    if (o.state === "die") {
+      // Rotors out: it drops, spins, and is gone when it reaches the floor.
+      o.t += t;
+      ((o.fallVel -= 18 * t), (o.pos.y += o.fallVel * t));
+      ((o.toppleX += t * 5.5), (o.toppleZ += t * 3.1));
+      const floor = this.arena.groundHeight(o.pos.x, o.pos.z);
+      const grounded = o.pos.y <= floor + c.radius * o.scale;
+      grounded && ((o.pos.y = floor + c.radius * o.scale), (o.fallVel = 0));
+      o.dissolve = MathUtils.clamp((o.t - 0.3) / 0.7, 0, 1);
+      const drag = Math.exp(-1.5 * t);
+      ((o.vel.x *= drag), (o.vel.z *= drag));
+      ((o.pos.x += (o.vel.x + o.kb.x) * t),
+        (o.pos.z += (o.vel.z + o.kb.z) * t));
+      return o.t > 1.25 ? "remove" : null;
+    }
+    if (o.state === "spawn") {
+      ((o.t += t),
+        (o.dissolve = Math.max(0, 1 - o.t / 0.7)),
+        (o.yaw = lerpAngle(o.yaw, face, 1 - Math.exp(-4 * t))),
+        o.t >= 0.7 && ((o.state = "chase"), (o.dissolve = 0)));
+    } else if (o.state === "chase") {
+      o.cooldown -= t;
+      // Radial: close to the standoff ring, back off inside it. Tangential:
+      // orbit, so it is never a stationary target and never a head-on charge.
+      const err = dist - c.standoff,
+        radial = MathUtils.clamp(err / 6, -1, 1),
+        tanX = -toZ * o.steerBias,
+        tanZ = toX * o.steerBias;
+      const wantX = toX * radial * c.speed + tanX * c.strafe * c.speed * 0.5,
+        wantZ = toZ * radial * c.speed + tanZ * c.strafe * c.speed * 0.5;
+      ((o.vel.x = damp(o.vel.x, wantX, 3, t)),
+        (o.vel.z = damp(o.vel.z, wantZ, 3, t)),
+        (o.yaw = lerpAngle(o.yaw, face, 1 - Math.exp(-6 * t))));
+      // It has to have line of sight to open up, or a drone parked behind a
+      // billboard would plink at you through it.
+      const canSee = !this._blockedAbove(
+        o.pos.x,
+        o.pos.z,
+        toX,
+        toZ,
+        Math.min(dist, 40),
+        0.2,
+        o.pos.y,
+      );
+      o.cooldown <= 0 &&
+        canSee &&
+        dist < c.standoff + 12 &&
+        !player.dead &&
+        ((o.state = "attack"),
+        (o.t = 0),
+        (o.attackDone = !1),
+        (o.burstLeft = c.burst || 1),
+        (o.burstT = 0));
+    } else if (o.state === "attack") {
+      ((o.t += t), (o.yaw = lerpAngle(o.yaw, face, 1 - Math.exp(-10 * t))));
+      // Holds position to fire: a burst you can see coming is a burst you can
+      // break line of sight from.
+      const brake = Math.exp(-4 * t);
+      ((o.vel.x *= brake), (o.vel.z *= brake));
+      o.attackLean = o.t < c.windup ? -0.3 * (o.t / c.windup) : 0.25;
+      if (o.t >= c.windup && o.burstLeft > 0) {
+        o.burstT -= t;
+        if (o.burstT <= 0) {
+          (c.missile
+            ? world.projectiles.fireMissile(o, player, world)
+            : world.projectiles.fireBolt(o, player, world),
+            o.burstLeft--,
+            (o.burstT = c.burstGap || 0));
+        }
+      }
+      o.burstLeft <= 0 &&
+        o.t >= c.windup + c.swing &&
+        ((o.state = "chase"),
+        (o.cooldown = c.cooldown * this.rng.range(0.8, 1.25)),
+        (o.attackLean = 0));
+    }
+    // Height is held rather than driven: the hover is a spring toward the
+    // altitude it wants, plus a bob, so being shot at never jolts it.
+    const floor = this.arena.groundHeight(o.pos.x, o.pos.z),
+      wantY = floor + c.flyHeight + Math.sin(o.bobT) * c.bobAmp;
+    o.pos.y = damp(o.pos.y, wantY, 3, t);
+    ((o.pos.x += (o.vel.x + o.kb.x) * t), (o.pos.z += (o.vel.z + o.kb.z) * t));
+    // Only things that reach its altitude can stop it, so a barrier at 2.1 m
+    // is scenery and a building is not. resolveCircle already reads the band.
+    const [nx, nz] = this.arena.resolveCircle(
+      o.pos.x,
+      o.pos.z,
+      o.radius,
+      o.pos.y - 0.4,
+      0.8,
+      0,
+    );
+    ((o.pos.x = nx), (o.pos.z = nz));
+    const spd = Math.hypot(o.vel.x, o.vel.z);
+    ((o.moveBlend = damp(
+      o.moveBlend,
+      o.state === "chase" ? Math.min(1, spd / (c.speed * 0.6)) : 0,
+      8,
+      t,
+    )),
+      (o.phase += t * 26),
+      (o.headBob = 0));
+    return null;
+  }
+  // Is the line from (x,z) blocked by anything that reaches height `y`? Low
+  // cover is not an obstacle to something flying over it.
+  _blockedAbove(x, z, dx, dz, dist, r, y) {
+    for (let i = 1; i <= 3; i++) {
+      const d = (dist * i) / 3,
+        px = x + dx * d,
+        pz = z + dz * d;
+      if (Math.hypot(px, pz) > ARENA_RADIUS - r - 0.5) return !0;
+      for (const b of this.arena.boxes) {
+        if (b.y1 <= y) continue;
+        const [lx, lz] = b.toLocal(px, pz);
+        if (Math.abs(lx) < b.hx + r && Math.abs(lz) < b.hz + r) return !0;
+      }
+    }
+    return !1;
   }
   // Sample along the segment, not just its far end. A probe point can sit in
   // clear space on the other side of a pillar the body would walk straight

@@ -902,15 +902,21 @@ export class Game {
         // The sim traced it instantly; over this arena that is about a sixth
         // of a second of flight, and showing it keeps the weapon reading as a
         // rocket rather than a very loud laser.
-        (this.tracers.fire(
-          this.weaponView.muzzleWorld,
-          h.point,
-          c,
-          38,
-          0.09,
-          6,
-          [1, 0.7, 0.3],
-        ),
+        //
+        // Only the player's own rocket carries a def, and only it gets the
+        // tracer: an incoming drone missile has already flown its arc as a
+        // projectile, so drawing a line from the player's muzzle to the blast
+        // would say it came from them.
+        (h.def &&
+          this.tracers.fire(
+            this.weaponView.muzzleWorld,
+            h.point,
+            c,
+            38,
+            0.09,
+            6,
+            [1, 0.7, 0.3],
+          ),
           this.particles.explosion(h.point, h.radius),
           this.decals.add(h.point, UP, h.radius * 0.45, 0, c),
           this.impactLight.position.copy(h.point).setY(h.point.y + 0.6),
