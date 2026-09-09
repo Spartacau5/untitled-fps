@@ -2,6 +2,11 @@ import { MathUtils, Vector3 } from "three";
 import { ARENA_RADIUS } from "../data/tuning.js";
 import { EV_EXPLOSION, EV_PROJECTILE_HIT, EV_SPIT } from "./events.js";
 
+// Fixed axes for building a basis across a shot direction. Picking the one
+// least parallel to the shot keeps the cross product well conditioned.
+const UP_Y = new Vector3(0, 1, 0);
+const UP_X = new Vector3(1, 0, 0);
+
 export const MAX_PROJECTILES = 64;
 
 // Enemy projectiles. Pure: a fixed pool of records; the view instances them.
@@ -13,8 +18,13 @@ export const MAX_PROJECTILES = 64;
 //   "bolt"    flat and fast, no drop, hits on contact (wasp drone)
 //   "missile" slower, no drop, blast radius on impact (hornet gunship)
 export class Projectiles {
-  constructor(arena) {
-    ((this.arena = arena), (this.list = []), (this._v = new Vector3()));
+  constructor(arena, rng = null) {
+    ((this.arena = arena),
+      (this.rng = rng),
+      (this.list = []),
+      (this._v = new Vector3()),
+      (this._sa = new Vector3()),
+      (this._sb = new Vector3()));
     for (let n = 0; n < MAX_PROJECTILES; n++)
       this.list.push({
         active: !1,
@@ -57,6 +67,29 @@ export class Projectiles {
       (s.vel.y += 5 * c * 0.5),
       world.emit(EV_SPIT, { pos: s.pos.clone() }));
   }
+  // Scatter a heading inside a cone of `spread` radians. Enemy fire that
+  // cannot miss is not a threat you play against, it is a timer - so every
+  // drone round leaves the barrel slightly off, and a burst walks rather
+  // than stacking three rounds on one point.
+  _scatter(dir, spread) {
+    if (!(spread > 0) || !this.rng) return dir;
+    // Build an orthonormal pair across the shot, then lean the heading into a
+    // random point on the disc they span. Sampling the radius as sqrt spreads
+    // rounds evenly across the disc instead of clumping them at the centre.
+    //
+    // Two separate scratch vectors on purpose: the second basis axis is the
+    // cross of `dir` with the first, so deriving it in place would overwrite
+    // the vector it is being derived from.
+    const axis = Math.abs(dir.y) > 0.9 ? UP_X : UP_Y;
+    this._sa.copy(axis).cross(dir).normalize();
+    this._sb.copy(dir).cross(this._sa).normalize();
+    const r = Math.tan(spread) * Math.sqrt(this.rng.float()),
+      roll = this.rng.range(0, Math.PI * 2);
+    return dir
+      .addScaledVector(this._sa, Math.cos(roll) * r)
+      .addScaledVector(this._sb, Math.sin(roll) * r)
+      .normalize();
+  }
   // A flat, fast round from a drone. Aimed where the player will be rather
   // than where they are, but only weakly: fully leading a 62 m/s bolt would be
   // unavoidable, and the drone's job is to make you move, not to delete you.
@@ -74,10 +107,9 @@ export class Projectiles {
     const aim = this._v.set(player.pos.x, player.pos.y + 1.1, player.pos.z),
       lead = aim.distanceTo(s.pos) / enemy.def.projSpeed;
     (aim.addScaledVector(player.vel, lead * 0.45),
-      s.vel
-        .subVectors(aim, s.pos)
-        .normalize()
-        .multiplyScalar(enemy.def.projSpeed),
+      s.vel.subVectors(aim, s.pos).normalize(),
+      this._scatter(s.vel, enemy.def.spread),
+      s.vel.multiplyScalar(enemy.def.projSpeed),
       world.emit(EV_SPIT, { pos: s.pos.clone(), kind: "bolt" }));
   }
   // The gunship's missile. Slow enough to see and step away from; the blast is
@@ -97,10 +129,9 @@ export class Projectiles {
     const aim = this._v.set(player.pos.x, player.pos.y + 0.9, player.pos.z),
       lead = aim.distanceTo(s.pos) / enemy.def.projSpeed;
     (aim.addScaledVector(player.vel, lead * 0.5),
-      s.vel
-        .subVectors(aim, s.pos)
-        .normalize()
-        .multiplyScalar(enemy.def.projSpeed),
+      s.vel.subVectors(aim, s.pos).normalize(),
+      this._scatter(s.vel, enemy.def.spread),
+      s.vel.multiplyScalar(enemy.def.projSpeed),
       world.emit(EV_SPIT, { pos: s.pos.clone(), kind: "missile" }));
   }
   // A missile detonating. The blast hurts the player and nothing else: enemies

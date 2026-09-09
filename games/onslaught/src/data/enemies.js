@@ -137,9 +137,9 @@ export const ENEMIES = {
     hp: 90,
     speed: 9.2,
     scale: 1.25,
-    damage: 9,
+    damage: 6,
     range: 0,
-    cooldown: 2.1,
+    cooldown: 3.2,
     windup: 0.28,
     swing: 0.5,
     score: 250,
@@ -162,7 +162,12 @@ export const ENEMIES = {
     strafe: 1.35,
     projSpeed: 62,
     burst: 3,
-    burstGap: 0.11,
+    burstGap: 0.13,
+    // About 2.6 degrees. Enough that a burst walks across you rather than
+    // landing three rounds on the same point, and that standing still is
+    // punished without being fatal. Without it these hit ~100% of the time
+    // on a stationary player, which is a timer rather than a fight.
+    spread: 0.045,
   },
   // The wave 12 answer to players who ignore the gunners: slower, tougher, and
   // it lobs a missile whose blast only hurts you. Enemies are deliberately
@@ -195,6 +200,10 @@ export const ENEMIES = {
     strafe: 0.8,
     projSpeed: 21,
     missile: !0,
+    // Tighter than the wasp: a missile that misses by a metre still catches
+    // you in the blast, so its inaccuracy is about where the blast lands
+    // rather than about whether it connects.
+    spread: 0.03,
     // Small enough that the blast is a reason to move, not an unavoidable tax.
     splashRadius: 3.6,
     splashMin: 0.35,

@@ -314,3 +314,110 @@ test("air-only fills the wave with flyers and keeps it small enough to see", () 
   assert.ok(late.queue.includes("missileDrone"), "gunships once they exist");
   assert.ok(late.queue.includes("drone"), "and wasps alongside them");
 });
+
+// --- threat tuning ---------------------------------------------------------
+
+test("drone fire is scattered, so standing still is punished and not fatal", () => {
+  const w = new World({ seed: 9, noSpawn: !0 });
+  w.startRun();
+  const d = w.enemies.spawn("drone", w.arena.gates[0], 1, w);
+  d.state = "chase";
+  d.pos.set(
+    w.player.pos.x,
+    w.player.pos.y + d.def.flyHeight,
+    w.player.pos.z - 16,
+  );
+  w.drainEvents();
+  // Fire a hundred bolts at a player who never moves and count the headings.
+  const dirs = [];
+  for (let i = 0; i < 100; i++) {
+    for (const p of w.projectiles.list) p.active = !1;
+    w.projectiles.fireBolt(d, w.player, w);
+    const p = w.projectiles.list.find((x) => x.active);
+    dirs.push(p.vel.clone().normalize());
+  }
+  const mean = dirs
+    .reduce((a, v) => a.add(v), new Vector3())
+    .divideScalar(dirs.length)
+    .normalize();
+  const angles = dirs.map((v) => Math.acos(Math.min(1, v.dot(mean))));
+  const spread = ENEMIES.drone.spread;
+  assert.ok(spread > 0, "the wasp must have a spread at all");
+  assert.ok(
+    Math.max(...angles) <= spread * 1.05,
+    "no round may leave the cone",
+  );
+  // And it genuinely varies: a cone every round lands in the centre of is not
+  // a cone. This is the whole fix - unscattered fire hit a standing player
+  // essentially every time, which is a timer rather than a fight.
+  assert.ok(
+    angles.filter((a) => a > spread * 0.5).length > 20,
+    "rounds must actually spread across the cone",
+  );
+});
+
+test("scattered fire is still deterministic", () => {
+  const shots = (seed) => {
+    const w = new World({ seed, noSpawn: !0 });
+    w.startRun();
+    const d = w.enemies.spawn("drone", w.arena.gates[0], 1, w);
+    d.state = "chase";
+    d.pos.set(w.player.pos.x, w.player.pos.y + 5, w.player.pos.z - 16);
+    const out = [];
+    for (let i = 0; i < 20; i++) {
+      for (const p of w.projectiles.list) p.active = !1;
+      w.projectiles.fireBolt(d, w.player, w);
+      out.push(
+        w.projectiles.list
+          .find((x) => x.active)
+          .vel.toArray()
+          .join(","),
+      );
+    }
+    return out.join("|");
+  };
+  assert.equal(shots(21), shots(21), "same seed, same rounds");
+  assert.notEqual(shots(21), shots(22), "and the seed actually matters");
+});
+
+test("the air ramp starts at one and grows slowly", () => {
+  const air = (wave) => {
+    const q = composeWave(wave, new RNG(wave)).queue;
+    return {
+      wasp: q.filter((k) => k === "drone").length,
+      gunship: q.filter((k) => k === "missileDrone").length,
+      total: q.length,
+    };
+  };
+  // The wave a wasp arrives in is where you learn what one is, not where you
+  // are overwhelmed by four of them.
+  assert.equal(air(DRONE_WAVE).wasp, 1);
+  assert.equal(air(GUNSHIP_WAVE).gunship, 1);
+  // It grows, and it is capped. Measured as a peak across seeds rather than
+  // wave by wave: composeWave writes each drone at a random index, so two can
+  // land on the same slot and the realised count dips a little. That is the
+  // existing idiom for brutes and spitters too, and undershooting the air
+  // count is the harmless direction to be wrong in.
+  const peak = (wave, pick) => {
+    let most = 0;
+    for (let seed = 1; seed <= 40; seed++)
+      most = Math.max(
+        most,
+        composeWave(wave, new RNG(seed)).queue.filter((k) => k === pick).length,
+      );
+    return most;
+  };
+  assert.equal(peak(DRONE_WAVE, "drone"), 1, "one on debut, every time");
+  assert.ok(peak(14, "drone") > peak(DRONE_WAVE, "drone"), "it must ramp up");
+  assert.ok(peak(20, "drone") > peak(14, "drone"));
+  assert.equal(peak(40, "drone"), 5, "and stop there");
+  assert.equal(peak(40, "missileDrone"), 3);
+  // Air stays a garnish on a ground wave, never the wave itself.
+  for (const w of [8, 12, 20, 30]) {
+    const a = air(w);
+    assert.ok(
+      (a.wasp + a.gunship) / a.total < 0.08,
+      `wave ${w} is ${a.wasp + a.gunship}/${a.total} air`,
+    );
+  }
+});

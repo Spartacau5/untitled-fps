@@ -12,13 +12,16 @@ export function composeWave(wave, rng) {
     count = Math.min(6 + t * 5 + Math.floor(t * t * 0.45), 130),
     brutes = t >= 3 ? 1 + Math.floor((t - 3) / 2) + (t % 5 === 0 ? 2 : 0) : 0,
     spitters = t >= 2 ? Math.floor(count * 0.18) : 0,
-    // Two on their debut, then one more every other wave, capped so the sky
-    // never gets busier than a player can clear while a swarm is on them.
+    // One on its debut, so the wave it arrives in is where you learn what a
+    // wasp is rather than where you are overwhelmed by four. Then one more
+    // every third wave, capped low: they are meant to change where you look,
+    // and the ground swarm is still what kills you.
     drones =
-      t >= DRONE_WAVE ? Math.min(7, 2 + Math.floor((t - DRONE_WAVE) / 2)) : 0,
+      t >= DRONE_WAVE ? Math.min(5, 1 + Math.floor((t - DRONE_WAVE) / 3)) : 0,
+    // Same idea, slower still. One gunship is already a reason to move.
     gunships =
       t >= GUNSHIP_WAVE
-        ? Math.min(3, 1 + Math.floor((t - GUNSHIP_WAVE) / 4))
+        ? Math.min(3, 1 + Math.floor((t - GUNSHIP_WAVE) / 5))
         : 0,
     queue = [];
   for (let a = 0; a < count; a++) queue.push("runner");
