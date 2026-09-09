@@ -1,6 +1,6 @@
 import { MathUtils, Vector3 } from "three";
 import { RNG } from "../core/rng.js";
-import { composeWave } from "../data/waves.js";
+import { GUNSHIP_WAVE, composeWave } from "../data/waves.js";
 import { Arena } from "./arena.js";
 import { FlowField } from "./flowfield.js";
 import { Enemies } from "./enemies.js";
@@ -32,8 +32,20 @@ export class World {
     noSpawn = !1,
     loadout = null,
     startKey = null,
+    // Testing affordances, off by default and only ever set from the URL.
+    // firstWave skips the climb so a late-wave enemy can be looked at without
+    // playing to it; airOnly fills the queue with flyers so it arrives now
+    // rather than two thirds of the way through a wave of husks.
+    //
+    // Both change what the wave RNG is asked for, so a run using either is not
+    // comparable to a seeded replay. That is the point of them - they are for
+    // looking at something, not for measuring it.
+    firstWave = 1,
+    airOnly = !1,
   } = {}) {
-    ((this.seed = seed),
+    ((this.firstWave = Math.max(1, Math.floor(firstWave) || 1)),
+      (this.airOnly = !!airOnly),
+      (this.seed = seed),
       (this.god = god),
       (this.noSpawn = noSpawn),
       // Which guns the player brought. Part of the run, not a setting: the
@@ -122,7 +134,9 @@ export class World {
       (this.elapsed = 0),
       (this.breakT = 4),
       (this.waveActive = !1),
-      (this.wave = 0),
+      // updateWaves opens wave + 1 when the break runs out, so starting
+      // partway up is just a matter of where the counter begins.
+      (this.wave = this.firstWave - 1),
       (this.slowmoRequest = 0),
       (this._hurtBy = null),
       this.stats.reset(),
@@ -217,8 +231,7 @@ export class World {
         1 -
         (1 - def.falloffMin) *
           MathUtils.clamp(
-            (h.dist - def.falloffStart) /
-              (def.falloffEnd - def.falloffStart),
+            (h.dist - def.falloffStart) / (def.falloffEnd - def.falloffStart),
             0,
             1,
           );
@@ -323,8 +336,16 @@ export class World {
   startWave(t) {
     ((this.wave = t), (this.waveActive = !0));
     const w = composeWave(t, this.waveRng);
-    ((this.queue = w.queue),
-      (this.maxAlive = w.maxAlive),
+    // Air-only: same wave, every slot a flyer, and few enough alive at once to
+    // actually look at one. Composed normally first so the wave still knows
+    // whether gunships have unlocked yet.
+    const queue = this.airOnly
+      ? w.queue.map((k, i) =>
+          t >= GUNSHIP_WAVE && i % 4 === 0 ? "missileDrone" : "drone",
+        )
+      : w.queue;
+    ((this.queue = queue),
+      (this.maxAlive = this.airOnly ? 6 : w.maxAlive),
       (this.spawnInterval = w.spawnInterval),
       (this.spawnTimer = 1),
       this.emit(EV_WAVE_START, {

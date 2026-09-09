@@ -270,3 +270,47 @@ test("wave composition stays deterministic with drones in it", () => {
   const two = composeWave(14, new RNG(99)).queue.join(",");
   assert.equal(one, two);
 });
+
+// --- testing affordances ---------------------------------------------------
+
+test("a world can start partway up the wave ladder", () => {
+  const w = new World({ seed: 4, firstWave: 8 });
+  w.startRun();
+  assert.equal(w.wave, 7, "the counter sits one below, ready to open 8");
+  // Run the break out and the first wave to open is the one asked for.
+  for (let i = 0; i < 400 && !w.waveActive; i++) w.step(1 / 60, idle());
+  assert.equal(w.wave, 8);
+  assert.ok(w.queue.length > 0);
+  // And it is a real wave 8, drones included, not wave 1 with a label on it.
+  assert.ok(w.queue.includes("drone"), "wave 8 must bring its drones");
+});
+
+test("the default is still wave 1, so nothing changes for a real run", () => {
+  const w = new World({ seed: 4 });
+  w.startRun();
+  assert.equal(w.wave, 0);
+  for (let i = 0; i < 400 && !w.waveActive; i++) w.step(1 / 60, idle());
+  assert.equal(w.wave, 1);
+  assert.equal(w.queue.includes("drone"), false, "no drones on wave 1");
+});
+
+test("air-only fills the wave with flyers and keeps it small enough to see", () => {
+  const w = new World({ seed: 4, firstWave: 8, airOnly: true });
+  w.startRun();
+  for (let i = 0; i < 400 && !w.waveActive; i++) w.step(1 / 60, idle());
+  assert.equal(w.wave, 8);
+  assert.ok(w.queue.length > 0);
+  for (const k of w.queue)
+    assert.ok(ENEMIES[k].fly, `${k} is not a flyer but is in an air-only wave`);
+  assert.ok(w.maxAlive <= 8, `${w.maxAlive} at once is too many to look at`);
+  // Before gunships unlock it is wasps only; after, they are mixed in.
+  const early = new World({ seed: 4, firstWave: 8, airOnly: true });
+  early.startRun();
+  for (let i = 0; i < 400 && !early.waveActive; i++) early.step(1 / 60, idle());
+  assert.equal(early.queue.includes("missileDrone"), false);
+  const late = new World({ seed: 4, firstWave: 14, airOnly: true });
+  late.startRun();
+  for (let i = 0; i < 400 && !late.waveActive; i++) late.step(1 / 60, idle());
+  assert.ok(late.queue.includes("missileDrone"), "gunships once they exist");
+  assert.ok(late.queue.includes("drone"), "and wasps alongside them");
+});

@@ -104,6 +104,23 @@ To use your own artwork, drop a PNG or JPG in `games/onslaught/public/ads/` and
 point a campaign's `image` at it (e.g. `"ads/my-poster.png"`). The folder ships
 empty; a missing file falls back to the drawn board.
 
+## URL parameters
+
+All optional, all off by default, and all parsed in `src/game/game.js`.
+
+| Param | Effect |
+| --- | --- |
+| `?seed=123` | Fix the run's seed. The same seed replays the same layout, spawns and combat stream. |
+| `?wave=8` | Start at that wave instead of wave 1. For looking at a late-wave enemy without playing up to it. |
+| `?air` | Fill every wave with flyers, six at a time. Combine with `?wave=` to see drones immediately. |
+| `?god` | No damage taken. |
+| `?nospawn` | Nothing spawns. An empty arena to walk around. |
+| `?debug` | Debug panel, no music or ambience, and the pointer stays unlocked. |
+
+Examples: `?wave=8&air&god` puts wasps in front of you at once; `?wave=14&air&god` mixes
+in gunships. Both change what the wave RNG is asked for, so a run using them is not
+comparable to a seeded replay - they are for looking at something, not measuring it.
+
 ## Seeded runs and leaderboard
 
 Every match starts from an integer seed (`?seed=` or the clock). The same seed replays the same layout, spawns, and combat stream.

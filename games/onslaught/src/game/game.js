@@ -28,11 +28,7 @@ import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
-import {
-  Progression,
-  xpForKill,
-  xpForWaveClear,
-} from "../core/progression.js";
+import { Progression, xpForKill, xpForWaveClear } from "../core/progression.js";
 import { Settings } from "../core/settings.js";
 import { captureRun } from "../core/run-record.js";
 import { RunLog } from "../core/runlog.js";
@@ -97,6 +93,10 @@ export class Game {
       seed: this.seed,
       god: this.god,
       noSpawn: e.has("nospawn"),
+      // ?wave=8 starts there; ?air fills the wave with drones. Both are for
+      // looking at a late-wave enemy without playing up to it.
+      firstWave: Number(e.get("wave")) || 1,
+      airOnly: e.has("air"),
       loadout: this.progression.loadout,
       startKey: this.progression.start,
     });
@@ -613,8 +613,7 @@ export class Game {
           window.innerHeight * 0.3,
           "bonus",
         ));
-      for (const r of got.unlocks)
-        this.hud.feed(`${r.label} UNLOCKED`, "wave");
+      for (const r of got.unlocks) this.hud.feed(`${r.label} UNLOCKED`, "wave");
     }
     return got;
   }
@@ -1050,9 +1049,7 @@ export class Game {
           glow = theme.enemies[t.type].glow;
         // Paid now, not at the debrief. Nothing is written to storage on
         // the kill path - progression.award batches that itself.
-        this._awardXp(
-          xpForKill({ xp: t.def.xp, head: e, streak: h.streak }),
-        );
+        this._awardXp(xpForKill({ xp: t.def.xp, head: e, streak: h.streak }));
         (this.particles.deathBurst(t.pos, glow, t.scale, e),
           A.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big));
         const a = this.project(t.pos.x, t.pos.y + 1.75 * t.scale, t.pos.z);
@@ -1097,10 +1094,10 @@ export class Game {
         (this._awardXp(waveXp, { flush: !0 }),
           H.feed(`+${waveXp} XP  ·  WAVE ${h.wave} BONUS`, "wave"),
           H.banner(
-          "WAVE " + h.wave + " CLEARED",
-          "+" + h.bonus + " BONUS  ·  REINFORCEMENTS IN 9s",
-          4,
-        ),
+            "WAVE " + h.wave + " CLEARED",
+            "+" + h.bonus + " BONUS  ·  REINFORCEMENTS IN 9s",
+            4,
+          ),
           H.feed("WAVE " + h.wave + " CLEARED  +" + h.bonus, "wave"),
           A.waveClear(),
           (A.intensity = 1));
