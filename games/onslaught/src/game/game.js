@@ -649,7 +649,7 @@ export class Game {
             "lo-card" +
             (i === startIndex ? " is-spawn" : "") +
             (isNew ? " is-new" : "");
-        const tag = isNew ? "NEW" : i === startIndex ? "SPAWN" : "";
+        const tag = isNew ? "NEW" : "";
         // A button, not a div: this row is how you change the gun on that
         // key, and the deploy screen is the last place a player looks before
         // a run - so the loadout has to be editable from here, not only from
