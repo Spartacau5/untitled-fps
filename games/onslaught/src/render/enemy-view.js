@@ -64,15 +64,19 @@ export function buildDroneRig(p) {
   // below - which is the only angle most players will ever see it from.
   (body.push(box(R * 1.6, R * 0.66, R * 1.9, 0, 0, 0, R * 0.2)),
     body.push(box(R * 0.46, R * 0.3, R * 1.4, 0, R * 0.4, R * 0.1, R * 0.1)));
-  // A thin lit strip down each flank. This is what carries the threat colour
-  // at range - a lens alone is too small to pick out of a skyline, and a body
+  // A lit strip down each flank. This is what carries the threat colour at
+  // range - a lens alone is too small to pick out of a skyline, and a body
   // that glows all over stops reading as a machine.
   for (const sx of [-1, 1])
     glow.push(
-      box(R * 0.06, R * 0.12, R * 1.3, sx * R * 0.8, R * 0.06, 0, R * 0.02),
+      box(R * 0.09, R * 0.18, R * 1.3, sx * R * 0.8, R * 0.04, 0, R * 0.03),
     );
+  // A belly bar across the underside. The player is almost always below a
+  // flyer, and from there the flank strips are edge-on and the eye is a dot;
+  // this is the panel that faces them.
+  glow.push(box(R * 1.15, R * 0.06, R * 0.24, 0, -R * 0.34, R * 0.15, R * 0.02));
   // Tail light, so a drone behind you still announces itself.
-  glow.push(new SphereGeometry(R * 0.13, 8, 6).translate(0, R * 0.26, R * 0.9));
+  glow.push(new SphereGeometry(R * 0.15, 8, 6).translate(0, R * 0.26, R * 0.9));
   // Four arms out to four nacelles. The arms are hull, the nacelles are the
   // darker joint material, and both are fixed to the body - only the rotors
   // above them turn, so all eight pieces merge into two parts.
@@ -528,17 +532,24 @@ export class EnemyView {
   }
   _buildType(t) {
     const colors = theme.enemies[t.key],
+      fly = !!t.fly,
       // A flyer has no proportions to build a skeleton from; everything
       // below this line - materials, instancing, flash and dissolve - is
       // identical either way, which is why the two rigs share a shape.
-      e = t.fly ? buildDroneRig(t) : buildEnemyRig(t.proportions),
+      e = fly ? buildDroneRig(t) : buildEnemyRig(t.proportions),
       n = new Float32Array(MAX_PER_TYPE),
       s = new Float32Array(MAX_PER_TYPE),
+      // Ground units are polished alloy: mostly reflection, little diffuse,
+      // which suits a three-metre robot lit from the street. A flyer is a
+      // small thing seen from below with the sky behind it, and the same
+      // finish turns it into a silhouette - almost none of the light that
+      // reaches it comes back as colour. Flyers get a matte, low-metal
+      // finish so the hemisphere and sun actually show on the hull.
       r = makeEnemyMaterial(
         new MeshStandardMaterial({
           color: colors.body,
-          roughness: 0.36,
-          metalness: 0.72,
+          roughness: fly ? 0.55 : 0.36,
+          metalness: fly ? 0.22 : 0.72,
         }),
         this.uTime,
         !1,
@@ -549,8 +560,9 @@ export class EnemyView {
           emissive: new Color(...colors.glow),
           // Above the 1.6 bloom threshold, so the eye slots actually throw
           // light instead of just being pale paint. A lit face in a dark head
-          // is most of the read.
-          emissiveIntensity: 2.1,
+          // is most of the read. Flyers are pushed harder still: at range
+          // the strips are the only thing that survives distance.
+          emissiveIntensity: fly ? 3.6 : 2.1,
           roughness: 0.6,
           metalness: 0,
         }),
@@ -558,11 +570,13 @@ export class EnemyView {
         !0,
       ),
       l = [];
+    // Nacelles and sensor housing on a flyer lighten with the hull; the
+    // ground units' near-black joints would read as holes in a pale machine.
     const jointMat = makeEnemyMaterial(
       new MeshStandardMaterial({
-        color: 0x252e34,
-        roughness: 0.46,
-        metalness: 0.85,
+        color: fly ? 0x5a656c : 0x252e34,
+        roughness: fly ? 0.5 : 0.46,
+        metalness: fly ? 0.4 : 0.85,
       }),
       this.uTime,
       false,

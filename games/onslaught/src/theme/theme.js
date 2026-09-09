@@ -64,10 +64,15 @@ export const theme = {
     // already spoken for on the ground, and the whole point of a drone is that
     // you have to pick it out of the sky in a hurry - so green and violet,
     // which nothing else in the arena wears.
-    drone: { name: "RECON DRONE", body: 0x8d979c, glow: [0.35, 1.0, 0.45] },
+    //
+    // Hulls are the palest in the roster. A flyer is seen against the towers
+    // far more often than against open sky, and a mid-grey machine in front of
+    // a dark facade is invisible until it fires. The gunship stays a shade
+    // darker so the two still tell apart at a glance.
+    drone: { name: "RECON DRONE", body: 0xd6dde1, glow: [0.35, 1.0, 0.45] },
     missileDrone: {
       name: "GUNSHIP DRONE",
-      body: 0x767f86,
+      body: 0xbcc5cb,
       glow: [0.78, 0.32, 1.0],
     },
   },
