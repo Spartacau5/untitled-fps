@@ -24,7 +24,7 @@ import {
 } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Audio } from "../audio/audio.js";
-import { footstepSurface } from "../audio/footstep-surfaces.js";
+import { playWorldSound } from "../audio/world-sound.js";
 import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
@@ -153,7 +153,6 @@ export class Game {
       // constructing one costs tens of milliseconds. Only resume() needs the
       // gesture, and that is free.
       this.audio.init(),
-      (this.audio.groundedCombat = Boolean(this.world.match)),
       this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD({ match: Boolean(this.world.match) })),
       this.hud.initMatch(),
@@ -432,22 +431,6 @@ export class Game {
     } finally {
       this.enemyView.finishWarmup?.();
     }
-    if (this.world.match && this.audio.sampleLoad) {
-      step(0.94, "PREPARING COMBAT AUDIO");
-      let deadline;
-      try {
-        await Promise.race([
-          this.audio.sampleLoad,
-          new Promise((resolve) => {
-            deadline = setTimeout(resolve, 1500);
-          }),
-        ]);
-      } catch (error) {
-        console.warn("Combat audio preparation was incomplete", error);
-      } finally {
-        clearTimeout(deadline);
-      }
-    }
     step(0.96, "STARTING");
   }
   // Held back until warmup resolves so nothing renders mid-compile.
@@ -708,12 +691,6 @@ export class Game {
         : this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
-    if (this.world.match) {
-      const results = this.audio.sampleResults;
-      if (!results) this.hud.hint("COMBAT AUDIO STILL LOADING");
-      else if (results.some((result) => !result.loaded))
-        this.hud.hint("SOME COMBAT SOUNDS FAILED TO LOAD · RELOAD TO RETRY");
-    }
   }
   pause() {
     if (this.mobile) this.input.unlock();
@@ -851,14 +828,11 @@ export class Game {
         (A.jump(), this.weaponView.onEvent(h, w.weapons));
         break;
       case EV.EV_LAND:
-        (A.land(h.strength, w.match ? footstepSurface(n.pos) : "default"),
+        (A.land(h.strength),
           this.weaponView.onEvent(h, w.weapons));
         break;
       case EV.EV_STEP:
-        A.footstep(
-          h.sprint ? 1.25 : 0.85,
-          w.match ? footstepSurface(n.pos) : "default",
-        );
+        A.footstep(h.sprint ? 1.25 : 0.85);
         break;
       case EV.EV_SLIDE:
         A.slide();
@@ -917,39 +891,20 @@ export class Game {
         const occluded = Boolean(
           w.arena.raycast(h.origin, delta.normalize(), distance),
         );
-        A.robotShot([h.origin.x, h.origin.y, h.origin.z], occluded);
-        if (h.team !== "blue" && !occluded && !w.player.dead) {
-          const segment = this._v2.subVectors(h.end, h.origin);
-          const length = segment.length();
-          segment.normalize();
-          const along = MathUtils.clamp(
-            this._v.subVectors(w.player.camPos, h.origin).dot(segment),
-            0,
-            length,
-          );
-          this._v.copy(h.origin).addScaledVector(segment, along);
-          if (
-            this._v.distanceTo(w.player.camPos) < 1.1 &&
-            h.end.distanceTo(w.player.camPos) > 0.7
-          )
-            A.nearMiss([this._v.x, this._v.y, this._v.z]);
-        }
+        playWorldSound(A, h.origin, "gunshot", ["m4"], occluded ? 0.08 : 0.35);
         break;
       }
       case "botStep":
-        A.robotFootstep(
-          [h.pos.x, h.pos.y, h.pos.z],
-          w.match ? footstepSurface(h.pos) : "default",
-        );
+        playWorldSound(A, h.pos, "footstep", [0.85], 0.45);
         break;
       case "botReload":
-        A.robotReload([h.pos.x, h.pos.y, h.pos.z]);
+        playWorldSound(A, h.pos, "magOut", [], 0.3);
         break;
       case "teamKill":
         H.feed(
           `${w.match.standings.find((entry) => entry.id === h.team)?.name || "OPERATOR"} › ${w.match.standings.find((entry) => entry.id === h.victim)?.name || "OPERATOR"}`,
         );
-        A.operatorFall([h.pos.x, h.pos.y, h.pos.z]);
+        playWorldSound(A, h.pos, "land", [1], 0.4);
         break;
       case "gunPromotion":
         H.banner(`WEAPON ${h.stage + 1}/8`, h.name, 1.3);
@@ -1128,7 +1083,7 @@ export class Game {
         const t = h.enemy,
           e = h.head,
           glow = theme.enemies[t.type].glow;
-        if (w.match) A.operatorFall([t.pos.x, t.pos.y, t.pos.z]);
+        if (w.match) playWorldSound(A, t.pos, "land", [1], 0.4);
         else {
           this.particles.deathBurst(t.pos, glow, t.scale, e);
           A.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big);

@@ -2,7 +2,7 @@
 
 Branch: `v6/fidelity-overhaul`, based on `v5/midtown-gun-game` at `9db0856`.
 
-V6 upgrades the NYC environment, authored operator rigs, first-person hands/materials and combat audio. Gun Game, six bots, weapon progression, 150 player health, safe spawns and the collision layout remain the v5 rules. This is an incremental fidelity pass, not a claim of TTK or AAA parity. Production character assets and mocap remain future work.
+V6 upgrades the NYC environment, authored operator rigs, first-person hands/materials. Audio is restored from `main` at `c57662a3a2d2269364e31ebac1a2a5b8fa43ff77`. Gun Game, six bots, weapon progression, 150 player health, safe spawns and the collision layout remain the v5 rules. This is an incremental fidelity pass, not a claim of TTK or AAA parity. Production character assets and mocap remain future work.
 
 ## Art direction
 
@@ -22,13 +22,13 @@ An original photographic After Hours poster replaces the text-only Broadway bill
 - Colour grading reduces grain and chromatic distortion. Sun direction and sky agree. Existing dynamic-light count is unchanged.
 - `?perf` displays frame rate, the 95th-percentile frame interval, draw submissions and texture count. It uses raw frame intervals, so long stalls are not hidden by the simulation's 50 ms clamp. It is local-only diagnostic UI.
 
-## Operator, weapon and recorded-audio pass
+## Operators, weapons and audio baseline
 
 Operators now have rounded carriers and pouches, webbing, helmet/headset details, shaped boots and rifle furniture. Separate cloth, equipment and skin palettes no longer multiply already-dark material colours. Two-bone arm constraints keep hands on the rifle grips through recoil and reload; leg constraints keep stance ankles at floor level and raise recovery steps. These are authored procedural characters and motion, not scanned humans or mocap. Their existing hitboxes and aiming rules are unchanged.
 
 First-person support fingers wrap at their joints. Static hand pieces are merged by material into three meshes per hand. Gloves and polymer use non-metallic standard PBR, metals use restrained environment response, and wear follows bevel curvature instead of artificial radial stripes. Rounded parts use fewer subdivisions. Existing LMG sights, sniper scope masking and animated sniper/launcher near-plane guards remain covered by their regression tests.
 
-After both recording-based mixes missed the requested sound direction, revision `designed-fps-3` replaces their gun/handling assets with Q009's authored FPS reports and adds recorded footsteps by swuing/Eelke, edited by congusbongus. The 40-clip bank totals 3,270,864 bytes. Five stereo report families provide three takes each across eight weapon profiles. Authored tails are preserved; overlapping automatic reports fade within a bounded voice pool. Player reports receive no additional synthetic reverb. Streets/stone decks use recorded concrete boots and bus roofs use metal contacts. Jump/landing reuse these contacts; sliding, world impacts and ambience remain synthesized. Two-worker loading overlaps shader warmup, with bounded additional preparation and visible pending/failure notices. Sound credits ship in the menu and preview; Q009 derivatives are CC BY-SA 3.0, footfalls CC BY 3.0. [Source, runtime and listening limitations](../games/onslaught/public/audio/README.md).
+At the user's request, all v6 audio experiments have been removed. `src/audio/audio.js` is copied exactly from `main` at `c57662a3a2d2269364e31ebac1a2a5b8fa43ff77`, restoring its original synthesized weapons, footsteps, handling, feedback, ambience and mix. No v6 WAV bank, sample loader, mastering script, audio preview or audio download warmup remains. A small `world-sound.js` adapter invokes those unchanged sounds for v6 bot events with distance attenuation and pan; it contains no new sound definitions. Main has no near-miss effect, so the added v6 near-miss sound is removed.
 
 ## Measured here
 
@@ -46,7 +46,7 @@ Automated checks cover partial-load cleanup, fallback preservation, colour space
 
 Operator rendering remains 26 instanced part/material batches, now 6,808 triangles per operator. Each first-person hand uses three meshes (2,540 trigger-hand / 3,836 support-hand triangles). These are geometry counts, not hardware FPS measurements.
 
-Validation includes grip/stance constraints, geometry budgets, audio integrity, stereo decoding, fallback isolation, voice priorities, bounded tail fades, footstep surface selection, spatial filtering and session cleanup. The audio preview checks real weapon cadence, footstep sequences and stop/change cancellation. Automated checks do not establish perceived sound quality.
+Validation includes grip/stance constraints, geometry budgets and the bot audio adapter's distance/pan routing and isolation from player gain. The audio source is checked byte-for-byte against the pinned main commit. Automated checks do not establish perceived sound quality.
 
 The cloud browser again could not open localhost (`ERR_BLOCKED_BY_CLIENT`) for the operator/audio pass. GPU shader compilation, final lighting, reflection accuracy, perceived audio balance and frame time must therefore be validated locally. Reflection probes are approximate and are not screen-space or ray-traced reflections. Operators and weapon models remain authored procedural assets.
 
@@ -61,6 +61,4 @@ npm run dev
 
 Open the Vite URL with `?perf`. For a quiet inspection use `?nospawn&perf`. Check the first minute of a cold load, glance across storefronts from several angles, inspect the brick scale and road normal maps, then play a full match. Record the performance overlay along with any hitch or visual artifact. Vercel Preview can host this branch without promoting it to production.
 
-For this pass, inspect operators strafing/backpedaling and reloading, compare all eight gun reports, and check LMG/sniper ADS plus sniper/launcher framing while moving and reloading. Test once with an audio file blocked to confirm that its fallback still fires; listen for excessive mix compression during a six-bot exchange. A local playtest is still required before judging whether the fidelity target has been reached.
-
-For audio-only iteration, open `/audio-lab.html` on your local or branch-preview host. Confirm `designed-fps-3` and `40/40 sounds loaded`. It shares the game's Audio class and weapon cadence, with single-shot, burst, 20-shot stress sequence, reload, bot-exchange, hit/kill and surface footstep controls. The preview refuses to play an incomplete bank. The production build includes this page.
+For this pass, inspect operators strafing/backpedaling and reloading, and check LMG/sniper ADS plus sniper/launcher framing while moving and reloading. Audio should use the original main sound character. Check player weapons, footsteps, reloads and hit/kill feedback, plus spatial bot sounds in a full match.
