@@ -1,144 +1,302 @@
 {
-  "collection": "USC Cinema / Sunset Editorial sound effects, preserved by Craig Smith, archived by Jason Scott",
-  "sourcePage": "https://archive.org/details/SSE_Library_GUNS",
+  "collection": "Modern combat mix: Free Firearm Sound Library + remastered handling + original feedback",
+  "sourcePage": "https://opengameart.org/content/the-free-firearm-sound-library",
   "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-  "licenseEvidence": "https://archive.org/metadata/SSE_Library_GUNS",
+  "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library",
   "sources": {
     "pistol": {
-      "url": "https://archive.org/download/SSE_Library_GUNS/PISTOL/GUNPis_Exterior%20pistol%20shots%20with%20no%20reverb_CS_USC.flac",
-      "sha256": "f77645c6d594cf316b8b6e12dd11ed3b7e52db983fd6043793e5f7c20410ff55"
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "1911/A_42P.wav",
+      "sha256": "8e84438e771c157155a6a1ff47a6a7a7d81b6f39b185d41e426c57337a82254a",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
+    },
+    "smg": {
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "Carl Gustav M45/G_31P.wav",
+      "sha256": "5982c6c2fa44545b750ba6217ed57797a6a15c02f5c9943ac0e99e5f3ab2b158",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
+    },
+    "rifle": {
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "AR-15/D_32P.wav",
+      "sha256": "acee9d2106b68fe5956225a19d7aedf943d97793817f9bda9d486a2b74b0a812",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
+    },
+    "lmg": {
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "AK-47/C_28P.wav",
+      "sha256": "e0934c1d79192d2216db62fdf6ab57bf9d5d585267af367a1cfb21f0972a537d",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
     },
     "marksman": {
-      "url": "https://archive.org/download/SSE_Library_GUNS/RIFLE/GUNRif_30%2030%20rifle%20shots_CS_USC.flac",
-      "sha256": "c99d04d5f179d6e4859c547dbe5988e88620f5c65eef4210d825e2abf3c87214"
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "Savage 10 .300 Blackout/T_27P.wav",
+      "sha256": "92296c320f7854da29ff28d1687da21a110cb1242bb03e5e1e62f6a4e7f79f3b",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
+    },
+    "sniper": {
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "Tikka/W_29P.wav",
+      "sha256": "b1ffe3c104391bf8ceb8337aa4d5a2ca47938fb88ccbd051cdd2b2e205d9e72b",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
     },
     "shotgun": {
-      "url": "https://archive.org/download/SSE_Library_GUNS/SHOTGUN/GUNShotg_Shotgun_CS_USC.flac",
-      "sha256": "c93935b5b60760409906dff422e12d478d09bc995685e76f4eb70396ef2c2291"
+      "url": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "member": "Mossberg/N_30P.wav",
+      "sha256": "b5a28243e16f8cb10adfc5225d96e90f108d24393fcfffcaa6dcf203af03634a",
+      "licenseEvidence": "https://opengameart.org/content/the-free-firearm-sound-library"
     },
-    "launcher": {
-      "url": "https://archive.org/download/SSE_Library_GUNS/ARTILLERY/GUNArtl_Bazooka%20shot_CS_USC.flac",
-      "sha256": "a73fb802cdce815541eda432aada7e4e8557ad87d26a9e8f4e785cfb7e556feb"
-    },
-    "bolt": {
-      "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Cocking%20a%20rifle%3B%20indoors_CS_USC.flac",
-      "sha256": "d0a447cb918182e250c8602fe825124e75fb850fe12ded7c7c1a9a2f74811152"
-    },
-    "magazine": {
+    "handling-mag-out": {
       "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Loading%20a%20clip%20into%20a%20rifle_CS_USC.flac",
-      "sha256": "da64182a8c27bc34645eab4426a6dc996ab06cd809d7e989e24aa596e126576f"
+      "sha256": "da64182a8c27bc34645eab4426a6dc996ab06cd809d7e989e24aa596e126576f",
+      "intermediateCommit": "8b584b4",
+      "intermediateSha256": "3362d15404958a798802851db16e46e848ef1ea69b1601b2f9c45f7e96304dc9"
+    },
+    "handling-mag-in": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Loading%20a%20clip%20into%20a%20rifle_CS_USC.flac",
+      "sha256": "da64182a8c27bc34645eab4426a6dc996ab06cd809d7e989e24aa596e126576f",
+      "intermediateCommit": "8b584b4",
+      "intermediateSha256": "94d43079fe82c08fd39838bb44bab870fc418327add2c7d38da8110b990d4f17"
+    },
+    "handling-bolt": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Cocking%20a%20rifle%3B%20indoors_CS_USC.flac",
+      "sha256": "d0a447cb918182e250c8602fe825124e75fb850fe12ded7c7c1a9a2f74811152",
+      "intermediateCommit": "8b584b4",
+      "intermediateSha256": "99358fc2147103827581efb8969880ffb9823bb9c5ef40ce0b76f2f2fa40a703"
+    },
+    "handling-click": {
+      "url": "https://archive.org/download/SSE_Library_GUNS/MECHANISM/GUNMech_Cocking%20a%20rifle%3B%20indoors_CS_USC.flac",
+      "sha256": "d0a447cb918182e250c8602fe825124e75fb850fe12ded7c7c1a9a2f74811152",
+      "intermediateCommit": "8b584b4",
+      "intermediateSha256": "be912f296c0ed46375d87476256a052a21cefa9a1dee43c1521afad79e0732f9"
+    },
+    "authored": {
+      "url": "scripts/prepare-modern-combat-audio.py",
+      "author": "Project-authored DSP",
+      "licenseEvidence": "Original project asset, CC0"
     }
   },
   "assets": [
     {
-      "key": "pistol",
-      "path": "pistol.wav",
+      "key": "pistol-a",
+      "path": "pistol-a.wav",
       "source": "pistol",
-      "start": 0.01,
-      "duration": 0.52,
-      "bytes": 33324,
-      "sha256": "7d97cffcfa8e3614e1278b782d160bfcb5ffc4d583119ac9a17023814fb6650e",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.338:d=0.182,peak-normalize=-2.5dBFS"
+      "bytes": 16684,
+      "duration": 0.26,
+      "sha256": "55e395c3da863c973afb936c4d675bd7634eeb7090849f2dcd5221c5e396c36d",
+      "start": 0.94128125,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.12; tail decay 21/s"
+    },
+    {
+      "key": "pistol-b",
+      "path": "pistol-b.wav",
+      "source": "pistol",
+      "bytes": 16684,
+      "duration": 0.26,
+      "sha256": "963e539ccd64a9563decb353375dbe64b0240bb7cf354097dc0ca6c7a40dffe0",
+      "start": 5.00134375,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.12; tail decay 21/s"
+    },
+    {
+      "key": "smg-a",
+      "path": "smg-a.wav",
+      "source": "smg",
+      "bytes": 10924,
+      "duration": 0.17,
+      "sha256": "f892bd983d71e0d9f48af1704076d61d27aae3d7f3ef31718c0f39c60b344dbe",
+      "start": 0.31009375,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.06; tail decay 29/s"
+    },
+    {
+      "key": "smg-b",
+      "path": "smg-b.wav",
+      "source": "smg",
+      "bytes": 10924,
+      "duration": 0.17,
+      "sha256": "9943d92070ef113d140bf40b65015590311e76b3e24d19357088fcc69a0fb134",
+      "start": 3.5010625,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.06; tail decay 29/s"
     },
     {
       "key": "rifle-a",
       "path": "rifle-a.wav",
-      "source": "marksman",
-      "start": 0.105,
-      "duration": 0.32,
-      "bytes": 20524,
-      "sha256": "ac9c89eb36afab8c233f6f3a4e4d92952d96618202cd6896d80548137c83beb7",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.20800000000000002:d=0.11199999999999999,peak-normalize=-2.5dBFS"
+      "source": "rifle",
+      "bytes": 14124,
+      "duration": 0.22,
+      "sha256": "65accf86ef44eb83d4cfb05096dd44e2a950d4bb8104f53a248560c97bdd8521",
+      "start": 0.70353125,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.17; tail decay 23/s"
     },
     {
       "key": "rifle-b",
       "path": "rifle-b.wav",
-      "source": "marksman",
-      "start": 3.18,
-      "duration": 0.32,
-      "bytes": 20524,
-      "sha256": "59a608b8225b8c97e8e3fc3b956d9c7afe4eae50de624023d07977abafb567e2",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.20800000000000002:d=0.11199999999999999,peak-normalize=-2.5dBFS"
+      "source": "rifle",
+      "bytes": 14124,
+      "duration": 0.22,
+      "sha256": "3da57548c74fa8cb96f0405eb09ef398c93f3d93e8bab0277e63e38ea1cd5de2",
+      "start": 5.64721875,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.17; tail decay 23/s"
+    },
+    {
+      "key": "lmg-a",
+      "path": "lmg-a.wav",
+      "source": "lmg",
+      "bytes": 16684,
+      "duration": 0.26,
+      "sha256": "4257f82049f67badfb8e2a6d0c553078510bad175b29eb8a1d3fe0171f352266",
+      "start": 0.61096875,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.24; tail decay 19/s"
+    },
+    {
+      "key": "lmg-b",
+      "path": "lmg-b.wav",
+      "source": "lmg",
+      "bytes": 16684,
+      "duration": 0.26,
+      "sha256": "1e2f80ee4d5fef97affefd7687ccdac05d334148274efb56871a1a7a888add82",
+      "start": 3.2571875,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.24; tail decay 19/s"
     },
     {
       "key": "marksman-a",
       "path": "marksman-a.wav",
       "source": "marksman",
-      "start": 0.105,
-      "duration": 1.3,
-      "bytes": 83244,
-      "sha256": "0624a6e090b7ec738c5631055ad7f651fbde069b6b9a7fb8d4763e23a284baf5",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.8450000000000001:d=0.45499999999999996,peak-normalize=-2.5dBFS"
+      "bytes": 23084,
+      "duration": 0.36,
+      "sha256": "9e386f2559baedcf3b30ea039c19491572c72b2a42cf3ee5c27511b8266434d2",
+      "start": 0.95046875,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.22; tail decay 17/s"
     },
     {
       "key": "marksman-b",
       "path": "marksman-b.wav",
       "source": "marksman",
-      "start": 6.325,
-      "duration": 1.3,
-      "bytes": 83244,
-      "sha256": "31cbdeed19deb21a85caba8552dfbde2c04565da9e7451a8e8995691d8a6e604",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.8450000000000001:d=0.45499999999999996,peak-normalize=-2.5dBFS"
+      "bytes": 23084,
+      "duration": 0.36,
+      "sha256": "5dc0d8ffd10fb58cec45556aa50222ef433fc5f216b1820a943a4bc3469338c0",
+      "start": 4.9678125,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.22; tail decay 17/s"
     },
     {
-      "key": "shotgun",
-      "path": "shotgun.wav",
+      "key": "sniper-a",
+      "path": "sniper-a.wav",
+      "source": "sniper",
+      "bytes": 37164,
+      "duration": 0.58,
+      "sha256": "37c90033e63ff4b1d40862c5ab17469b0cd1e3110f5c374b6908ce5989b093fb",
+      "start": 0.57715625,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.26; tail decay 14/s"
+    },
+    {
+      "key": "sniper-b",
+      "path": "sniper-b.wav",
+      "source": "sniper",
+      "bytes": 37164,
+      "duration": 0.58,
+      "sha256": "99f5f07e8fca68a71e1f2834e6686efbbfa1a6790479ad05e1298a0e572ea840",
+      "start": 5.6646875,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.26; tail decay 14/s"
+    },
+    {
+      "key": "shotgun-a",
+      "path": "shotgun-a.wav",
       "source": "shotgun",
-      "start": 0.007,
-      "duration": 1.1,
-      "bytes": 70444,
-      "sha256": "8d419968a21d22172cea9e893d06b09b2c418ef2e50407e5e4ed60a9598aac86",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.7150000000000001:d=0.385,peak-normalize=-2.5dBFS"
+      "bytes": 26924,
+      "duration": 0.42,
+      "sha256": "dab7ccc885027f7ac3566187cc3e0059c425797af112c2f6f306f493671f8ab4",
+      "start": 1.69659375,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.27; tail decay 16/s"
     },
     {
-      "key": "launcher",
-      "path": "launcher.wav",
-      "source": "launcher",
-      "start": 0.008,
-      "duration": 0.65,
-      "bytes": 41644,
-      "sha256": "c5ccf609f1027cf10e03db99a58358c179032027b0c0cba91ef74b7f0bfc022f",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.42250000000000004:d=0.22749999999999998,peak-normalize=-2.5dBFS"
+      "key": "shotgun-b",
+      "path": "shotgun-b.wav",
+      "source": "shotgun",
+      "bytes": 26924,
+      "duration": 0.42,
+      "sha256": "d8a73b4d02c3dfb5dbf046eeb1b36242e961b879173624b31ed418c847c678ad",
+      "start": 4.96109375,
+      "processing": "65Hz HP, 13.5kHz LP; recorded body 0.27; tail decay 16/s"
     },
     {
       "key": "mag-out",
       "path": "mag-out.wav",
-      "source": "magazine",
-      "start": 4.568,
-      "duration": 0.4,
-      "bytes": 25644,
-      "sha256": "3362d15404958a798802851db16e46e848ef1ea69b1601b2f9c45f7e96304dc9",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.26:d=0.13999999999999999,peak-normalize=-2.5dBFS"
+      "source": "handling-mag-out",
+      "bytes": 9004,
+      "duration": 0.14,
+      "sha256": "4cfbfc11a78bc79e36a2535e8cf232ab86f6bb53b0b7da49f351b8c24c98a11f",
+      "processing": "tight transient trim; 350Hz HP; 9kHz LP; exponential tail"
     },
     {
       "key": "mag-in",
       "path": "mag-in.wav",
-      "source": "magazine",
-      "start": 5.654,
-      "duration": 0.4,
-      "bytes": 25644,
-      "sha256": "94d43079fe82c08fd39838bb44bab870fc418327add2c7d38da8110b990d4f17",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.26:d=0.13999999999999999,peak-normalize=-2.5dBFS"
+      "source": "handling-mag-in",
+      "bytes": 7724,
+      "duration": 0.12,
+      "sha256": "e2d1000bdaca00b231e28c1078d96c5c64574abd3f31571a089ef3a33c411783",
+      "processing": "tight transient trim; 350Hz HP; 9kHz LP; exponential tail"
     },
     {
       "key": "bolt",
       "path": "bolt.wav",
-      "source": "bolt",
-      "start": 0.56,
-      "duration": 0.68,
-      "bytes": 43564,
-      "sha256": "99358fc2147103827581efb8969880ffb9823bb9c5ef40ce0b76f2f2fa40a703",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.44200000000000006:d=0.238,peak-normalize=-2.5dBFS"
+      "source": "handling-bolt",
+      "bytes": 15404,
+      "duration": 0.24,
+      "sha256": "fa7e07ca76dce95ccb792b14244494e7f681dd59a5cbada04c05e05f13b2b7c3",
+      "processing": "tight transient trim; 350Hz HP; 9kHz LP; exponential tail"
     },
     {
       "key": "click",
       "path": "click.wav",
-      "source": "bolt",
-      "start": 1.105,
-      "duration": 0.16,
-      "bytes": 10284,
-      "sha256": "be912f296c0ed46375d87476256a052a21cefa9a1dee43c1521afad79e0732f9",
-      "processing": "highpass=f=65,lowpass=f=12000,afade=t=in:d=0.001,afade=t=out:st=0.10400000000000001:d=0.055999999999999994,peak-normalize=-2.5dBFS"
+      "source": "handling-click",
+      "bytes": 4844,
+      "duration": 0.075,
+      "sha256": "ca14876c6d1ee7782a7cedf38eff064fc7800b1a4cde348262cb3227e457300c",
+      "processing": "tight transient trim; 350Hz HP; 9kHz LP; exponential tail"
+    },
+    {
+      "key": "hit",
+      "path": "hit.wav",
+      "source": "authored",
+      "bytes": 2284,
+      "duration": 0.035,
+      "sha256": "6681b81be5949fc344fbb45274c0dd83b91c5479c597b2d354b37a6000423ce5",
+      "processing": "seeded filtered impact noise, damped fixed-frequency metallic partial"
+    },
+    {
+      "key": "hit-head",
+      "path": "hit-head.wav",
+      "source": "authored",
+      "bytes": 3116,
+      "duration": 0.048,
+      "sha256": "f1e176b7ce05df073473643961840e5d6a8a94540080a9cbf27573cf129a33f4",
+      "processing": "seeded filtered impact noise, damped fixed-frequency metallic partial"
+    },
+    {
+      "key": "kill",
+      "path": "kill.wav",
+      "source": "authored",
+      "bytes": 6764,
+      "duration": 0.105,
+      "sha256": "57a59b99ee9af8501b2631d5d6045e58d393947bdab52a1ffb35f22179832330",
+      "processing": "seeded filtered impact noise, damped fixed-frequency metallic partial"
+    },
+    {
+      "key": "kill-head",
+      "path": "kill-head.wav",
+      "source": "authored",
+      "bytes": 8044,
+      "duration": 0.125,
+      "sha256": "565c205fd7eb7de6e0e829ef2fd3db21e6c46d7a8de57d92160a52d4f347cf53",
+      "processing": "seeded filtered impact noise, damped fixed-frequency metallic partial"
+    },
+    {
+      "key": "launcher",
+      "path": "launcher.wav",
+      "source": "authored",
+      "bytes": 29484,
+      "duration": 0.46,
+      "sha256": "78ad1bacbd868137560f7fcbfe0bc0871457e9600815d2354a3fc058f50fd366",
+      "processing": "original filtered launch pressure and gas discharge"
     }
   ]
 }

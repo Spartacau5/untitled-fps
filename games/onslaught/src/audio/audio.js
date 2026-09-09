@@ -80,11 +80,13 @@ export class Audio {
       (this.master = t.createGain()),
       (this.master.gain.value = 0.9),
       (this.comp = t.createDynamicsCompressor()),
-      (this.comp.threshold.value = -16),
-      (this.comp.knee.value = 14),
-      (this.comp.ratio.value = 5),
-      (this.comp.attack.value = 0.002),
-      (this.comp.release.value = 0.18),
+      // Preserve the first 12 ms of a report. The old -16 dB / 2 ms bus
+      // compressor flattened transients and pumped during bot exchanges.
+      (this.comp.threshold.value = -6),
+      (this.comp.knee.value = 6),
+      (this.comp.ratio.value = 3),
+      (this.comp.attack.value = 0.012),
+      (this.comp.release.value = 0.08),
       this.master.connect(this.comp),
       this.comp.connect(t.destination),
       (this.dry = t.createGain()),
@@ -285,12 +287,12 @@ export class Audio {
     if (level < 0.005) return;
     if (this.groundedCombat) {
       const played = this._sample(["rifle-a", "rifle-b"], {
-        gain: level * 0.58,
+        gain: level * 0.3,
         pan,
-        rate: 0.96 + Math.random() * 0.08,
+        rate: 0.992 + Math.random() * 0.016,
         lowpass: occluded ? 900 : 10500,
         priority: 1,
-        send: occluded ? 0.2 : 0.08,
+        send: occluded ? 0.07 : 0.025,
       });
       if (!played) this.rifleReport(this.now, level * 0.7, pan, occluded);
       return;
@@ -321,8 +323,8 @@ export class Audio {
     if (key === "flame") return this.flameLoop();
     const profile = COMBAT_PROFILES[key];
     if (profile && this._sample(profile.keys, {
-      ...profile, rate: profile.rate * (0.985 + Math.random() * 0.03),
-      priority: 3, group: `player-${key}`, send: 0.07,
+      ...profile, rate: profile.rate * (0.996 + Math.random() * 0.008),
+      priority: 3, group: `player-${key}`, send: 0.015,
     })) return;
     if (this.groundedCombat && !["rocket", "shotgun", "sniper"].includes(key)) {
       const weight = ["pistol", "smg", "mp5"].includes(key) ? 0.68 : 1;
@@ -768,6 +770,7 @@ export class Audio {
       }));
   }
   hitmarker(t = !1) {
+    if (this._sample([t ? "hit-head" : "hit"], { gain: 0.27, priority: 4, send: 0 })) return;
     const e = this.now;
     (this.tone(e, {
       type: "sine",
@@ -779,6 +782,7 @@ export class Audio {
       this.noise(e, { type: "highpass", freq: 5e3, gain: 0.18, decay: 0.02 }));
   }
   kill(t = !1) {
+    if (this._sample([t ? "kill-head" : "kill"], { gain: 0.42, priority: 4, send: 0 })) return;
     const e = this.now;
     if (this.groundedCombat) {
       this.noise(e, {

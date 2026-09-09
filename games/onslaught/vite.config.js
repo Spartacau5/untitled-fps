@@ -19,6 +19,12 @@ export default defineConfig({
     open: true,
   },
   build: {
+    rollupOptions: {
+      input: {
+        index: path.resolve(root, "index.html"),
+        "audio-lab": path.resolve(root, "audio-lab.html"),
+      },
+    },
     outDir: path.resolve(root, "../../dist"),
     emptyOutDir: true,
     sourcemap: true,

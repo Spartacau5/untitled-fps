@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Midtown | Audio preview</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101416;color:#ecf0ed}
+    body{max-width:880px;margin:auto;padding:48px 24px}h1{font-size:clamp(30px,5vw,52px);margin:12px 0}p{color:#a9b7b8;line-height:1.6}
+    a{color:#c9d9ae}button,select,input{font:inherit}button,select{background:#222d30;border:1px solid #455358;color:inherit;padding:12px 16px;border-radius:7px}
+    button{cursor:pointer}button:hover:enabled{background:#334248}button:disabled{opacity:.4;cursor:default}button:focus-visible,select:focus-visible{outline:2px solid #cbeb99;outline-offset:3px}
+    #enable{background:#c5e198;color:#16200c;font-weight:650}header,section{margin-bottom:30px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    article{border:1px solid #354044;background:#182024;border-radius:10px;padding:20px}h2{font-size:18px;margin:0 0 14px}label{display:flex;align-items:center;gap:10px}#status{min-height:26px;font-size:14px}small{color:#a9b7b8}output{font-variant-numeric:tabular-nums}
+    @media(max-width:600px){.cards{grid-template-columns:1fr}body{padding:24px 16px}}
+  </style>
+</head>
+<body>
+  <header><a href="./">← Back to Midtown</a><h1>Hear the new mix.</h1><p>Compare the weapons without loading a match. This preview uses the same sounds and audio system as the game.</p>
+    <div class="row"><button id="enable">Enable audio</button><label>Volume <input id="volume" type="range" min="0" max="100" value="65" /><output id="level">65%</output></label></div>
+    <p id="status" role="status" aria-live="polite">Start at a comfortable listening volume.</p>
+  </header>
+  <section class="row"><label>Weapon <select id="weapon"><option value="pistol">Pistol</option><option value="smg">SMG</option><option value="shotgun">Shotgun</option><option value="m4">M4</option><option value="dmr">DMR</option><option value="lmg">LMG</option><option value="sniper">Sniper</option><option value="rocket">Launcher</option></select></label><button id="stop" disabled>Stop</button></section>
+  <section class="cards">
+    <article><h2>Weapon report</h2><div class="row"><button data-action="single" disabled>Single shot</button><button data-action="burst" disabled>Five shots</button></div><p>Alternating takes at the weapon’s in-game firing cadence.</p></article>
+    <article><h2>Combat mix</h2><div class="row"><button data-action="exchange" disabled>Fire with nearby bots</button></div><p>Your weapon against spatial gunfire from three directions.</p></article>
+    <article><h2>Weapon handling</h2><button data-action="reload" disabled>Reload sequence</button><p>Magazine release, insertion and bolt.</p></article>
+    <article><h2>Hit feedback</h2><div class="row"><button data-action="hit" disabled>Hit</button><button data-action="kill" disabled>Kill</button><button data-action="head" disabled>Headshot kill</button></div></article>
+  </section>
+  <small>Preview only. No match progress or settings are changed. Reload preview uses a generic magazine sequence.</small>
+  <script type="module" src="/src/audio/audition.js"></script>
+</body>
+</html>
