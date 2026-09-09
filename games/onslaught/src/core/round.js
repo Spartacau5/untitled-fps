@@ -72,3 +72,11 @@ export function roundKey(nowMs, round = ROUND) {
   const dd = String(p.day).padStart(2, "0");
   return `${p.year}-${mm}-${dd}`;
 }
+
+// The round that closed most recently before the one `nowMs` is in. Used to
+// crown yesterday's #1 onto the hall of fame the first time someone hits the
+// API after the deadline. Thirty hours before the current deadline is always
+// still inside that previous round, DST or not.
+export function previousRoundKey(nowMs, round = ROUND) {
+  return roundKey(roundEnd(nowMs, round) - 30 * 60 * 60 * 1000, round);
+}

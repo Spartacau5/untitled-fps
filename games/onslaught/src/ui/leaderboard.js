@@ -79,11 +79,12 @@ export function renderBoard(el, payload, youName) {
     <table class="lb-table"><thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>${foot}`;
 }
 
-// Hall of fame for closed contest days. Newest five only; seeded winners
-// cover the nights before the daily board started archiving itself.
-export function renderWinners(el, list = WINNERS) {
+// Hall of fame for closed contest days. Newest five only. Prefer the server
+// list (seed + auto-crowned nights); fall back to the local seed so a cold
+// board still honours the founding winners.
+export function renderWinners(el, list) {
   if (!el) return;
-  const rows = latestWinners(list);
+  const rows = latestWinners(list && list.length ? list : WINNERS);
   if (!rows.length) {
     el.innerHTML =
       `<div class="lb-title">HALL OF FAME</div><div class="lb-empty">NO WINNERS YET</div>`;
@@ -101,10 +102,11 @@ export function renderWinners(el, list = WINNERS) {
 }
 
 // Tab switcher on the contest card. Defaults to today's board; winners are
-// rendered once up front so flipping tabs never waits on the network.
+// filled from the leaderboard payload whenever it refreshes.
 export function mountContestTabs(root, { winnersEl } = {}) {
-  if (!root) return { setTab() {} };
-  renderWinners(winnersEl);
+  if (!root) return { setTab() {}, setWinners() {} };
+  const setWinners = (list) => renderWinners(winnersEl, list);
+  setWinners();
   const setTab = (tab) => {
     const next = tab === "winners" ? "winners" : "daily";
     root.dataset.contestTab = next;
@@ -131,7 +133,7 @@ export function mountContestTabs(root, { winnersEl } = {}) {
     setTab(btn.dataset.contestTab);
   });
   setTab(root.dataset.contestTab || "daily");
-  return { setTab };
+  return { setTab, setWinners };
 }
 
 export async function fetchBoard() {

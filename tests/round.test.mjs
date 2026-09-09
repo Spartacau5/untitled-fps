@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ROUND,
+  previousRoundKey,
   roundEnd,
   roundKey,
 } from "../games/onslaught/src/core/round.js";
@@ -65,4 +66,9 @@ test("the zone is configurable without touching the maths", () => {
     roundEnd(at("2026-09-08T18:00:00Z"), utc),
     at("2026-09-09T04:00:00Z"),
   );
+});
+
+test("previousRoundKey names the board that closed most recently", () => {
+  assert.equal(previousRoundKey(at("2026-09-09T18:00:00Z")), "2026-09-08");
+  assert.equal(previousRoundKey(at("2026-09-10T02:00:00Z")), "2026-09-09");
 });

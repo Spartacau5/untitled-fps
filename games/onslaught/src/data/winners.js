@@ -1,27 +1,21 @@
 // Crowned daily contest winners, newest first. The hall of fame shows the
 // latest five; older rows stay here so nothing is lost when the list grows.
 //
-// Andylol took the first three nights of the $10 contest before the board
-// switched to a clean daily reset with the progression update.
+// andylol took the first two nights of the $10 contest. Later nights are
+// crowned automatically from each closed day's board (see winners-core.js).
 
 export const WINNERS = [
   {
     date: "2026-09-08",
-    name: "Andylol",
-    score: 57438,
-    wave: 8,
+    name: "andylol",
+    score: 1073250,
+    wave: 29,
   },
   {
     date: "2026-09-07",
-    name: "Andylol",
-    score: 40900,
-    wave: 7,
-  },
-  {
-    date: "2026-09-06",
-    name: "Andylol",
-    score: 28975,
-    wave: 6,
+    name: "andylol",
+    score: 503150,
+    wave: 17,
   },
 ];
 
