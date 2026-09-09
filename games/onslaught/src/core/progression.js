@@ -36,6 +36,53 @@ export function xpForRun({ kills = 0, wave = 0 } = {}) {
 
 const BY_KEY = new Map(WEAPONS.map((w) => [w.key, w]));
 
+// Every level that opens something, in order. A band opening is one rung
+// ("SUBMACHINE GUN on key 4"); a later gun inside an already-open band is
+// another ("M4A1 CARBINE, assault rifle"). Built from the weapon table so the
+// menu, the rank bar and the armory all describe the same road ahead, and a
+// tuning change to an unlockLevel moves all three at once.
+export function unlockLadder() {
+  const rungs = [];
+  BANDS.forEach((band, i) => {
+    const guns = weaponsInBand(band.id);
+    const first = guns[0];
+    if ((band.unlockLevel || 1) > 1)
+      rungs.push({
+        level: band.unlockLevel,
+        kind: "band",
+        band: band.id,
+        key: i + 1,
+        label: band.label,
+        weapon: first ? first.name : "",
+      });
+    for (const w of guns) {
+      const lvl = w.unlockLevel || 1;
+      // The first gun in a band arrives with the band; it is not its own rung.
+      if (w === first || lvl <= (band.unlockLevel || 1)) continue;
+      rungs.push({
+        level: lvl,
+        kind: "weapon",
+        band: band.id,
+        key: i + 1,
+        label: w.name,
+        weapon: w.name,
+        klass: band.label,
+      });
+    }
+  });
+  return rungs.sort((a, b) => a.level - b.level || a.key - b.key);
+}
+
+// The first rung above a level, or null once the roster is open.
+export function nextUnlock(level) {
+  return unlockLadder().find((r) => r.level > level) || null;
+}
+
+// Rungs crossed by moving from one level to another - what a debrief lists.
+export function unlocksBetween(from, to) {
+  return unlockLadder().filter((r) => r.level > from && r.level <= to);
+}
+
 // Persisted player profile: XP, level and the chosen loadout. Presentation
 // side by design — the sim is handed a loadout, it never reads this. Storage
 // is injected so tests can run it without a browser.
@@ -122,6 +169,10 @@ export class Progression {
     const def = BY_KEY.get(key);
     return !!def && this.level >= (def.unlockLevel || 0);
   }
+  // The next rung above where this profile stands, or null at the top.
+  nextUnlock() {
+    return nextUnlock(this.level);
+  }
   // Weapons for one slot, in unlock order, so the armory can list them.
   forSlot(slot) {
     return WEAPONS.filter((w) => w.slot === slot).sort(
@@ -151,7 +202,12 @@ export class Progression {
     const gained = xpForRun(summary),
       before = this.level;
     ((this.xp += gained), this._save(), this._emit());
-    return { gained, level: this.level, levelsGained: this.level - before };
+    return {
+      gained,
+      level: this.level,
+      levelsGained: this.level - before,
+      unlocks: unlocksBetween(before, this.level),
+    };
   }
   reset() {
     ((this.xp = 0),

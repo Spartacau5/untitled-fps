@@ -51,7 +51,7 @@ import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
 import { mountArmory } from "../ui/armory.js";
-import { mountControls } from "../ui/controls.js";
+import { mountControls, renderControlSummary } from "../ui/controls.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import { Telemetry } from "../ui/telemetry.js";
 import {
@@ -222,7 +222,7 @@ export class Game {
         btnOpen: this.hud.el.btnSettings,
         btnBack: this.hud.el.settingsBack,
         btnReset: this.hud.el.settingsReset,
-        menuMain: this.hud.el.menuMain,
+        menuMain: this.hud.el.menuGrid,
         note: this.hud.el.settingsNote,
         mobile,
       })),
@@ -237,7 +237,7 @@ export class Game {
           body: this.hud.el.armoryBody,
           btnOpen: this.hud.el.btnArmory,
           btnBack: this.hud.el.armoryBack,
-          menuMain: this.hud.el.menuMain,
+          menuMain: this.hud.el.menuGrid,
         },
         (loadout, startKey) => this._applyLoadout(loadout, startKey),
       )),
@@ -248,7 +248,7 @@ export class Game {
         btnBack: this.hud.el.controlsBack,
         summary: this.hud.el.controlsSummary,
         mobile,
-        menuMain: this.hud.el.menuMain,
+        menuMain: this.hud.el.menuGrid,
       })),
       (this.runLog = new RunLog()),
       (this.telemetry = new Telemetry()),
@@ -263,7 +263,14 @@ export class Game {
       this._warmViewmodels(),
       this.hud.setContest(Date.now()),
       this.hud.setSlots(this.world.weapons.weapons.length),
-      this._renderLoadoutStrip(),
+      // The rank strip is on from the first frame the boot reveal shows. Any
+      // change to the profile - a banked run, an armory pick - redraws it.
+      this.hud.setRank(this.progression),
+      this.hud.showRank(!0),
+      this.progression.onChange(() => this.hud.setRank(this.progression)),
+      (this._freshKeys = new Set()),
+      this.hud.setMenuMode("deploy"),
+      this._renderLoadout(),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       this.hud.el.btnRestart &&
@@ -494,7 +501,14 @@ export class Game {
     // Bank the XP before the board round-trip, so a failed POST cannot cost
     // the player their progress.
     this.lastXp = this.progression.addRun(this.lastRun.summary);
-    (this.armoryPanel && this.armoryPanel.render(), this._renderLoadoutStrip());
+    // Keys this run opened stay marked on the loadout cards until the next
+    // deploy, so a player sees the new gun before they are holding it.
+    this._freshKeys = new Set(this.lastXp.unlocks.map((r) => r.key));
+    (this.armoryPanel && this.armoryPanel.render(),
+      this._renderLoadout(),
+      this.hud.setRank(this.progression, {
+        levelUp: this.lastXp.levelsGained > 0,
+      }));
     this.lastXp.levelsGained > 0 &&
       this.hud.hint(`LEVEL ${this.lastXp.level} REACHED`, !1, 3);
     await this._submitRun({ final: true });
@@ -562,7 +576,7 @@ export class Game {
       this.world.weapons._ammo(this.world),
       this.world.drainEvents(),
       this.hud.setSlots(this.world.weapons.weapons.length),
-      this._renderLoadoutStrip());
+      this._renderLoadout());
   }
   // Deferred so it never lands inside the first frames. requestIdleCallback
   // is not in every browser, so fall back to a timeout.
@@ -572,17 +586,46 @@ export class Game {
       ? requestIdleCallback(warm, { timeout: 4000 })
       : setTimeout(warm, 1200);
   }
-  _renderLoadoutStrip() {
-    const el = this.hud.el.loadoutStrip;
-    if (!el) return;
-    // Too many guns to name them all on the deploy screen: show which one you
-    // start on, and how many keys are live.
+  // The OPERATOR panel: one card per carried gun on its number key, the spawn
+  // gun marked, any key this profile just earned flagged, and beneath them
+  // the next thing the player is working toward. Three cards on a fresh
+  // profile is the point - it says "you carry three" without a sentence.
+  _renderLoadout() {
+    const cards = this.hud.el.loadoutCards,
+      nextEl = this.hud.el.loadoutNext;
+    if (!cards) return;
     const l = this.world.weapons.loadout,
-      start = l[this.world.weapons.startIndex];
-    el.innerHTML =
-      `<span><b>${this.world.weapons.startIndex + 1}</b> ${start.name}</span>` +
-      `<span class="loadout-sep">·</span>` +
-      `<span>KEYS <b>1&ndash;${l.length}</b> CARRIED</span>`;
+      startIndex = this.world.weapons.startIndex;
+    cards.innerHTML = l
+      .map((w, i) => {
+        const key = i + 1,
+          cls =
+            "lo-card" +
+            (i === startIndex ? " is-spawn" : "") +
+            (this._freshKeys && this._freshKeys.has(key) ? " is-new" : "");
+        const tag =
+          this._freshKeys && this._freshKeys.has(key)
+            ? "NEW"
+            : i === startIndex
+              ? "SPAWN"
+              : "";
+        return `<div class="${cls}"><b class="lo-key">${key}</b><span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}</div>`;
+      })
+      .join("");
+    // Count first, so the empty keys read as a road ahead rather than a gap.
+    const next = this.progression.nextUnlock();
+    if (nextEl)
+      nextEl.innerHTML = next
+        ? `<span class="lo-next-k">NEXT UNLOCK</span><span class="lo-next-v">${
+            next.kind === "band"
+              ? `${next.label} <b>KEY ${next.key}</b>`
+              : `${next.label} <b>${next.klass}</b>`
+          }</span><span class="lo-next-l">LEVEL ${next.level}</span>`
+        : `<span class="lo-next-k">ROSTER</span><span class="lo-next-v">EVERY GUN UNLOCKED</span>`;
+    renderControlSummary(this.hud.el.controlsSummary, {
+      carried: l.length,
+      mobile: this.mobile,
+    });
   }
   start() {
     if (this.mobile && !this.touchControls.enter()) return;
@@ -598,6 +641,8 @@ export class Game {
       return;
     }
     (this.audio.beginSession(),
+      (this._freshKeys = new Set()),
+      this._renderLoadout(),
       this.resetGame(),
       (this._runPosted = !1),
       (this.runStartedAt = new Date().toISOString()),
@@ -617,6 +662,7 @@ export class Game {
     if (this.mobile) this.input.unlock();
     const w = this.world;
     ((this.state = "paused"),
+      this.hud.setMenuMode("paused"),
       this.hud.showMenu(
         !0,
         "PAUSED",
@@ -643,6 +689,7 @@ export class Game {
     this.world.endRun();
     this.input.unlock();
     this.hud.setPauseActions(false);
+    this.hud.setMenuMode("deploy");
     this.hud.showMenu(!0);
     this.hud.show(!1);
   }
@@ -1101,14 +1148,16 @@ export class Game {
         this.audio.endSession(),
         w.endRun());
       const d = Math.floor(w.elapsed);
-      (this.hud.showMenu(
-        !0,
-        "K.I.A.",
-        "REDEPLOY",
-        `WAVE ${w.wave} REACHED<br>${w.kills} KILLS · ${w.score.toLocaleString("en-US")} POINTS<br>${d}s SURVIVED<br>SEED ${this.seed}`,
-        "THE SWARM PREVAILS",
-      ),
+      (this.hud.setMenuMode("dead"),
+        this.hud.showMenu(
+          !0,
+          "K.I.A.",
+          "REDEPLOY",
+          `WAVE ${w.wave} · ${w.kills} KILLS · ${d}s<br><b>${w.score.toLocaleString("en-US")}</b> POINTS`,
+          "THE SWARM PREVAILS",
+        ),
         this.hud.setPauseActions(false),
+        this.lastXp && this.hud.xpAward(this.lastXp, this.lastXp.unlocks),
         this.lastRun && this.hud.runSummary(this.lastRun),
         this.hud.show(!1));
     }

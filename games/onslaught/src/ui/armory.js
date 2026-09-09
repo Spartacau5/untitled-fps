@@ -1,4 +1,5 @@
 import { BANDS, weaponsInBand } from "../data/weapons.js";
+import { unlockLadder } from "../core/progression.js";
 
 // Bars are relative to the strongest gun in the table for each stat, so they
 // compare weapons against each other rather than against absolute numbers the
@@ -70,19 +71,44 @@ export function mountArmory(progression, els, onChange) {
     </div>`;
   }
 
+  // A band the player has not reached is one line in a ladder, not a row of
+  // greyed-out cards: what it is, which key it will take, and the level that
+  // opens it. Later guns inside open bands are rungs too. The ladder is the
+  // road ahead in one glance; the cards are only for what you can touch.
+  function ladder() {
+    const level = progression.level;
+    const rungs = unlockLadder().filter((r) => r.level > level);
+    if (!rungs.length)
+      return `<div class="arm-ladder"><h3 class="arm-slot-title">COMING UP</h3><div class="arm-rung is-done"><span class="arm-rung-lvl">✓</span><span class="arm-rung-body"><span class="arm-rung-name">EVERY GUN UNLOCKED</span></span></div></div>`;
+    const rows = rungs
+      .map(
+        (r, i) =>
+          `<div class="arm-rung${i === 0 ? " is-next" : ""}">
+            <span class="arm-rung-lvl">LVL ${r.level}</span>
+            <span class="arm-rung-body">
+              <span class="arm-rung-name">${r.label}</span>
+              <span class="arm-rung-sub">${
+                r.kind === "band"
+                  ? `OPENS KEY ${r.key} · ${r.weapon}`
+                  : `${r.klass} · KEY ${r.key}`
+              }</span>
+            </span>
+            ${i === 0 ? '<span class="arm-rung-tag">NEXT</span>' : ""}
+          </div>`,
+      )
+      .join("");
+    return `<div class="arm-ladder"><h3 class="arm-slot-title">COMING UP<em>${rungs.length} TO EARN</em></h3>${rows}</div>`;
+  }
+
   function render() {
-    const p = progression.levelProgress;
+    const level = progression.level;
+    const open = BANDS.filter((b) => level >= (b.unlockLevel || 1));
     els.body.innerHTML =
-      `<div class="arm-profile">
-        <span class="arm-level">LEVEL ${progression.level}</span>
-        <span class="arm-xpbar"><b style="width:${Math.round(p.frac * 100)}%"></b></span>
-        <span class="arm-xp">${
-          p.span ? `${p.into} / ${p.span} XP` : "MAX LEVEL"
-        }</span>
-      </div>` +
-      `<p class="arm-note">One gun per number key. Guns in the same category
-        share a key, so pick the one you want on it — then choose which of them
-        you deploy holding.</p>
+      `<p class="arm-note">You carry <b>${open.length}</b> ${
+        open.length === 1 ? "gun" : "guns"
+      }, one per number key. Guns in the same category share a key: pick the
+        one you want on it, then choose which you deploy holding. Level up to
+        open more keys.</p>
       <div class="arm-legend">
         <span class="arm-legend-item"
           ><i class="arm-swatch is-deploying"></i>SPAWN GUN</span
@@ -95,6 +121,7 @@ export function mountArmory(progression, els, onChange) {
         >
       </div>` +
       BANDS.map((band, i) => {
+        if (level < (band.unlockLevel || 1)) return "";
         const guns = weaponsInBand(band.id);
         return `<div class="arm-slot">
             <h3 class="arm-slot-title">${band.label}<em>KEY ${i + 1}</em></h3>
@@ -102,7 +129,8 @@ export function mountArmory(progression, els, onChange) {
               .map((w) => card(w, i + 1))
               .join("")}</div>
           </div>`;
-      }).join("");
+      }).join("") +
+      ladder();
   }
 
   els.body.addEventListener("click", (e) => {

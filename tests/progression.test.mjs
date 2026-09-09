@@ -12,6 +12,9 @@ import {
   Progression,
   STORAGE_KEY,
   levelForXp,
+  nextUnlock,
+  unlockLadder,
+  unlocksBetween,
   xpForLevel,
   xpForRun,
 } from "../games/onslaught/src/core/progression.js";
@@ -172,6 +175,50 @@ test("bands are gated by level, and their guns by their own", () => {
   // And a variant inside an open band still waits for its own level.
   assert.equal(p.isUnlocked("ar"), true);
   assert.equal(p.isUnlocked("m4"), false);
+});
+
+test("the unlock ladder lists every gate once, in level order", () => {
+  const ladder = unlockLadder();
+  const levels = ladder.map((r) => r.level);
+  assert.deepEqual(levels, levels.slice().sort((a, b) => a - b));
+  // Every band past the starters is a rung, and a fresh profile has none.
+  for (const b of BANDS.filter((b) => b.unlockLevel > 1))
+    assert.ok(
+      ladder.some((r) => r.kind === "band" && r.band === b.id),
+      `${b.id} band missing from the ladder`,
+    );
+  assert.equal(ladder.some((r) => r.level <= 1), false);
+  // A later gun inside an open band is its own rung, not a repeat of the band.
+  const m4 = ladder.find((r) => r.label === "M4A1 CARBINE");
+  assert.equal(m4.kind, "weapon");
+  assert.equal(m4.key, 2);
+  // The starter guns are never rungs, and no gun is listed twice.
+  for (const k of STARTERS)
+    assert.equal(
+      ladder.some((r) => r.weapon === WEAPONS.find((w) => w.key === k).name),
+      false,
+    );
+  assert.equal(new Set(ladder.map((r) => r.label)).size, ladder.length);
+});
+
+test("nextUnlock names the very next thing a player will earn", () => {
+  const first = nextUnlock(1);
+  assert.equal(first.kind, "band");
+  assert.equal(first.band, "smg");
+  assert.equal(first.level, 2);
+  assert.equal(first.key, 4);
+  const top = Math.max(...unlockLadder().map((r) => r.level));
+  assert.equal(nextUnlock(top), null);
+  assert.equal(nextUnlock(MAX_LEVEL), null);
+});
+
+test("unlocksBetween reports exactly what a run's level-ups opened", () => {
+  assert.deepEqual(unlocksBetween(1, 1), []);
+  const one = unlocksBetween(1, 2);
+  assert.equal(one.length, 1);
+  assert.equal(one[0].band, "smg");
+  const two = unlocksBetween(2, 4).map((r) => r.band);
+  assert.deepEqual(two, ["shotgun", "lmg"]);
 });
 
 test("a profile survives storage that throws", () => {

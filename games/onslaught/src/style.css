@@ -475,6 +475,9 @@ canvas#game {
   align-items: safe center;
   justify-content: center;
   overflow-y: auto;
+  /* Clear the rank strip along the top. */
+  padding: 64px 24px 24px;
+  box-sizing: border-box;
   background: radial-gradient(
     ellipse at 50% 40%,
     rgba(8, 12, 16, 0.42),
@@ -482,6 +485,356 @@ canvas#game {
   );
   z-index: 10;
   cursor: default;
+}
+
+/* ---- menu grid: three panels and a foot line, using the whole frame ----
+   Left is who you are and what you carry, centre is the one thing to do
+   next, right is the contest. data-mode on #menu decides which show. */
+.menu-grid {
+  width: min(1380px, 100%);
+  margin: auto;
+  display: grid;
+  grid-template-columns: minmax(250px, 310px) minmax(340px, 1fr) minmax(
+      270px,
+      350px
+    );
+  grid-template-areas:
+    "left center right"
+    "bottom bottom bottom";
+  gap: 20px 22px;
+  align-items: start;
+}
+.menu-panel {
+  box-sizing: border-box;
+  padding: 18px 20px 20px;
+  border: 1px solid rgba(243, 246, 248, 0.22);
+  background: var(--paper);
+  text-align: left;
+}
+.menu-left {
+  grid-area: left;
+}
+.menu-right {
+  grid-area: right;
+}
+.menu-bottom {
+  grid-area: bottom;
+}
+.menu-center {
+  grid-area: center;
+  align-self: center;
+  text-align: center;
+  padding: 30px 40px 24px;
+  border: 2px solid rgba(243, 246, 248, 0.35);
+  box-shadow: 12px 12px 0 var(--accent);
+}
+.menu-center .title {
+  font-size: clamp(34px, 4.4vw, 64px);
+  letter-spacing: 0.02em;
+}
+.menu-center .subtitle {
+  font-size: clamp(12px, 1.2vw, 16px);
+}
+.panel-kicker {
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+/* Pause: nothing but the decision. */
+.menu[data-mode="paused"] .menu-left,
+.menu[data-mode="paused"] .menu-right,
+.menu[data-mode="paused"] .menu-bottom {
+  display: none;
+}
+.menu[data-mode="paused"] .menu-grid {
+  grid-template-columns: minmax(340px, 560px);
+  grid-template-areas: "center";
+  justify-content: center;
+}
+/* Debrief: the crib is noise once you have played. */
+.menu[data-mode="dead"] .menu-bottom {
+  display: none;
+}
+/* The armory, how-to-play and settings sheets take the whole shell over:
+   the grid hides and the sheet card stands in its place. */
+.menu-overlays {
+  display: none;
+}
+.menu-grid.hidden ~ .menu-overlays {
+  display: block;
+}
+@media (max-width: 1120px) {
+  .menu-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "center center"
+      "left right"
+      "bottom bottom";
+  }
+}
+@media (max-width: 720px) {
+  .menu {
+    padding: 58px 12px 16px;
+  }
+  .menu-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "center"
+      "left"
+      "right"
+      "bottom";
+    gap: 14px;
+  }
+  .menu-center {
+    padding: 22px 18px 18px;
+  }
+}
+
+/* ---- rank strip: progression, always on screen ----
+   Level, bar, XP and the next thing to earn. Compact while playing (only the
+   level and bar), full on every menu. The fill animates so a banked run is
+   seen landing; a level crossed flashes the whole strip once. */
+.rank {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto minmax(160px, 300px) auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 7px 14px 6px;
+  border: 1px solid rgba(243, 246, 248, 0.2);
+  background: rgba(6, 8, 12, 0.74);
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.16em;
+  color: var(--ui);
+  pointer-events: none;
+  white-space: nowrap;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
+  transition:
+    opacity 0.25s,
+    padding 0.25s;
+}
+.rank-level {
+  font: 900 15px/1 var(--font-title);
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.rank-bar {
+  display: block;
+  height: 4px;
+  background: rgba(243, 246, 248, 0.16);
+  overflow: hidden;
+}
+.rank-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.rank-xp {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.rank-next {
+  grid-column: 1 / -1;
+  text-align: center;
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  color: var(--dim);
+}
+body:has(#menu.hidden) .rank {
+  opacity: 0.8;
+  padding: 5px 12px;
+  gap: 0 10px;
+}
+body:has(#menu.hidden) .rank-next,
+body:has(#menu.hidden) .rank-xp {
+  display: none;
+}
+.rank.is-up {
+  animation: rank-up 1.8s ease-out;
+}
+@keyframes rank-up {
+  0% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0 rgba(255, 90, 31, 0);
+  }
+  20% {
+    border-color: var(--accent);
+    box-shadow: 0 0 26px 6px rgba(255, 90, 31, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 90, 31, 0);
+  }
+}
+
+/* ---- operator panel: name, carried keys, next unlock ---- */
+.loadout-cards {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.lo-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(243, 246, 248, 0.22);
+  background: rgba(243, 246, 248, 0.04);
+}
+.lo-card.is-spawn {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.1);
+}
+.lo-card.is-new {
+  border-color: var(--warn);
+  background: rgba(217, 119, 27, 0.12);
+}
+.lo-key {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(243, 246, 248, 0.5);
+  font: 800 14px/1 var(--font-title);
+  color: var(--ui);
+}
+.lo-card.is-spawn .lo-key {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #141210;
+}
+.lo-card.is-new .lo-key {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.lo-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.lo-name {
+  font: 700 13px/1 var(--font-ui);
+  letter-spacing: 0.08em;
+  color: var(--ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lo-class {
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  color: var(--dim);
+}
+.lo-tag {
+  font: 700 9px/1 var(--font-ui);
+  letter-spacing: 0.18em;
+  padding: 4px 6px;
+  border: 1px solid currentColor;
+  color: var(--accent);
+}
+.lo-card.is-new .lo-tag {
+  color: var(--warn);
+}
+.loadout-next {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+  border: 1px dashed rgba(217, 119, 27, 0.65);
+  background: rgba(217, 119, 27, 0.07);
+  font: 600 11px/1.3 var(--font-ui);
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+.lo-next-k {
+  grid-column: 1 / -1;
+  font-size: 9px;
+  letter-spacing: 0.26em;
+  color: var(--warn);
+}
+.lo-next-v {
+  color: var(--ui);
+}
+.lo-next-v b {
+  color: var(--warn);
+  font-weight: 700;
+}
+.lo-next-l {
+  color: var(--warn);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.btn-wide {
+  display: block;
+  width: 100%;
+  margin-top: 0;
+}
+
+/* ---- debrief reward ---- */
+.xp-award {
+  display: inline-grid;
+  gap: 7px;
+  justify-items: center;
+  margin: 16px auto 0;
+  padding: 12px 22px 13px;
+  border: 1px solid rgba(255, 90, 31, 0.55);
+  background: rgba(255, 90, 31, 0.08);
+}
+.xp-award.is-up {
+  border-color: var(--accent);
+  box-shadow: 5px 5px 0 rgba(255, 90, 31, 0.4);
+}
+.award-xp {
+  font: 900 32px/1 var(--font-title);
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.award-level {
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.22em;
+  color: var(--ui);
+}
+.award-level i {
+  font-style: normal;
+  color: var(--accent);
+  padding: 0 6px;
+}
+.award-unlock {
+  font: 600 11px/1.3 var(--font-ui);
+  letter-spacing: 0.14em;
+  color: var(--warn);
+}
+.award-unlock b {
+  color: var(--ui);
+  margin-right: 6px;
+}
+.btn-run-details {
+  display: block;
+  margin: 20px auto 0;
+  padding: 6px 2px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.35);
+  color: var(--dim);
+  font: 700 11px/1 var(--font-ui);
+  letter-spacing: 0.24em;
+  cursor: pointer;
+}
+.btn-run-details:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.run-details {
+  margin-top: 12px;
 }
 .menu-inner {
   text-align: center;
@@ -624,31 +977,31 @@ canvas#game {
 }
 .callsign {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 0 0 18px;
-  font: 700 13px/1 var(--font-ui);
-  letter-spacing: 0.16em;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  margin: 0 0 16px;
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 0.22em;
   color: var(--dim);
 }
 .callsign input {
-  width: 210px;
-  padding: 8px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
   border: 1px solid rgba(243, 246, 248, 0.4);
   background: rgba(8, 12, 16, 0.65);
   color: var(--ui);
   font: 700 14px/1 var(--font-ui);
   letter-spacing: 0.12em;
-  text-align: center;
   outline: none;
 }
 .callsign input:focus {
   border-color: var(--accent);
 }
 .leaderboard {
-  width: min(420px, 86vw);
-  margin: 0 auto 18px;
+  width: auto;
+  margin: 0;
   text-align: left;
 }
 .lb-title {
@@ -810,8 +1163,8 @@ canvas#game {
 }
 
 .prize {
-  width: min(420px, 86vw);
-  margin: 0 auto 12px;
+  width: auto;
+  margin: 0 0 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -869,22 +1222,35 @@ canvas#game {
   color: var(--accent);
 }
 .controls {
-  font-size: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  padding: 10px 16px;
+  font: 600 12px/1.6 var(--font-ui);
   color: var(--dim);
-  letter-spacing: 1.5px;
-  line-height: 1.9;
+  letter-spacing: 0.1em;
+  text-align: center;
 }
 .controls b {
   color: #fff;
   font-weight: 700;
 }
+.controls-sep {
+  opacity: 0.45;
+}
 .menu-stats {
-  margin-top: 22px;
+  margin-top: 16px;
   font-family: var(--font-title);
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 3px;
+  color: var(--dim);
+  line-height: 1.7;
+}
+.menu-stats b {
+  font-size: 26px;
   color: var(--accent);
-  line-height: 1.8;
+  letter-spacing: 0.06em;
 }
 .btn-secondary {
   margin-top: 10px;
@@ -975,7 +1341,7 @@ canvas#game {
   letter-spacing: 0.08em;
   color: var(--ui);
   text-align: left;
-  width: min(720px, 92vw);
+  width: auto;
 }
 .rs-head {
   color: var(--accent);
@@ -983,7 +1349,7 @@ canvas#game {
 }
 .rs-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
 }
 .rs-grid table {
@@ -1006,6 +1372,7 @@ canvas#game {
   display: flex;
   gap: 10px;
   justify-content: center;
+  margin-top: 12px;
 }
 .menu-foot {
   margin-top: 26px;
@@ -1034,12 +1401,14 @@ canvas#game {
 /* ---- how to play ---- */
 .menu-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-  margin: 10px 0 28px;
+  margin: 4px 0 0;
 }
 .menu-buttons #btn-settings,
-.menu-buttons #btn-controls {
+.menu-buttons #btn-controls,
+.menu-buttons #btn-feedback {
   display: inline-block;
   margin: 0;
 }
@@ -1147,35 +1516,59 @@ canvas#game {
   overflow-y: auto;
   padding-right: 4px;
 }
-.arm-profile {
+/* Locked bands as a ladder: level, what opens, which key it takes. */
+.arm-ladder {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(243, 246, 248, 0.14);
+}
+.arm-rung {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(243, 246, 248, 0.14);
+  gap: 12px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px dashed rgba(243, 246, 248, 0.2);
 }
-.arm-level {
-  font: 900 20px/1 var(--font-title);
+.arm-rung.is-next {
+  border-style: solid;
+  border-color: var(--warn);
+  background: rgba(217, 119, 27, 0.1);
+}
+.arm-rung.is-done {
+  border-style: solid;
+  border-color: rgba(255, 90, 31, 0.5);
+}
+.arm-rung-lvl {
+  font: 900 14px/1 var(--font-title);
   letter-spacing: 0.06em;
-  color: var(--accent);
+  color: var(--warn);
 }
-.arm-xpbar {
-  height: 4px;
-  background: rgba(243, 246, 248, 0.16);
-  overflow: hidden;
+.arm-rung-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
-.arm-xpbar b {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-.arm-xp {
-  font: 600 11px/1 var(--font-ui);
+.arm-rung-name {
+  font: 700 12px/1 var(--font-ui);
   letter-spacing: 0.12em;
+  color: var(--ui);
+}
+.arm-rung-sub {
+  font: 600 10px/1 var(--font-ui);
+  letter-spacing: 0.14em;
   color: var(--dim);
-  font-variant-numeric: tabular-nums;
+}
+.arm-rung-tag {
+  font: 700 9px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  color: var(--warn);
+  border: 1px solid currentColor;
+  padding: 4px 6px;
+}
+.arm-note b {
+  color: var(--accent);
 }
 .arm-slot + .arm-slot {
   margin-top: 18px;
@@ -1388,20 +1781,6 @@ canvas#game {
   background: rgba(217, 119, 27, 0.1);
   color: var(--warn);
 }
-.loadout-strip {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin: -18px 0 22px;
-  font: 600 11px/1 var(--font-ui);
-  letter-spacing: 0.14em;
-  color: var(--dim);
-}
-.loadout-strip b {
-  color: #fff;
-  font-weight: 700;
-}
-
 /* ---- armory: carried-key badge ---- */
 .arm-note {
   margin: 0 0 10px;
@@ -1660,8 +2039,28 @@ canvas#game {
   background: #ffffff35;
 }
 .touch-mode .menu {
-  padding: 12px max(16px, env(safe-area-inset-right)) 12px
+  padding: 50px max(16px, env(safe-area-inset-right)) 12px
     max(16px, env(safe-area-inset-left));
+}
+/* Landscape phones are wide and short: two columns, centre first. */
+.touch-mode .menu-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "center center"
+    "left right"
+    "bottom bottom";
+  gap: 12px;
+}
+.touch-mode .menu-center {
+  padding: 18px 20px 16px;
+}
+.touch-mode .rank {
+  top: 6px;
+  padding: 4px 10px;
+  gap: 0 8px;
+}
+.touch-mode .rank-next {
+  display: none;
 }
 .touch-mode .menu-inner {
   max-width: 760px;

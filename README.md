@@ -62,23 +62,31 @@ Advance the world with `World.step(dt, inputFrame)`. Side effects come out as ev
 
 ## Armory and progression
 
-You carry every gun you have unlocked, one per number key:
+A fresh profile carries three guns — sidearm, assault rifle, marksman on keys
+1–3 — and earns the rest. Guns are grouped into bands (`BANDS` in
+`src/data/weapons.js`); each band holds one number key, and a band opens at its
+`unlockLevel`, appearing beneath the keys you already have so nothing ever
+moves. Guns inside a band share its key (the M4 and the VK-7 are both key 2)
+and have their own `unlockLevel`.
 
-| Key | Gun | Key | Gun |
-| --- | --- | --- | --- |
-| 1 | VK-7 assault rifle | 5 | Wasp-9 SMG |
-| 2 | Hammer-12 shotgun | 6 | Overwatch LMG |
-| 3 | Longshot DMR | 7 | Meridian anti-materiel |
-| 4 | Sidewinder 9 pistol | 8 | Cinder-6 incinerator |
+Runs pay XP from kills and wave depth only — never score, so the daily
+leaderboard and the armory pull in different directions
+(`src/core/progression.js`). `unlockLadder()` in the same file is the single
+list of what opens at which level; the rank strip, the OPERATOR panel and the
+armory all read it.
 
-Keys come from a gun's position in `WEAPONS` (`src/data/weapons.js`) and stay
-fixed. ARMORY on the menu picks which gun you **deploy holding** — deliberately
-a separate choice, because reordering the loadout each time you picked a new
-favourite would move every other gun off its key.
+Progression is presented in three places:
 
-Every gun is `unlockLevel: 0` — free right now. Runs pay XP
-(`src/core/progression.js`) and levels show in the armory; raising a gun's
-`unlockLevel` gates it, and it drops out of the key order until you earn it.
+- **Rank strip** (`#rank`, top centre) — level, XP bar and the next unlock,
+  visible on every menu and, compacted, during play. It flashes on a level-up.
+- **OPERATOR panel** on the deploy screen — the carried guns as key cards, the
+  spawn gun marked, a key earned by the last run tagged NEW, and NEXT UNLOCK.
+- **ARMORY** — cards for the bands you have; locked bands collapse into a
+  COMING UP ladder. Picking a gun puts it on its band's key; DEPLOY WITH THIS
+  chooses the gun you spawn holding, deliberately without reordering keys.
+
+The death screen shows the run's XP, any level crossed and what it unlocked;
+the stat tables sit behind RUN DETAILS.
 
 Weapons are data plus a viewmodel: an entry in `src/data/weapons.js` and a
 builder in `src/render/weapons/` registered in that folder's `index.js`. Guns

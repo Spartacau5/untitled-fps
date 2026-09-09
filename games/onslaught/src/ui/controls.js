@@ -35,29 +35,22 @@ function capsFor(binding) {
 
 const MOUSE_CAPS = new Set(["LMB", "RMB", "WHEEL", "MOUSE"]);
 
-// The three-line crib on the deploy screen. Each entry is either a binding id
-// or an explicit set of caps, so the keys shown here come from the same table
-// the game reads -- change a binding and this follows. WASD has no single
-// binding, and the weapon row folds the slot keys together with the wheel.
+// The one-line crib along the foot of the deploy screen: only what a first
+// run needs, in the order a first run needs it. Each entry is a binding id or
+// an explicit set of caps, so the keys shown come from the same table the game
+// reads -- change a binding and this follows. WASD has no single binding, and
+// the weapon entry is filled in per loadout (1-3 on a fresh profile, not 1-8).
+// Everything else - sensitivity, music, ambience - lives in HOW TO PLAY.
 const SUMMARY = [
-  [
-    [["forward", "left", "back", "right"], "move", "WASD"],
-    ["sprint", "sprint"],
-    ["jump", "jump"],
-    ["crouch", "slide / crouch"],
-  ],
-  [
-    ["fire", "fire"],
-    ["ads", "aim down sights"],
-    ["reload", "reload"],
-    [["slots", "wheel"], "weapons"],
-  ],
-  [
-    ["sensitivity", "sensitivity"],
-    ["music", "music"],
-    ["ambient", "ambient"],
-    ["pause", "pause"],
-  ],
+  [["forward", "left", "back", "right"], "move", "WASD"],
+  ["sprint", "sprint"],
+  ["jump", "jump"],
+  ["crouch", "slide"],
+  ["fire", "fire"],
+  ["ads", "aim"],
+  ["reload", "reload"],
+  ["slots", "weapons", "$SLOTS"],
+  ["pause", "pause"],
 ];
 
 const byId = new Map(BINDINGS.map((b) => [b.id, b]));
@@ -81,24 +74,27 @@ function summaryCaps(ref, override) {
 }
 
 // Renders the crib into the deploy screen. Kept next to the full panel so the
-// two can never disagree about what a key does.
-export function renderControlSummary(el) {
+// two can never disagree about what a key does. `carried` sizes the weapon
+// keys to the loadout; the touch build has no keys and gets its own line.
+export function renderControlSummary(el, { carried = 0, mobile = false } = {}) {
   if (!el) return;
-  el.innerHTML = SUMMARY.map(
-    (row) =>
-      "<div>" +
-      row
-        .map(
-          ([ref, label, override]) =>
-            `<b>${summaryCaps(ref, override)}</b> ${label}`,
-        )
-        .join(" &nbsp;·&nbsp; ") +
-      "</div>",
-  ).join("");
+  if (mobile) {
+    el.innerHTML =
+      "<b>LEFT THUMB</b> move &nbsp;·&nbsp; <b>RIGHT THUMB</b> look &nbsp;·&nbsp; <b>AUTO RUN</b> on &nbsp;·&nbsp; tap <b>AIM</b> for sights &nbsp;·&nbsp; hold <b>FIRE</b>";
+    return;
+  }
+  const slots = carried > 1 ? `1&ndash;${carried}` : carried === 1 ? "1" : "";
+  el.innerHTML = SUMMARY.map(([ref, label, override]) => {
+    const caps =
+      override === "$SLOTS"
+        ? [slots, summaryCaps("wheel")].filter(Boolean).join(" / ")
+        : summaryCaps(ref, override);
+    return `<span><b>${caps}</b> ${label}</span>`;
+  }).join('<span class="controls-sep">·</span>');
 }
 
 export function mountControls(els) {
-  renderControlSummary(els.summary);
+  renderControlSummary(els.summary, { mobile: els.mobile });
   const groups = GROUPS.map(([group, heading]) => {
     const items = BINDINGS.filter((b) => b.group === group)
       .map((b) => {
@@ -125,7 +121,6 @@ export function mountControls(els) {
     `<div class="ctrl-brief">${brief}</div><div class="ctrl-cols">${groups}</div>`;
 
   if (els.mobile) {
-    els.summary.innerHTML = "<div><b>LEFT THUMB</b> move · <b>RIGHT THUMB</b> look</div><div>Auto-run on · Tap AIM to toggle sights · Hold FIRE to shoot</div>";
     els.body.innerHTML = `<div class="ctrl-brief">${brief}</div><div class="ctrl-brief"><p>Drag the left half to move, and the right half to look. You can drag FIRE to aim while shooting.</p><p>Tap AIM to toggle sights. Hold CROUCH to crouch or slide while running. Tap JUMP, RELOAD or WEAPON to act or cycle your equipped guns.</p><p>AUTO RUN starts on and yields while aiming or firing. Tap it to walk. PAUSE opens the menu; rotating upright or leaving the page pauses play.</p></div>`;
   }
   const open = () => {

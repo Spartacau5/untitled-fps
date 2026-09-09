@@ -81,35 +81,49 @@
     <div id="lowhp" class="lowhp"></div>
   </div>
 
+  <!-- ================= RANK BAR ================= -->
+  <!-- Always on once the boot reveal finishes: menu, armory, match, debrief.
+       Progression is the thing a player should never have to go looking for. -->
+  <div id="rank" class="rank hidden" aria-live="polite">
+    <span id="rank-level" class="rank-level">LEVEL 1</span>
+    <span class="rank-bar"><i id="rank-fill"></i></span>
+    <span id="rank-xp" class="rank-xp">0 / 1200 XP</span>
+    <span id="rank-next" class="rank-next"></span>
+  </div>
+
   <!-- ================= MENUS ================= -->
-  <div id="menu" class="menu">
-    <div class="menu-inner">
-      <div id="menu-main">
+  <!-- One shell, three layouts. data-mode on #menu is deploy | paused | dead
+       and decides which panels show, so each screen presents only what it is
+       for: deploy shows everything, pause shows the centre, the debrief adds
+       the reward. -->
+  <div id="menu" class="menu" data-mode="deploy">
+    <div id="menu-grid" class="menu-grid">
+      <aside id="menu-left" class="menu-panel menu-left">
+        <div class="panel-kicker">OPERATOR</div>
+        <label class="callsign">
+          <span>PLAYER NAME</span>
+          <input id="player-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="nickname" />
+        </label>
+        <div id="loadout-cards" class="loadout-cards"></div>
+        <div id="loadout-next" class="loadout-next"></div>
+        <button id="btn-armory" class="btn-secondary btn-wide">ARMORY</button>
+      </aside>
+
+      <section id="menu-main" class="menu-panel menu-center">
         <h1 class="title">MIDTOWN / LOCKDOWN</h1>
         <div class="subtitle">TIMES SQUARE · NEW YORK CITY</div>
+        <div id="menu-stats" class="menu-stats hidden"></div>
+        <div id="xp-award" class="xp-award hidden"></div>
         <button id="btn-start" class="btn-start">DEPLOY</button>
         <div id="pause-actions" class="pause-actions hidden">
           <button type="button" id="btn-restart" class="btn-secondary">RESTART</button>
           <button type="button" id="btn-exit-menu" class="btn-secondary">EXIT TO MENU</button>
         </div>
         <div class="menu-buttons">
-          <button id="btn-armory" class="btn-secondary">ARMORY</button>
           <button id="btn-controls" class="btn-secondary">HOW TO PLAY</button>
           <button id="btn-settings" class="btn-secondary">SETTINGS</button>
+          <button type="button" id="btn-feedback" class="btn-secondary">FEEDBACK</button>
         </div>
-        <div id="loadout-strip" class="loadout-strip"></div>
-        <label class="callsign">
-          <span>PLAYER NAME</span>
-          <input id="player-name" type="text" maxlength="16" placeholder="YOUR NAME" autocomplete="nickname" />
-        </label>
-        <div id="prize" class="prize hidden">
-          <span class="prize-copy">HIGHEST SCORE TODAY WINS</span>
-          <span class="prize-tag">$10</span>
-          <span id="prize-clock" class="prize-clock"></span>
-        </div>
-        <div id="leaderboard" class="leaderboard"></div>
-        <div id="controls-summary" class="controls"></div>
-        <button type="button" id="btn-feedback" class="btn-feedback">PROVIDE FEEDBACK</button>
         <div id="feedback-panel" class="feedback-panel hidden">
           <label class="feedback-field">
             <span>NAME <em>(optional)</em></span>
@@ -125,13 +139,29 @@
           </div>
           <p id="feedback-status" class="feedback-status"></p>
         </div>
-        <div id="menu-stats" class="menu-stats hidden"></div>
-        <div id="run-summary" class="run-summary hidden"></div>
-        <div id="run-actions" class="run-actions hidden">
-          <button id="btn-dl-run" class="btn-secondary">DOWNLOAD RUN LOG</button>
-          <button id="btn-dl-all" class="btn-secondary">DOWNLOAD ALL RUNS</button>
+        <button type="button" id="btn-run-details" class="btn-run-details hidden" aria-expanded="false">RUN DETAILS</button>
+        <div id="run-details" class="run-details hidden">
+          <div id="run-summary" class="run-summary hidden"></div>
+          <div id="run-actions" class="run-actions hidden">
+            <button id="btn-dl-run" class="btn-secondary">DOWNLOAD RUN LOG</button>
+            <button id="btn-dl-all" class="btn-secondary">DOWNLOAD ALL RUNS</button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <aside id="menu-right" class="menu-panel menu-right">
+        <div class="panel-kicker">DAILY CONTEST</div>
+        <div id="prize" class="prize hidden">
+          <span class="prize-copy">HIGHEST SCORE TODAY WINS</span>
+          <span class="prize-tag">$10</span>
+          <span id="prize-clock" class="prize-clock"></span>
+        </div>
+        <div id="leaderboard" class="leaderboard"></div>
+      </aside>
+
+      <footer id="controls-summary" class="controls menu-bottom"></footer>
+    </div>
+    <div class="menu-inner menu-overlays">
       <div id="armory-panel" class="settings armory-panel hidden">
         <div class="settings-title">ARMORY</div>
         <div id="armory-body" class="armory-body"></div>

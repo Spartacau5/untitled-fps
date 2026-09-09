@@ -42,7 +42,17 @@ export class HUD {
       armoryPanel: t("armory-panel"),
       armoryBody: t("armory-body"),
       armoryBack: t("btn-armory-back"),
-      loadoutStrip: t("loadout-strip"),
+      loadoutCards: t("loadout-cards"),
+      loadoutNext: t("loadout-next"),
+      rank: t("rank"),
+      rankLevel: t("rank-level"),
+      rankFill: t("rank-fill"),
+      rankXp: t("rank-xp"),
+      rankNext: t("rank-next"),
+      xpAward: t("xp-award"),
+      btnRunDetails: t("btn-run-details"),
+      runDetails: t("run-details"),
+      menuGrid: t("menu-grid"),
       btnControls: t("btn-controls"),
       controlsPanel: t("controls-panel"),
       controlsBody: t("controls-body"),
@@ -80,6 +90,79 @@ export class HUD {
     this.scope.innerHTML = `<div class="scope-aperture"><svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#e8f0ef" stroke-opacity=".34" stroke-linecap="round"><path d="M200 54V184 M200 216V346 M54 200H184 M216 200H346 M100 195v10 M140 197v6 M260 197v6 M300 195v10 M195 100h10 M197 140h6 M197 260h6 M195 300h10" stroke-width="3.2"/><path d="M200 0V54 M200 346V400 M0 200H54 M346 200H400" stroke-width="7.5"/></g><g fill="none" stroke="#080c0c" stroke-linecap="round"><path d="M200 54V184 M200 216V346 M54 200H184 M216 200H346 M100 195v10 M140 197v6 M260 197v6 M300 195v10 M195 100h10 M197 140h6 M197 260h6 M195 300h10" stroke-width="1.15"/><path d="M200 0V54 M200 346V400 M0 200H54 M346 200H400" stroke-width="5"/></g><circle cx="200" cy="200" r="1.7" fill="#d8402f"/></svg></div>`;
     this.el.hud.prepend(this.scope);
     this._scopeT = 0;
+    // The debrief's stat tables sit behind one button. The result and the
+    // reward are what a player wants to see; the tables are for the ones who
+    // want to know why.
+    this.el.btnRunDetails &&
+      this.el.btnRunDetails.addEventListener("click", () => {
+        const open = this.el.runDetails.classList.toggle("hidden");
+        this.el.btnRunDetails.setAttribute("aria-expanded", String(!open));
+        this.el.btnRunDetails.textContent = open
+          ? "RUN DETAILS"
+          : "HIDE DETAILS";
+      });
+  }
+  // Which of the three menu layouts the shell is showing. CSS reads it.
+  setMenuMode(mode) {
+    this.el.menu && (this.el.menu.dataset.mode = mode);
+  }
+  // The always-on progression strip. Called on load and whenever the profile
+  // changes; the fill animates in CSS so a run's XP is seen landing, and a
+  // level crossed gets a flash the player will catch in the corner of an eye.
+  setRank(progression, { levelUp = false } = {}) {
+    const el = this.el;
+    if (!el.rank) return;
+    const p = progression.levelProgress,
+      next = progression.nextUnlock();
+    (this._set("rankLevel", el.rankLevel, `LEVEL ${progression.level}`),
+      this._set(
+        "rankXp",
+        el.rankXp,
+        p.span ? `${p.into} / ${p.span} XP` : "MAX LEVEL",
+      ),
+      this._set(
+        "rankNext",
+        el.rankNext,
+        next
+          ? `NEXT · ${next.kind === "band" ? `${next.label} ON KEY ${next.key}` : next.label} · LEVEL ${next.level}`
+          : "ROSTER COMPLETE",
+      ));
+    const w = (Math.max(0, Math.min(1, p.frac)) * 100).toFixed(1) + "%";
+    this.cache.rankW !== w &&
+      ((this.cache.rankW = w), (el.rankFill.style.width = w));
+    if (levelUp) {
+      el.rank.classList.remove("is-up");
+      void el.rank.offsetWidth;
+      el.rank.classList.add("is-up");
+    }
+  }
+  showRank(t) {
+    this.el.rank && this.el.rank.classList.toggle("hidden", !t);
+  }
+  // The debrief's reward block: what the run earned, and anything it opened.
+  xpAward(award, unlocks = []) {
+    const el = this.el.xpAward;
+    if (!el) return;
+    if (!award) {
+      el.classList.add("hidden");
+      return;
+    }
+    const rows = unlocks
+      .map(
+        (r) =>
+          `<div class="award-unlock"><b>UNLOCKED</b> ${r.label}${
+            r.kind === "band" ? ` · KEY ${r.key}` : ` · ${r.klass}`
+          }</div>`,
+      )
+      .join("");
+    el.innerHTML =
+      `<div class="award-xp">+${award.gained.toLocaleString("en-US")} XP</div>` +
+      (award.levelsGained > 0
+        ? `<div class="award-level">LEVEL ${award.level - award.levelsGained} <i>→</i> LEVEL ${award.level}</div>`
+        : "") +
+      rows;
+    el.classList.toggle("is-up", award.levelsGained > 0);
+    el.classList.remove("hidden");
   }
   // Continuous, not a toggle: the caller passes how far the optic has taken
   // over and the CSS reads it as a custom property, so the glass irises in with
@@ -118,6 +201,12 @@ export class HUD {
     (this.setPauseActions(false),
       this.el.runSummary && this.el.runSummary.classList.add("hidden"),
       this.el.runActions && this.el.runActions.classList.add("hidden"),
+      this.el.runDetails && this.el.runDetails.classList.add("hidden"),
+      this.el.btnRunDetails &&
+        (this.el.btnRunDetails.classList.add("hidden"),
+        (this.el.btnRunDetails.textContent = "RUN DETAILS"),
+        this.el.btnRunDetails.setAttribute("aria-expanded", "false")),
+      this.xpAward(null),
       this.el.menu.classList.toggle("hidden", !t),
       t &&
         ((this.el.title.textContent = e),
@@ -160,7 +249,8 @@ export class HUD {
       <table><thead><tr><th>WAVE</th><th>COUNT</th><th>TIME</th></tr></thead><tbody>${waves}</tbody></table>
     </div>`;
     (this.el.runSummary.classList.remove("hidden"),
-      this.el.runActions.classList.remove("hidden"));
+      this.el.runActions.classList.remove("hidden"),
+      this.el.btnRunDetails && this.el.btnRunDetails.classList.remove("hidden"));
   }
   setCrosshair(t, e) {
     const n = t.toFixed(1) + "px";
