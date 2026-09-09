@@ -268,7 +268,7 @@ export class Game {
       this.hud.setRank(this.progression),
       this.hud.showRank(!0),
       this.progression.onChange(() => this.hud.setRank(this.progression)),
-      (this._freshKeys = new Set()),
+      (this._freshGuns = new Set()),
       this.hud.setMenuMode("deploy"),
       this._renderLoadout(),
       this._refreshBoard(),
@@ -501,10 +501,12 @@ export class Game {
     // Bank the XP before the board round-trip, so a failed POST cannot cost
     // the player their progress.
     this.lastXp = this.progression.addRun(this.lastRun.summary);
-    // Keys this run opened stay marked on the loadout cards until the next
-    // deploy, so a player sees the new gun before they are holding it.
-    this._freshKeys = new Set(this.lastXp.unlocks.map((r) => r.key));
-    (this.armoryPanel && this.armoryPanel.render(),
+    // Guns this run opened stay flagged in the armory until the next deploy.
+    // They are not equipped for you - three keys is three keys - so the mark
+    // is an invitation to go and make room for one.
+    this._freshGuns = new Set(this.lastXp.unlocks.map((r) => r.key));
+    (this.armoryPanel && this.armoryPanel.setFresh(this._freshGuns),
+      this.armoryPanel && this.armoryPanel.render(),
       this._renderLoadout(),
       this.hud.setRank(this.progression, {
         levelUp: this.lastXp.levelsGained > 0,
@@ -599,28 +601,21 @@ export class Game {
     cards.innerHTML = l
       .map((w, i) => {
         const key = i + 1,
+          isNew = this._freshGuns && this._freshGuns.has(w.key),
           cls =
             "lo-card" +
             (i === startIndex ? " is-spawn" : "") +
-            (this._freshKeys && this._freshKeys.has(key) ? " is-new" : "");
-        const tag =
-          this._freshKeys && this._freshKeys.has(key)
-            ? "NEW"
-            : i === startIndex
-              ? "SPAWN"
-              : "";
+            (isNew ? " is-new" : "");
+        const tag = isNew ? "NEW" : i === startIndex ? "SPAWN" : "";
         return `<div class="${cls}"><b class="lo-key">${key}</b><span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}</div>`;
       })
       .join("");
-    // Count first, so the empty keys read as a road ahead rather than a gap.
+    // The road ahead, under the three you are taking: what opens next and
+    // when, so the strip says "three, and here is the fourth to choose from".
     const next = this.progression.nextUnlock();
     if (nextEl)
       nextEl.innerHTML = next
-        ? `<span class="lo-next-k">NEXT UNLOCK</span><span class="lo-next-v">${
-            next.kind === "band"
-              ? `${next.label} <b>KEY ${next.key}</b>`
-              : `${next.label} <b>${next.klass}</b>`
-          }</span><span class="lo-next-l">LEVEL ${next.level}</span>`
+        ? `<span class="lo-next-k">NEXT UNLOCK</span><span class="lo-next-v">${next.label} <b>${next.klass}</b></span><span class="lo-next-l">LEVEL ${next.level}</span>`
         : `<span class="lo-next-k">ROSTER</span><span class="lo-next-v">EVERY GUN UNLOCKED</span>`;
     renderControlSummary(this.hud.el.controlsSummary, {
       carried: l.length,
@@ -641,7 +636,8 @@ export class Game {
       return;
     }
     (this.audio.beginSession(),
-      (this._freshKeys = new Set()),
+      (this._freshGuns = new Set()),
+      this.armoryPanel && this.armoryPanel.setFresh(this._freshGuns),
       this._renderLoadout(),
       this.resetGame(),
       (this._runPosted = !1),

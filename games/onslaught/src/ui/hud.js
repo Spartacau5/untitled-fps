@@ -123,9 +123,7 @@ export class HUD {
       this._set(
         "rankNext",
         el.rankNext,
-        next
-          ? `NEXT · ${next.kind === "band" ? `${next.label} ON KEY ${next.key}` : next.label} · LEVEL ${next.level}`
-          : "ROSTER COMPLETE",
+        next ? `NEXT · ${next.label} · LEVEL ${next.level}` : "ROSTER COMPLETE",
       ));
     const w = (Math.max(0, Math.min(1, p.frac)) * 100).toFixed(1) + "%";
     this.cache.rankW !== w &&
@@ -147,12 +145,12 @@ export class HUD {
       el.classList.add("hidden");
       return;
     }
+    // Every rung is a gun now, so the class is what distinguishes them;
+    // the key it will sit on is the player's choice, not the unlock's.
     const rows = unlocks
       .map(
         (r) =>
-          `<div class="award-unlock"><b>UNLOCKED</b> ${r.label}${
-            r.kind === "band" ? ` · KEY ${r.key}` : ` · ${r.klass}`
-          }</div>`,
+          `<div class="award-unlock"><b>UNLOCKED</b> ${r.label} · ${r.klass}</div>`,
       )
       .join("");
     el.innerHTML =
@@ -250,7 +248,8 @@ export class HUD {
     </div>`;
     (this.el.runSummary.classList.remove("hidden"),
       this.el.runActions.classList.remove("hidden"),
-      this.el.btnRunDetails && this.el.btnRunDetails.classList.remove("hidden"));
+      this.el.btnRunDetails &&
+        this.el.btnRunDetails.classList.remove("hidden"));
   }
   setCrosshair(t, e) {
     const n = t.toFixed(1) + "px";

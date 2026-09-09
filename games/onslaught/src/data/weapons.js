@@ -706,46 +706,28 @@ export const WEAPONS = [
     smoke: 0.4,
   },
 ];
-// One number key per band, in this order. Guns in the same band compete for
-// that key -- the M4 and the VK-7 are both key 1 -- so adding a rifle gives
-// you something to choose between rather than another key to reach for. The
-// armory picks which gun holds each band; see core/progression.js.
-// Loadout slots, in key order. A band opens at its unlock level, so a new
-// profile carries exactly three guns - sidearm, rifle, marksman - and earns the
-// rest. The order is deliberate: the guns you start with hold keys 1-3 and
-// never move as later bands appear beneath them.
+// Weapon categories. Purely how the armory groups guns for display now - the
+// loadout is a fixed three slots you fill from whatever you have unlocked, so a
+// band no longer owns a key.
 export const BANDS = [
-  { id: "sidearm", label: "SIDEARM", unlockLevel: 1 },
-  { id: "rifle", label: "ASSAULT RIFLE", unlockLevel: 1 },
-  { id: "marksman", label: "MARKSMAN", unlockLevel: 1 },
-  { id: "smg", label: "SUBMACHINE GUN", unlockLevel: 2 },
-  { id: "shotgun", label: "SHOTGUN", unlockLevel: 3 },
-  { id: "lmg", label: "MACHINE GUN", unlockLevel: 4 },
-  { id: "sniper", label: "SNIPER", unlockLevel: 5 },
-  { id: "special", label: "SPECIAL", unlockLevel: 6 },
+  { id: "sidearm", label: "SIDEARM" },
+  { id: "rifle", label: "ASSAULT RIFLE" },
+  { id: "marksman", label: "MARKSMAN" },
+  { id: "smg", label: "SUBMACHINE GUN" },
+  { id: "shotgun", label: "SHOTGUN" },
+  { id: "lmg", label: "MACHINE GUN" },
+  { id: "sniper", label: "SNIPER" },
+  { id: "special", label: "SPECIAL" },
 ];
 
-// Level at which a band's slot appears at all.
-export function bandUnlockLevel(band) {
-  const found = BANDS.find((b) => b.id === band);
-  return found ? found.unlockLevel : 1;
-}
+// You carry three guns, always. Levelling grows the pool you choose them from,
+// not the number of keys - so a loadout is a real decision rather than a list
+// that only ever gets longer.
+export const LOADOUT_SIZE = 3;
 
-// The guns available in a band, easiest to unlock first.
-export function weaponsInBand(band) {
-  return WEAPONS.filter((w) => w.band === band).sort(
-    (a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0),
-  );
-}
-
-// What a fresh profile carries: the first gun in each band. Key order is band
-// order and never moves, whatever you pick.
-export const DEFAULT_PICKS = Object.fromEntries(
-  BANDS.map((b) => [b.id, weaponsInBand(b.id)[0].key]),
-);
-export const DEFAULT_LOADOUT = BANDS.map((b) => DEFAULT_PICKS[b.id]);
-
-// Which gun a fresh profile deploys holding.
+// What a fresh profile carries, and the gun it deploys holding.
+export const STARTER_LOADOUT = ["pistol", "ar", "dmr"];
+export const DEFAULT_LOADOUT = STARTER_LOADOUT;
 export const DEFAULT_START = "ar";
 
 export const VM_HIP_OFFSET = new Vector3(0.07, -0.085, 0.02);

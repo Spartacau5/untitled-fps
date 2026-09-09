@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Vector3 } from "three";
 import {
-  BANDS,
   DEFAULT_LOADOUT,
   DEFAULT_START,
+  LOADOUT_SIZE,
+  STARTER_LOADOUT,
   WEAPONS,
-  weaponsInBand,
 } from "../games/onslaught/src/data/weapons.js";
 import { resolveLoadout } from "../games/onslaught/src/sim/weapons.js";
 import { World } from "../games/onslaught/src/sim/world.js";
@@ -60,23 +60,35 @@ test("weapon keys are unique", () => {
   }
 });
 
-test("the default loadout carries one gun per band, each on its own key", () => {
+test("the default loadout is the three starters, on keys 1-3", () => {
   const picked = resolveLoadout(DEFAULT_LOADOUT);
-  assert.equal(picked.length, BANDS.length);
-  // Key order is band order, and must be stable: a band that moves keys
-  // between builds breaks the player's muscle memory.
+  assert.equal(picked.length, LOADOUT_SIZE);
+  // Key order is loadout order, and must be stable: a gun that moves keys
+  // between runs breaks the player's muscle memory.
   assert.deepEqual(
     picked.map((w) => w.key),
-    BANDS.map((b) => weaponsInBand(b.id)[0].key),
+    STARTER_LOADOUT,
   );
+  // Every starter is a real weapon, and none of them is gated.
+  for (const w of picked) assert.equal(w.unlockLevel, 1);
 });
 
 test("the starting weapon selects a slot without reordering the keys", () => {
-  const w = new World({ seed: 1, startKey: "sniper" });
+  const start = DEFAULT_LOADOUT[2];
+  const w = new World({ seed: 1, startKey: start });
   w.startRun();
-  assert.equal(w.weapons.weapon.def.key, "sniper");
+  assert.equal(w.weapons.weapon.def.key, start);
   // Every other gun is still where it was.
   assert.deepEqual(keys(w), DEFAULT_LOADOUT);
+});
+
+test("a start weapon you are not carrying falls back to the first key", () => {
+  // The loadout is the authority: three keys, and the run has to begin on
+  // one of them even if a stale profile names a gun that was swapped out.
+  const w = new World({ seed: 1, startKey: "sniper" });
+  w.startRun();
+  assert.equal(w.weapons.startIndex, 0);
+  assert.equal(w.weapons.weapon.def.key, DEFAULT_LOADOUT[0]);
 });
 
 test("an unknown or missing start weapon falls back to the first slot", () => {

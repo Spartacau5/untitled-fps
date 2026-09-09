@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  BANDS,
   DEFAULT_START,
+  LOADOUT_SIZE,
+  STARTER_LOADOUT,
   WEAPONS,
 } from "../games/onslaught/src/data/weapons.js";
 
-const STARTERS = ["pistol", "ar", "dmr"];
+const STARTERS = STARTER_LOADOUT;
 import {
   MAX_LEVEL,
   Progression,
@@ -45,13 +46,17 @@ test("each carried gun reports a stable 1-based key", () => {
   assert.equal(p.slotOf("sniper"), 0);
 });
 
-test("unlocking a band appends a key without moving the ones you had", () => {
+test("an unlock widens the pool without touching the three you carry", () => {
   const p = new Progression(memStorage());
   const before = p.loadout.slice();
+  const poolBefore = p.unlocked.length;
   while (p.level < 2) p.addRun({ kills: 60, wave: 4 });
-  assert.deepEqual(p.loadout.slice(0, 3), before, "keys 1-3 never move");
-  assert.equal(p.loadout.length, 4);
-  assert.equal(p.loadout[3], "smg");
+  // This is the whole point of the three-slot model: earning a gun is an
+  // invitation to swap, never a fourth key that arrives on its own.
+  assert.deepEqual(p.loadout, before, "the loadout is left alone");
+  assert.equal(p.loadout.length, LOADOUT_SIZE);
+  assert.ok(p.unlocked.length > poolBefore, "but the pool it draws from grew");
+  assert.ok(p.isUnlocked("smg"));
 });
 
 test("the level curve is monotonic and levels track cumulative xp", () => {
@@ -95,6 +100,32 @@ test("a finished run banks xp and reports levels crossed", () => {
   assert.ok(first.levelsGained >= 1, "a big first run should level you up");
   assert.equal(p.level, first.level);
   assert.equal(saved(st).xp, p.xp);
+});
+
+test("a run that levels you reports what it opened, ready to render", () => {
+  const p = new Progression(memStorage());
+  // Enough to cross at least one gate in one go.
+  const award = p.addRun({ kills: 400, wave: 8 });
+  assert.ok(award.levelsGained > 0);
+  assert.ok(award.unlocks.length > 0, "crossing a gate must open something");
+  assert.deepEqual(
+    award.unlocks.map((r) => r.key),
+    unlocksBetween(1, award.level).map((r) => r.key),
+  );
+  // Every rung carries what the debrief prints, so the HUD needs no lookup.
+  for (const r of award.unlocks) {
+    assert.equal(r.kind, "weapon");
+    assert.ok(r.label && r.klass && r.level > 1);
+  }
+  // A run that changes nothing opens nothing.
+  assert.deepEqual(p.addRun({ kills: 0, wave: 0 }).unlocks, []);
+});
+
+test("the profile answers for its own next unlock", () => {
+  const p = new Progression(memStorage());
+  assert.deepEqual(p.nextUnlock(), nextUnlock(1));
+  while (p.level < 3) p.addRun({ kills: 60, wave: 4 });
+  assert.equal(p.nextUnlock().level, 4);
 });
 
 test("progress through the current level is reported for the xp bar", () => {
@@ -159,56 +190,83 @@ test("the roster opens in the intended order as levels arrive", () => {
   const p = new Progression(memStorage());
   const seen = [];
   let guard = 0;
-  while (p.loadout.length < BANDS.length && guard++ < 200) {
-    const before = p.loadout.slice();
+  while (seen.length < order.length && guard++ < 200) {
+    const before = p.unlocked.map((w) => w.key);
     p.addRun({ kills: 90, wave: 6 });
-    for (const k of p.loadout) if (!before.includes(k)) seen.push(k);
+    for (const w of p.unlocked)
+      if (!before.includes(w.key) && order.includes(w.key)) seen.push(w.key);
   }
-  assert.deepEqual(seen, order, "bands must open in ladder order");
+  assert.deepEqual(seen, order, "the pool must open in ladder order");
   assert.ok(guard < 30, `should not be a grind, took ${guard} runs`);
+  // However far it runs, the number of keys never moves.
+  assert.equal(p.loadout.length, LOADOUT_SIZE);
 });
 
-test("bands are gated by level, and their guns by their own", () => {
+test("each gun is gated by its own level, and the pool reflects it", () => {
   const p = new Progression(memStorage());
-  // A band that has not opened contributes no key at all.
-  assert.equal(p.loadout.includes("sniper"), false);
-  // And a variant inside an open band still waits for its own level.
   assert.equal(p.isUnlocked("ar"), true);
-  assert.equal(p.isUnlocked("m4"), false);
+  assert.equal(p.isUnlocked("m4"), false, "a later rifle waits its turn");
+  assert.equal(p.isUnlocked("sniper"), false);
+  assert.deepEqual(
+    p.unlocked.map((w) => w.key).sort(),
+    STARTERS.slice().sort(),
+    "the level 1 pool is exactly the three starters",
+  );
+  assert.equal(p.unlockLevelOf("sniper"), 5);
+});
+
+test("equipping refuses locked guns and swaps rather than duplicates", () => {
+  const p = new Progression(memStorage());
+  const before = p.loadout.slice();
+  p.equip("sniper", 0);
+  assert.deepEqual(p.loadout, before, "a locked gun cannot be carried");
+  // Moving a gun you already carry onto another key trades the two, so the
+  // loadout can be reordered without ever holding the same rifle twice.
+  p.equip(before[2], 0);
+  assert.equal(p.loadout[0], before[2]);
+  assert.equal(p.loadout[2], before[0]);
+  assert.equal(new Set(p.loadout).size, LOADOUT_SIZE, `dupes: ${p.loadout}`);
 });
 
 test("the unlock ladder lists every gate once, in level order", () => {
   const ladder = unlockLadder();
   const levels = ladder.map((r) => r.level);
-  assert.deepEqual(levels, levels.slice().sort((a, b) => a - b));
-  // Every band past the starters is a rung, and a fresh profile has none.
-  for (const b of BANDS.filter((b) => b.unlockLevel > 1))
+  assert.deepEqual(
+    levels,
+    levels.slice().sort((a, b) => a - b),
+  );
+  // Every rung is a gun now - there is no band step, because a band no longer
+  // owns a key - and every gated gun is on it exactly once.
+  const gated = WEAPONS.filter((w) => (w.unlockLevel || 1) > 1);
+  assert.equal(ladder.length, gated.length);
+  for (const r of ladder) assert.equal(r.kind, "weapon");
+  assert.equal(new Set(ladder.map((r) => r.key)).size, ladder.length);
+  for (const w of gated)
     assert.ok(
-      ladder.some((r) => r.kind === "band" && r.band === b.id),
-      `${b.id} band missing from the ladder`,
+      ladder.some((r) => r.key === w.key && r.level === w.unlockLevel),
+      `${w.key} missing from the ladder`,
     );
-  assert.equal(ladder.some((r) => r.level <= 1), false);
-  // A later gun inside an open band is its own rung, not a repeat of the band.
-  const m4 = ladder.find((r) => r.label === "M4A1 CARBINE");
-  assert.equal(m4.kind, "weapon");
-  assert.equal(m4.key, 2);
-  // The starter guns are never rungs, and no gun is listed twice.
+  // Nothing you already have is advertised as something still to earn.
+  assert.equal(
+    ladder.some((r) => r.level <= 1),
+    false,
+  );
   for (const k of STARTERS)
     assert.equal(
-      ladder.some((r) => r.weapon === WEAPONS.find((w) => w.key === k).name),
+      ladder.some((r) => r.key === k),
       false,
     );
-  assert.equal(new Set(ladder.map((r) => r.label)).size, ladder.length);
 });
 
 test("nextUnlock names the very next thing a player will earn", () => {
   const first = nextUnlock(1);
-  assert.equal(first.kind, "band");
-  assert.equal(first.band, "smg");
+  assert.equal(first.kind, "weapon");
+  assert.equal(first.key, "smg");
   assert.equal(first.level, 2);
-  assert.equal(first.key, 4);
+  // It carries enough to render a teaser without a second lookup.
+  assert.ok(first.label && first.klass);
   const top = Math.max(...unlockLadder().map((r) => r.level));
-  assert.equal(nextUnlock(top), null);
+  assert.equal(nextUnlock(top), null, "it runs out rather than looping");
   assert.equal(nextUnlock(MAX_LEVEL), null);
 });
 
@@ -216,9 +274,16 @@ test("unlocksBetween reports exactly what a run's level-ups opened", () => {
   assert.deepEqual(unlocksBetween(1, 1), []);
   const one = unlocksBetween(1, 2);
   assert.equal(one.length, 1);
-  assert.equal(one[0].band, "smg");
-  const two = unlocksBetween(2, 4).map((r) => r.band);
-  assert.deepEqual(two, ["shotgun", "lmg"]);
+  assert.equal(one[0].key, "smg");
+  assert.deepEqual(
+    unlocksBetween(2, 4).map((r) => r.key),
+    ["shotgun", "lmg"],
+  );
+  // A run that crosses several levels at once lists them all, in order.
+  assert.deepEqual(
+    unlocksBetween(1, 5).map((r) => r.key),
+    ["smg", "shotgun", "lmg", "sniper"],
+  );
 });
 
 test("a profile survives storage that throws", () => {

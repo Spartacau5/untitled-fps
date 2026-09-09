@@ -1,16 +1,16 @@
 import {
   BANDS,
-  DEFAULT_PICKS,
   DEFAULT_START,
+  LOADOUT_SIZE,
+  STARTER_LOADOUT,
   WEAPONS,
-  weaponsInBand,
 } from "../data/weapons.js";
 
 export const STORAGE_KEY = "onslaught.profile.v1";
 
-// Cumulative XP to reach a level. Mildly quadratic, tuned arcade-easy: the
-// first unlock lands inside a few runs and the whole roster opens in an
-// evening or three, rather than gating firepower behind a grind.
+// Cumulative XP to reach a level. Mildly quadratic, tuned arcade-easy: a strong
+// first run levels you, and the roster is open in an evening or three rather
+// than gated behind a grind.
 export const MAX_LEVEL = 50;
 export function xpForLevel(level) {
   const n = Math.max(0, level - 1);
@@ -23,9 +23,9 @@ export function levelForXp(xp) {
 }
 
 // Kills are the whole of it, plus a bonus per wave cleared that grows with
-// depth. Score is deliberately not part of this: it is the thing you compete
-// on daily, and letting it feed unlocks would mean the leaderboard and the
-// armory pulled in the same direction and a good run counted twice.
+// depth. Score is deliberately not part of this: it is the thing you compete on
+// daily, and letting it feed unlocks would mean the leaderboard and the armory
+// pulled in the same direction and a good run counted twice.
 export const XP_PER_KILL = 12;
 export const XP_PER_WAVE = 25;
 export function xpForRun({ kills = 0, wave = 0 } = {}) {
@@ -34,43 +34,27 @@ export function xpForRun({ kills = 0, wave = 0 } = {}) {
   return Math.max(0, Math.round(Math.max(0, kills) * XP_PER_KILL + waveBonus));
 }
 
-const BY_KEY = new Map(WEAPONS.map((w) => [w.key, w]));
+const BAND_LABEL = new Map(BANDS.map((b) => [b.id, b.label]));
 
-// Every level that opens something, in order. A band opening is one rung
-// ("SUBMACHINE GUN on key 4"); a later gun inside an already-open band is
-// another ("M4A1 CARBINE, assault rifle"). Built from the weapon table so the
-// menu, the rank bar and the armory all describe the same road ahead, and a
-// tuning change to an unlockLevel moves all three at once.
+// The road ahead, as rungs. Every gun past the starting three is one rung -
+// there is no band step any more, because a band no longer owns a key; what you
+// earn is another gun for the pool your three slots draw from.
+//
+// Built from the weapon table so the menu, the rank bar and the armory all
+// describe the same ladder, and a tuning change to one unlockLevel moves all
+// three at once.
 export function unlockLadder() {
-  const rungs = [];
-  BANDS.forEach((band, i) => {
-    const guns = weaponsInBand(band.id);
-    const first = guns[0];
-    if ((band.unlockLevel || 1) > 1)
-      rungs.push({
-        level: band.unlockLevel,
-        kind: "band",
-        band: band.id,
-        key: i + 1,
-        label: band.label,
-        weapon: first ? first.name : "",
-      });
-    for (const w of guns) {
-      const lvl = w.unlockLevel || 1;
-      // The first gun in a band arrives with the band; it is not its own rung.
-      if (w === first || lvl <= (band.unlockLevel || 1)) continue;
-      rungs.push({
-        level: lvl,
-        kind: "weapon",
-        band: band.id,
-        key: i + 1,
-        label: w.name,
-        weapon: w.name,
-        klass: band.label,
-      });
-    }
-  });
-  return rungs.sort((a, b) => a.level - b.level || a.key - b.key);
+  return WEAPONS.filter((w) => (w.unlockLevel || 1) > 1)
+    .map((w) => ({
+      level: w.unlockLevel || 1,
+      kind: "weapon",
+      key: w.key,
+      band: w.band,
+      label: w.name,
+      weapon: w.name,
+      klass: BAND_LABEL.get(w.band) || "",
+    }))
+    .sort((a, b) => a.level - b.level || a.label.localeCompare(b.label));
 }
 
 // The first rung above a level, or null once the roster is open.
@@ -83,9 +67,11 @@ export function unlocksBetween(from, to) {
   return unlockLadder().filter((r) => r.level > from && r.level <= to);
 }
 
-// Persisted player profile: XP, level and the chosen loadout. Presentation
-// side by design — the sim is handed a loadout, it never reads this. Storage
-// is injected so tests can run it without a browser.
+const BY_KEY = new Map(WEAPONS.map((w) => [w.key, w]));
+
+// Persisted player profile: XP, level, and the three guns you carry.
+// Presentation side by design - the sim is handed a loadout, it never reads
+// this. Storage is injected so tests can run it without a browser.
 export class Progression {
   constructor(
     storage = typeof localStorage === "undefined" ? null : localStorage,
@@ -100,59 +86,76 @@ export class Progression {
     }
     if (!saved || typeof saved !== "object") saved = {};
     ((this.xp = Number.isFinite(saved.xp) && saved.xp > 0 ? saved.xp : 0),
-      (this.picks = this._sanitizePicks(saved.picks)),
+      (this.slots = this._sanitizeSlots(saved.slots)),
       (this.start = this._sanitizeStart(saved.start)));
   }
-  // Bands you have reached the level for, in band order, so each keeps a fixed
-  // number key whichever gun you put there. A new profile is three guns; the
-  // rest appear on the keys beneath as they unlock.
-  get bands() {
-    const level = this.level;
-    return BANDS.filter((b) => level >= (b.unlockLevel || 1));
-  }
+
+  // The three guns you deploy with, in key order.
   get loadout() {
-    return this.bands.map((b) => this.picks[b.id]);
+    return this.slots.slice();
   }
-  // A pick has to exist, be unlocked, and actually belong to its band. Any
-  // that does not falls back to the first unlocked gun in that band, so an
-  // edited or stale save can never leave a key holding nothing.
-  _sanitizePicks(picks) {
-    const want = picks && typeof picks === "object" ? picks : {};
-    return Object.fromEntries(
-      BANDS.map((b) => {
-        const key = want[b.id],
-          def = BY_KEY.get(key);
-        if (def && def.band === b.id && this.isUnlocked(key))
-          return [b.id, key];
-        const open = weaponsInBand(b.id).find((w) => this.isUnlocked(w.key));
-        return [b.id, open ? open.key : weaponsInBand(b.id)[0].key];
-      }),
+
+  // Every gun the current level has opened, in unlock order. This is the pool
+  // the three slots are filled from.
+  get unlocked() {
+    return WEAPONS.filter((w) => this.isUnlocked(w.key)).sort(
+      (a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0),
     );
   }
-  // Put a gun on its band's key.
-  equip(key) {
+
+  // A slot has to hold a gun that exists and is unlocked, and no gun may hold
+  // two slots. Anything that fails falls back to the first unlocked gun not
+  // already carried, so an edited or stale save can never leave a key empty or
+  // the same rifle on two of them.
+  _sanitizeSlots(slots) {
+    const want = Array.isArray(slots) ? slots : STARTER_LOADOUT;
+    const out = [];
+    for (let i = 0; i < LOADOUT_SIZE; i++) {
+      const key = want[i],
+        def = BY_KEY.get(key);
+      if (def && this.isUnlocked(key) && !out.includes(key)) {
+        out.push(key);
+        continue;
+      }
+      const fallback =
+        STARTER_LOADOUT.find((k) => !out.includes(k) && this.isUnlocked(k)) ||
+        WEAPONS.find((w) => this.isUnlocked(w.key) && !out.includes(w.key));
+      out.push(fallback ? fallback.key || fallback : STARTER_LOADOUT[i]);
+    }
+    return out;
+  }
+
+  // Put a gun in a slot. If it is already carried elsewhere the two swap, so
+  // reordering never silently drops one of the three.
+  equip(key, slot = 0) {
     const def = BY_KEY.get(key);
+    const at = Math.max(0, Math.min(LOADOUT_SIZE - 1, Math.floor(slot) || 0));
     if (!def || !this.isUnlocked(key)) return this.loadout;
-    ((this.picks = { ...this.picks, [def.band]: key }),
-      // If the gun that was deploying just got benched, deploy with its
-      // replacement rather than a gun the player is no longer carrying.
-      this.loadout.includes(this.start) || (this.start = key),
+    const next = this.slots.slice();
+    const existing = next.indexOf(key);
+    if (existing === at) return this.loadout;
+    if (existing >= 0) next[existing] = next[at];
+    next[at] = key;
+    ((this.slots = next),
+      // If the gun that was deploying just got benched, deploy with whatever
+      // replaced it rather than a gun you are no longer carrying.
+      this.slots.includes(this.start) || (this.start = this.slots[at]),
       this._save(),
       this._emit());
     return this.loadout;
   }
-  // The gun a run begins on. Must exist, be unlocked, and be one you carry;
-  // an edited or stale save falls back rather than starting you empty-handed.
+
+  // The gun a run begins on. Must exist, be unlocked, and be one you carry; an
+  // edited or stale save falls back rather than starting you empty-handed.
   _sanitizeStart(key) {
-    return key && this.loadout.includes(key) && this.isUnlocked(key)
-      ? key
-      : this.loadout.includes(DEFAULT_START)
-        ? DEFAULT_START
-        : this.loadout[0];
+    if (key && this.slots.includes(key) && this.isUnlocked(key)) return key;
+    return this.slots.includes(DEFAULT_START) ? DEFAULT_START : this.slots[0];
   }
+
   get level() {
     return levelForXp(this.xp);
   }
+
   // Progress through the current level, for the XP bar.
   get levelProgress() {
     const l = this.level;
@@ -165,63 +168,80 @@ export class Progression {
       frac: (this.xp - base) / (next - base),
     };
   }
+
   isUnlocked(key) {
     const def = BY_KEY.get(key);
     return !!def && this.level >= (def.unlockLevel || 0);
   }
-  // The next rung above where this profile stands, or null at the top.
+
+  // The next rung at this level, for the rank strip and the loadout screen.
   nextUnlock() {
     return nextUnlock(this.level);
   }
-  // Weapons for one slot, in unlock order, so the armory can list them.
+
+  // The level a locked gun opens at, for the armory to show what it costs.
+  unlockLevelOf(key) {
+    const def = BY_KEY.get(key);
+    return def ? def.unlockLevel || 0 : 0;
+  }
+
+  // Weapons for one slot type, in unlock order, so the armory can list them.
   forSlot(slot) {
     return WEAPONS.filter((w) => w.slot === slot).sort(
       (a, b) => (a.unlockLevel || 0) - (b.unlockLevel || 0),
     );
   }
-  // Whether this gun is the one currently holding its band's key.
+
   isEquipped(key) {
-    const def = BY_KEY.get(key);
-    return !!def && this.picks[def.band] === key;
+    return this.slots.includes(key);
   }
+
   // Choose the gun you deploy holding. Deliberately does not reorder the
-  // loadout: the number keys stay put so picking a new favourite does not
-  // move every other gun.
+  // loadout: the number keys stay put so picking a new favourite does not move
+  // the other two.
   setStart(key) {
-    if (!this.loadout.includes(key)) return this.start;
+    if (!this.slots.includes(key)) return this.start;
     ((this.start = key), this._save(), this._emit());
     return this.start;
   }
+
   // Which key selects a gun mid-run, 1-based, or 0 if it is not carried.
   slotOf(key) {
-    return this.loadout.indexOf(key) + 1;
+    return this.slots.indexOf(key) + 1;
   }
+
   // Bank a finished run. Returns what was earned so the debrief can show it,
-  // including any levels crossed.
+  // including any levels crossed and anything they opened.
   addRun(summary) {
     const gained = xpForRun(summary),
       before = this.level;
-    ((this.xp += gained), this._save(), this._emit());
+    this.xp += gained;
+    const after = this.level;
+    (this._save(), this._emit());
     return {
       gained,
-      level: this.level,
-      levelsGained: this.level - before,
-      unlocks: unlocksBetween(before, this.level),
+      level: after,
+      levelsGained: after - before,
+      unlocks: unlocksBetween(before, after),
     };
   }
+
   reset() {
     ((this.xp = 0),
-      (this.picks = { ...DEFAULT_PICKS }),
+      (this.slots = STARTER_LOADOUT.slice()),
       (this.start = DEFAULT_START),
       this._save(),
       this._emit());
   }
+
   onChange(fn) {
     this.listeners.push(fn);
   }
+
   _emit() {
     for (const fn of this.listeners) fn(this);
   }
+
   _save() {
     try {
       this.storage &&
@@ -229,7 +249,7 @@ export class Progression {
           STORAGE_KEY,
           JSON.stringify({
             xp: this.xp,
-            picks: this.picks,
+            slots: this.slots,
             start: this.start,
           }),
         );

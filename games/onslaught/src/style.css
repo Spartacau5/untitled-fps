@@ -1880,6 +1880,73 @@ body:has(#menu.hidden) .rank-xp {
   min-width: 0;
 }
 
+/* The loadout rail. Three keys, always three, sitting above the grid so what
+   you are taking is visible while you shop for what replaces it. */
+.arm-rail {
+  margin: 0 0 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.14);
+}
+.arm-rail-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.arm-rail-slot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(243, 246, 248, 0.04);
+  border: 1px solid rgba(243, 246, 248, 0.26);
+  color: var(--ui);
+  font: inherit;
+  cursor: pointer;
+}
+.arm-rail-slot:hover {
+  border-color: rgba(243, 246, 248, 0.5);
+}
+.arm-rail-slot.is-active {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.12);
+}
+.arm-rail-slot.is-active .arm-key {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0e12;
+}
+.arm-rail-slot.is-spawn .arm-name {
+  color: var(--accent);
+}
+.arm-rail-slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.arm-rail-tag {
+  grid-column: 2;
+  font: 600 9px/1 var(--font-ui);
+  letter-spacing: 0.16em;
+  color: rgba(243, 246, 248, 0.6);
+  min-height: 9px;
+}
+.arm-rail .arm-start {
+  margin-top: 8px;
+  width: 100%;
+}
+/* A gun the last run opened, until the player deploys again. Dashed so it
+   reads as an invitation to swap rather than as something already carried. */
+.arm-card.is-new {
+  border-style: dashed;
+  border-color: var(--warn);
+}
+.arm-card.is-new .arm-state {
+  color: var(--warn);
+}
+
 /* Touch play keeps the thumb zones free and respects cutouts in landscape. */
 .rotate-prompt {
   position: fixed;

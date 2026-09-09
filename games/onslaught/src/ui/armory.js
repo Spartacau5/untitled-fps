@@ -1,4 +1,4 @@
-import { BANDS, weaponsInBand } from "../data/weapons.js";
+import { LOADOUT_SIZE, WEAPONS } from "../data/weapons.js";
 import { unlockLadder } from "../core/progression.js";
 
 // Bars are relative to the strongest gun in the table for each stat, so they
@@ -14,42 +14,94 @@ const STATS = [
 
 const pct = (v, max) => Math.max(3, Math.round((v / max) * 100));
 
+// The roster in the order it opens, so the grid reads as a ladder left to
+// right and a newly earned gun lands next to the one before it rather than
+// somewhere in the middle of an alphabetical list.
+const ROSTER = WEAPONS.slice().sort(
+  (a, b) =>
+    (a.unlockLevel || 0) - (b.unlockLevel || 0) || a.name.localeCompare(b.name),
+);
+
+// You carry three guns and only three. The panel is therefore two halves: the
+// rail at the top is what you are taking, and the grid below is everything you
+// could take. Picking a slot on the rail then a gun in the grid is the whole
+// interaction - there is no drag, and no way to end up with four.
 export function mountArmory(progression, els, onChange) {
   // Peak value per stat across every gun, computed once.
-  const all = BANDS.flatMap((b) => weaponsInBand(b.id));
   const peaks = STATS.map(([, read]) =>
-    all.reduce((m, w) => Math.max(m, read(w)), 0),
+    ROSTER.reduce((m, w) => Math.max(m, read(w)), 0),
   );
+  const byKey = new Map(WEAPONS.map((w) => [w.key, w]));
+  // Which key the next grid pick lands on. Kept here rather than in the
+  // profile: it is a cursor in a menu, not something worth persisting.
+  let slot = 0;
+  // Guns the last run opened, marked until the player deploys again.
+  let fresh = new Set();
 
-  function card(weapon, key) {
+  function rail() {
+    const cards = progression.loadout
+      .map((key, i) => {
+        const w = byKey.get(key);
+        const active = i === slot,
+          starts = progression.start === key;
+        return `<button type="button" class="arm-rail-slot${
+          active ? " is-active" : ""
+        }${starts ? " is-spawn" : ""}" data-act="slot" data-slot="${i}" aria-pressed="${active}">
+          <span class="arm-key">${i + 1}</span>
+          <span class="arm-titles">
+            <span class="arm-name">${w ? w.name : "EMPTY"}</span>
+            <span class="arm-class">${w ? w.class : ""}</span>
+          </span>
+          <span class="arm-rail-tag">${starts ? "SPAWN" : active ? "EDITING" : ""}</span>
+        </button>`;
+      })
+      .join("");
+    const startKey = progression.start,
+      startW = byKey.get(startKey);
+    return `<div class="arm-rail">
+      <h3 class="arm-slot-title">YOUR LOADOUT<em>PICK A KEY, THEN A GUN</em></h3>
+      <div class="arm-rail-row">${cards}</div>
+      <button type="button" class="arm-start on" data-act="start-cycle">DEPLOYS WITH ${
+        startW ? startW.name : "KEY 1"
+      }</button>
+    </div>`;
+  }
+
+  function card(weapon) {
     const locked = !progression.isUnlocked(weapon.key),
-      equipped = progression.isEquipped(weapon.key),
-      starts = progression.start === weapon.key;
+      carried = progression.isEquipped(weapon.key),
+      on = progression.slotOf(weapon.key),
+      starts = progression.start === weapon.key,
+      isNew = fresh.has(weapon.key);
     const bars = STATS.map(
       ([label, read], i) =>
         `<span class="arm-stat"><span>${label}</span><i><b style="width:${pct(read(weapon), peaks[i])}%"></b></i></span>`,
     ).join("");
-    // Three states the player must never confuse: LOCKED (below level),
-    // EQUIPPED (this gun holds that number key) and DEPLOYING (equipped AND
-    // the gun you spawn holding). Each gets its own card class so the border,
-    // key badge and status chip can move together.
+    // Four states the player must never confuse: LOCKED (below level), NEW
+    // (just earned and not yet carried), SPAWN/ON KEY n (one of your three),
+    // and AVAILABLE. Each gets its own card class so the border, key badge and
+    // status chip move together.
     const state = locked
       ? `LOCKED · LEVEL ${weapon.unlockLevel}`
       : starts
-        ? `SPAWN · KEY ${key}`
-        : equipped
-          ? `ON KEY ${key}`
-          : "AVAILABLE";
-    // The card is a div holding two buttons: nesting one button inside
-    // another is invalid, and these are genuinely two different actions.
-    return `<div class="arm-card${equipped ? " equipped" : ""}${
+        ? `SPAWN · KEY ${on}`
+        : carried
+          ? `ON KEY ${on}`
+          : isNew
+            ? "NEW · UNLOCKED"
+            : "AVAILABLE";
+    // The badge is the number key, so a gun that holds none gets a dot rather
+    // than a letter: band initials collide (three guns start with S) and would
+    // read as keys that do not exist.
+    const badge = carried ? on : locked ? "🔒" : "·";
+    return `<div class="arm-card${carried ? " equipped" : ""}${
       starts ? " deploying" : ""
-    }${locked ? " locked" : ""}">
-      <button type="button" class="arm-pick" data-act="equip" data-key="${weapon.key}" aria-pressed="${equipped}"${
+    }${locked ? " locked" : ""}${isNew && !carried ? " is-new" : ""}">
+      <button type="button" class="arm-pick" data-act="equip" data-key="${weapon.key}" aria-pressed="${carried}"${
         locked ? " disabled" : ""
       }>
         <span class="arm-card-head">
-          <span class="arm-key">${key}</span>
+          <span class="arm-key">${badge}</span>
           <span class="arm-titles">
             <span class="arm-name">${weapon.name}</span>
             <span class="arm-class">${weapon.class}</span>
@@ -62,19 +114,16 @@ export function mountArmory(progression, els, onChange) {
         >
       </button>
       ${
-        equipped
-          ? `<button type="button" class="arm-start${starts ? " on" : ""}" data-act="start" data-key="${weapon.key}" aria-pressed="${starts}">${
-              starts ? "DEPLOYS WITH THIS" : "DEPLOY WITH THIS"
-            }</button>`
+        carried && !starts
+          ? `<button type="button" class="arm-start" data-act="start" data-key="${weapon.key}">DEPLOY WITH THIS</button>`
           : ""
       }
     </div>`;
   }
 
-  // A band the player has not reached is one line in a ladder, not a row of
-  // greyed-out cards: what it is, which key it will take, and the level that
-  // opens it. Later guns inside open bands are rungs too. The ladder is the
-  // road ahead in one glance; the cards are only for what you can touch.
+  // What is still to earn: one line per gun, the level that opens it, and what
+  // kind of gun it is. The road ahead in one glance; the cards above are only
+  // for what you can touch today.
   function ladder() {
     const level = progression.level;
     const rungs = unlockLadder().filter((r) => r.level > level);
@@ -87,11 +136,7 @@ export function mountArmory(progression, els, onChange) {
             <span class="arm-rung-lvl">LVL ${r.level}</span>
             <span class="arm-rung-body">
               <span class="arm-rung-name">${r.label}</span>
-              <span class="arm-rung-sub">${
-                r.kind === "band"
-                  ? `OPENS KEY ${r.key} · ${r.weapon}`
-                  : `${r.klass} · KEY ${r.key}`
-              }</span>
+              <span class="arm-rung-sub">${r.klass}</span>
             </span>
             ${i === 0 ? '<span class="arm-rung-tag">NEXT</span>' : ""}
           </div>`,
@@ -101,14 +146,12 @@ export function mountArmory(progression, els, onChange) {
   }
 
   function render() {
-    const level = progression.level;
-    const open = BANDS.filter((b) => level >= (b.unlockLevel || 1));
+    const pool = progression.unlocked.length;
     els.body.innerHTML =
-      `<p class="arm-note">You carry <b>${open.length}</b> ${
-        open.length === 1 ? "gun" : "guns"
-      }, one per number key. Guns in the same category share a key: pick the
-        one you want on it, then choose which you deploy holding. Level up to
-        open more keys.</p>
+      rail() +
+      `<p class="arm-note">You carry <b>${LOADOUT_SIZE}</b> guns, one per number
+        key - that never changes. Levelling opens more to choose between:
+        <b>${pool}</b> of ${WEAPONS.length} so far.</p>
       <div class="arm-legend">
         <span class="arm-legend-item"
           ><i class="arm-swatch is-deploying"></i>SPAWN GUN</span
@@ -119,25 +162,37 @@ export function mountArmory(progression, els, onChange) {
         ><span class="arm-legend-item"
           ><i class="arm-swatch is-locked"></i>LOCKED</span
         >
+      </div>
+      <div class="arm-slot">
+        <h3 class="arm-slot-title">ARMORY<em>KEY ${slot + 1} IS SELECTED</em></h3>
+        <div class="arm-grid">${ROSTER.map(card).join("")}</div>
       </div>` +
-      BANDS.map((band, i) => {
-        if (level < (band.unlockLevel || 1)) return "";
-        const guns = weaponsInBand(band.id);
-        return `<div class="arm-slot">
-            <h3 class="arm-slot-title">${band.label}<em>KEY ${i + 1}</em></h3>
-            <div class="arm-grid">${guns
-              .map((w) => card(w, i + 1))
-              .join("")}</div>
-          </div>`;
-      }).join("") +
       ladder();
   }
 
   els.body.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-act]");
     if (!btn || btn.disabled) return;
-    if (btn.dataset.act === "equip") progression.equip(btn.dataset.key);
-    else progression.setStart(btn.dataset.key);
+    const act = btn.dataset.act;
+    if (act === "slot") slot = Number(btn.dataset.slot) || 0;
+    else if (act === "equip") {
+      const key = btn.dataset.key;
+      // Tapping a gun you already carry selects its key rather than swapping
+      // it with itself - so the rail and the grid stay in step.
+      const at = progression.slotOf(key);
+      if (at) slot = at - 1;
+      else {
+        progression.equip(key, slot);
+        fresh.delete(key);
+      }
+    } else if (act === "start") progression.setStart(btn.dataset.key);
+    else if (act === "start-cycle") {
+      // One button that walks the three keys, so choosing a spawn gun does not
+      // need a second click target on every card.
+      const l = progression.loadout,
+        i = l.indexOf(progression.start);
+      progression.setStart(l[(i + 1) % l.length]);
+    }
     render();
     onChange && onChange(progression.loadout, progression.start);
   });
@@ -152,7 +207,13 @@ export function mountArmory(progression, els, onChange) {
     els.menuMain.classList.remove("hidden");
   };
   const isOpen = () => !els.panel.classList.contains("hidden");
+  // The game tells the armory what the last run opened so those guns are
+  // findable in a grid that only gets longer.
+  const setFresh = (keys) => {
+    fresh = new Set(keys || []);
+    isOpen() && render();
+  };
   els.btnOpen.addEventListener("click", open);
   els.btnBack.addEventListener("click", close);
-  return { open, close, isOpen, render };
+  return { open, close, isOpen, render, setFresh };
 }
