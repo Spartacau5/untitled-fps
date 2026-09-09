@@ -8,7 +8,7 @@ This repo is a fork of that catalog, stripped down to a single game. I am buildi
 
 ---
 
-Browser arena FPS. Placeholder title **UNTITLED ARENA**. Horde waves in a Times Square-inspired ring, eight guns, sprint / slide / ADS, and a top-5 all-time leaderboard.
+Browser arena FPS. Placeholder title **UNTITLED ARENA**. Horde waves in a Times Square-inspired ring, eight guns, sprint / slide / ADS, and a top-5 daily leaderboard that resets at 9PM ET.
 
 Live: [untitled-fps.vercel.app](https://untitled-fps.vercel.app)
 
@@ -100,12 +100,14 @@ empty; a missing file falls back to the drawn board.
 
 Every match starts from an integer seed (`?seed=` or the clock). The same seed replays the same layout, spawns, and combat stream.
 
-On death the client POSTs `{ name, score, kills, wave, elapsed, seed }` to `/api/leaderboard`. GET returns the top 5 by score, then kills. The store keeps 50 runs; the menu shows five.
+On death (or a pause-menu Restart / Exit) the client POSTs `{ name, score, kills, wave, elapsed, seed }` to `/api/leaderboard`. GET returns the top 5 by score, then kills, for the current round. The store keeps 50 runs per round; the menu shows five.
 
-- **Local / Vite:** file backend at `.data/leaderboard.json`
+The board is a daily contest. A round closes at 9PM `America/New_York` (`src/core/round.js`), and each round is stored under its own key (`onslaught:leaderboard:<YYYY-MM-DD>`), so a new day simply reads an empty board with no reset job to run. The menu countdown (`src/ui/contest.js`) reads the same boundary as the server. Redis rounds expire after 14 days.
+
+- **Local / Vite:** file backend at `.data/leaderboard.json`, a map of round id to board
 - **Vercel:** Redis when the env vars below are set, otherwise the function has no durable store
 
-Callsign is typed in `#player-name` on the menu. The board renders in `#leaderboard`.
+Player name is typed in `#player-name` on the menu. The board renders in `#leaderboard`, with unique visitor and unique player counts beneath it (`/api/play` marks a visitor as a player on their first Deploy).
 
 ## Player feedback
 
