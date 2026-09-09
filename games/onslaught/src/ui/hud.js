@@ -10,7 +10,7 @@ export class HUD {
       hitmarker: t("hitmarker"),
       dmg: t("dmg-indicators"),
       hpFill: t("hp-fill"),
-      wave: t("st-wave"),
+      wave: t("wave-count"),
       enemies: t("st-enemies"),
       kills: t("st-kills"),
       wpnName: t("wpn-name"),

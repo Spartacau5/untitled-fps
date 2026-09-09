@@ -122,16 +122,21 @@ export const ENEMIES = {
   // ground and steers them over low cover), a sphere hitbox of `radius`, and a
   // core the size of `coreRadius` that counts as a headshot.
   //
-  // The gunner arrives at wave 8. Small, quick and hard to lead - the answer
-  // to a player who has learned to hold a lane at head height and never look
-  // up. It fires a flat, fast bolt in short bursts, so it punishes standing
-  // still without deleting anyone who moves.
+  // The gunner arrives at wave 8. Quick and hard to lead - the answer to a
+  // player who has learned to hold a lane at head height and never look up. It
+  // fires a flat, fast bolt in short bursts, so it punishes standing still
+  // without deleting anyone who moves.
+  //
+  // Sized up from its first pass: at radius 0.34 it was a 0.68 m target at a
+  // 16 m standoff, which was not "hard to lead" so much as hard to touch. The
+  // hitbox is radius * scale, so this is 0.58 m - roughly triple the
+  // cross-section, and still barely a third of the gunship's.
   drone: {
     key: "drone",
     name: "WASP DRONE",
     hp: 90,
     speed: 9.2,
-    scale: 1,
+    scale: 1.25,
     damage: 9,
     range: 0,
     cooldown: 2.1,
@@ -139,8 +144,8 @@ export const ENEMIES = {
     swing: 0.5,
     score: 250,
     xp: 22,
-    radius: 0.34,
-    coreRadius: 0.17,
+    radius: 0.46,
+    coreRadius: 0.23,
     mass: 0.8,
     ranged: !0,
     big: !1,

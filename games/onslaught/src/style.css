@@ -305,6 +305,27 @@ canvas#game {
   padding: 14px 18px;
   border-right: 4px solid var(--accent);
 }
+/* Wave, top left. The mirror of the score card: same paper, same padding, same
+   title face - the accent strip swaps to the left edge, because a card anchored
+   to the left of the screen wants its weight on that side. A bare number would
+   be ambiguous where a score is not, so this one keeps a caption. */
+.hud-tl {
+  position: absolute;
+  left: 36px;
+  top: 26px;
+  text-align: left;
+  background: var(--paper);
+  padding: 14px 18px;
+  border-left: 4px solid var(--accent);
+}
+.hud-cap {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--dim);
+  margin-bottom: 2px;
+}
+.wave-count,
 .score {
   font-family: var(--font-title);
   font-size: 30px;
@@ -1492,6 +1513,7 @@ body:has(#menu.hidden) .rank {
 }
 .hud-bl,
 .hud-br,
+.hud-tl,
 .hud-tr {
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
 }
@@ -2257,6 +2279,26 @@ body:has(#menu.hidden) .rank {
   top: 12px;
   bottom: auto;
   padding: 7px 10px;
+  transform: scale(0.8);
+  transform-origin: top right;
+}
+/* Touch moves the vitals and weapon panels into the top corners, which is
+   where the wave and score cards live on a desktop. Stack them underneath
+   rather than on top. The score half of this was already broken before the
+   wave card existed - the score was drawing straight over the ammo count on
+   every phone - and it is the same defect on the mirror side, so it is fixed
+   here rather than left as the one corner that still overlaps. */
+.touch-mode .hud-tl {
+  left: calc(env(safe-area-inset-left) + 12px);
+  top: 84px;
+  padding: 6px 10px;
+  transform: scale(0.8);
+  transform-origin: top left;
+}
+.touch-mode .hud-tr {
+  right: calc(env(safe-area-inset-right) + 12px);
+  top: 124px;
+  padding: 6px 10px;
   transform: scale(0.8);
   transform-origin: top right;
 }
