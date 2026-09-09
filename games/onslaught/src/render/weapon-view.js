@@ -12,6 +12,7 @@ import {
   makeRedDotMaterial,
   updateRedDot,
 } from "./weapons/kit.js";
+import { scopeAmount } from "./scope.js";
 
 // First-person viewmodel. Reads sim Weapons/Player state each frame and derives
 // the pose; reacts to sim events for kicks, flash and bolt motion. Owns every
@@ -175,6 +176,9 @@ export class WeaponView {
       w.reloading || sim.switching || this.animPos.set(0, 0, 0),
       w.reloading || sim.switching || this.animRot.set(0, 0, 0),
       this._pose(sim, player, input, dt, time),
+      // Hidden only once the optic's surround already covers it, so the
+      // model going away is never something you can catch happening.
+      (this.rig.visible = scopeAmount(sim, player) < 0.85),
       this.cam.updateMatrixWorld(!0),
       this.parts.muzzle.getWorldPosition(this.muzzleWorld),
       this.parts.lens && updateRedDot(this.redDotMat, this.parts.sight, time),

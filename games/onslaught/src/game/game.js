@@ -45,6 +45,7 @@ import { TouchInput } from "../core/touch-input.js";
 import { mountTouchControls } from "../ui/touch-controls.js";
 import { createSky } from "../render/sky.js";
 import { WeaponView } from "../render/weapon-view.js";
+import { scopeAmount } from "../render/scope.js";
 import * as EV from "../sim/events.js";
 import { World } from "../sim/world.js";
 import { HUD } from "../ui/hud.js";
@@ -126,7 +127,9 @@ export class Game {
       this.audio.init(),
       this.debug && ((this.audio.musicOn = !1), (this.audio.ambienceOn = !1)),
       (this.hud = new HUD()),
-      (this.arenaView = new ArenaView(this.scene, this.world.arena, { mobile })),
+      (this.arenaView = new ArenaView(this.scene, this.world.arena, {
+        mobile,
+      })),
       (this.sky = createSky(SUN_DIR)),
       this.scene.add(this.sky.mesh),
       (this.particles = new ParticleSystem(this.scene)),
@@ -179,17 +182,23 @@ export class Game {
         theme.lights.weaponHemi.intensity,
       ),
     );
-    const a = mobile ? new Group() : new PointLight(
-      theme.lights.weaponFill.color,
-      theme.lights.weaponFill.intensity,
-      4,
-      2,
-    );
+    const a = mobile
+      ? new Group()
+      : new PointLight(
+          theme.lights.weaponFill.color,
+          theme.lights.weaponFill.intensity,
+          4,
+          2,
+        );
     (a.position.set(-0.6, -0.3, -0.6),
       this.weaponCamera.add(a),
-      (this.muzzleLight = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16752704, 0, 20, 2)),
+      (this.muzzleLight = mobile
+        ? Object.assign(new Group(), { intensity: 0 })
+        : new PointLight(16752704, 0, 20, 2)),
       this.scene.add(this.muzzleLight),
-      (this.impactLight = mobile ? Object.assign(new Group(), { intensity: 0 }) : new PointLight(16760960, 0, 9, 2)),
+      (this.impactLight = mobile
+        ? Object.assign(new Group(), { intensity: 0 })
+        : new PointLight(16760960, 0, 9, 2)),
       this.scene.add(this.impactLight),
       !mobile && this._setupEnvironment(),
       this._buildPickupProto(),
@@ -374,7 +383,9 @@ export class Game {
   // Everything else about the look is unchanged, so dropping quality trades
   // sharpness for framerate rather than turning the art off.
   _applyQuality(level) {
-    const tier = this.mobile ? QUALITY_TIERS[0] : QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
+    const tier = this.mobile
+      ? QUALITY_TIERS[0]
+      : QUALITY_TIERS[Math.round(level)] || QUALITY_TIERS[2];
     this.renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, tier.pixelRatio),
     );
@@ -1164,6 +1175,7 @@ export class Game {
         W.adsSmooth < 0.45 && !n.dead && W.sprintBlend < 0.6,
       ),
       this.hud.setHealth(n.hp, n.maxHp),
+      this.hud.setScope(scopeAmount(W, n)),
       this.hud.setStats(
         w.wave,
         w.enemies.alive + w.queue.length,

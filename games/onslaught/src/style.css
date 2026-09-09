@@ -1479,39 +1479,278 @@ canvas#game {
 }
 
 /* Touch play keeps the thumb zones free and respects cutouts in landscape. */
-.rotate-prompt { position:fixed; inset:0; z-index:200; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; background:#10151a; color:#f3f6f8; }
-.rotate-prompt[hidden], .touch-controls[hidden] { display:none; }
-.rotate-device { font-size:72px; color:var(--accent); }
-.rotate-prompt h2 { letter-spacing:3px; margin:12px 0; }
-.rotate-prompt p { color:#b9c2c9; line-height:1.6; }
-.touch-controls { position:fixed; inset:0; z-index:5; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-.touch-mode #game { touch-action:none; }
-.touch-button { position:absolute; width:64px; height:64px; display:grid; place-items:center; align-content:center; gap:2px; border:1px solid rgba(226,238,244,.35); border-radius:18px; background:linear-gradient(145deg,rgba(37,53,63,.76),rgba(10,17,22,.45)); color:#edf3f5; font:600 10px/1 var(--font-ui, sans-serif); letter-spacing:.12em; padding:0; touch-action:none; box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 6px 18px rgba(0,0,0,.2); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); transition:transform .12s ease,background .12s ease,border-color .12s ease,box-shadow .12s ease; }
-.touch-button::after { content:""; position:absolute; inset:5px; border:1px solid rgba(255,255,255,.08); border-radius:13px; pointer-events:none; }
-.touch-glyph { position:relative; z-index:1; font:700 22px/1 var(--font-title, sans-serif); color:#f4f7f8; text-shadow:0 1px 8px rgba(0,0,0,.7); }
-.touch-label { position:relative; z-index:1; font-size:8px; letter-spacing:.1em; opacity:.78; }
-.touch-button:active, .touch-button[aria-pressed="true"] { transform:scale(.94); border-color:#ff9a61; background:linear-gradient(145deg,rgba(126,57,31,.82),rgba(38,24,22,.66)); box-shadow:inset 0 1px 0 rgba(255,224,202,.28),0 0 18px rgba(255,99,36,.22); }
-.touch-fire { width:86px; height:86px; right:calc(env(safe-area-inset-right) + 28px); bottom:112px; border-radius:50%; border-color:rgba(255,151,96,.62); }
-.touch-fire .touch-glyph { font-size:28px; color:#ffb082; }
-.touch-ads { right:calc(env(safe-area-inset-right) + 128px); bottom:134px; }
-.touch-jump { right:calc(env(safe-area-inset-right) + 16px); bottom:34px; }
-.touch-crouch { right:calc(env(safe-area-inset-right) + 90px); bottom:22px; }
-.touch-reload { right:calc(env(safe-area-inset-right) + 164px); bottom:40px; }
-.touch-weapon { left:calc(50% - 33px); bottom:calc(env(safe-area-inset-bottom) + 10px); width:66px; height:48px; border-radius:14px; }
-.touch-sprint { left:calc(env(safe-area-inset-left) + 24px); bottom:182px; width:82px; height:48px; border-radius:14px; }
-.touch-pause { top:calc(env(safe-area-inset-top) + 9px); left:calc(50% - 34px); width:68px; height:42px; border-radius:12px; }
-.touch-pause .touch-glyph { font-size:16px; }
-.touch-stick { display:none; position:absolute; width:96px; height:96px; transform:translate(-50%,-50%); border:1px solid #ffffff70; border-radius:50%; background:#ffffff0c; pointer-events:none; }
-.touch-stick i { position:absolute; left:50%; top:50%; width:40px; height:40px; border:1px solid #ffffffa0; border-radius:50%; background:#ffffff35; }
-.touch-mode .menu { padding:12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
-.touch-mode .menu-inner { max-width:760px; width:100%; padding:18px 24px; margin:auto; box-sizing:border-box; }
-.touch-mode .title { font-size:38px; letter-spacing:4px; }
-.touch-mode .subtitle { font-size:13px; letter-spacing:3px; }
-.touch-mode .hud-bl { left:calc(env(safe-area-inset-left) + 12px); top:12px; bottom:auto; padding:7px 10px; gap:4px; transform:scale(.8); transform-origin:top left; }
-.touch-mode .hud-br { right:calc(env(safe-area-inset-right) + 12px); top:12px; bottom:auto; padding:7px 10px; transform:scale(.8); transform-origin:top right; }
-.touch-mode .banner { top:28%; }
-.touch-mode .banner-main { font-size:clamp(32px,7vw,54px); letter-spacing:5px; }
-.touch-mode .banner-sub { font-size:13px; letter-spacing:3px; }
-.touch-mode .boot-title { font-size:clamp(28px, 6vw, 54px); }
-.touch-mode .menu button { min-height:44px; }
-.touch-mode .ctrl-cols { grid-template-columns:1fr; }
+.rotate-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  background: #10151a;
+  color: #f3f6f8;
+}
+.rotate-prompt[hidden],
+.touch-controls[hidden] {
+  display: none;
+}
+.rotate-device {
+  font-size: 72px;
+  color: var(--accent);
+}
+.rotate-prompt h2 {
+  letter-spacing: 3px;
+  margin: 12px 0;
+}
+.rotate-prompt p {
+  color: #b9c2c9;
+  line-height: 1.6;
+}
+.touch-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.touch-mode #game {
+  touch-action: none;
+}
+.touch-button {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 1px solid rgba(226, 238, 244, 0.35);
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(37, 53, 63, 0.76),
+    rgba(10, 17, 22, 0.45)
+  );
+  color: #edf3f5;
+  font: 600 10px/1 var(--font-ui, sans-serif);
+  letter-spacing: 0.12em;
+  padding: 0;
+  touch-action: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.touch-button::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  pointer-events: none;
+}
+.touch-glyph {
+  position: relative;
+  z-index: 1;
+  font: 700 22px/1 var(--font-title, sans-serif);
+  color: #f4f7f8;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+.touch-label {
+  position: relative;
+  z-index: 1;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  opacity: 0.78;
+}
+.touch-button:active,
+.touch-button[aria-pressed="true"] {
+  transform: scale(0.94);
+  border-color: #ff9a61;
+  background: linear-gradient(
+    145deg,
+    rgba(126, 57, 31, 0.82),
+    rgba(38, 24, 22, 0.66)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 224, 202, 0.28),
+    0 0 18px rgba(255, 99, 36, 0.22);
+}
+.touch-fire {
+  width: 86px;
+  height: 86px;
+  right: calc(env(safe-area-inset-right) + 28px);
+  bottom: 112px;
+  border-radius: 50%;
+  border-color: rgba(255, 151, 96, 0.62);
+}
+.touch-fire .touch-glyph {
+  font-size: 28px;
+  color: #ffb082;
+}
+.touch-ads {
+  right: calc(env(safe-area-inset-right) + 128px);
+  bottom: 134px;
+}
+.touch-jump {
+  right: calc(env(safe-area-inset-right) + 16px);
+  bottom: 34px;
+}
+.touch-crouch {
+  right: calc(env(safe-area-inset-right) + 90px);
+  bottom: 22px;
+}
+.touch-reload {
+  right: calc(env(safe-area-inset-right) + 164px);
+  bottom: 40px;
+}
+.touch-weapon {
+  left: calc(50% - 33px);
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  width: 66px;
+  height: 48px;
+  border-radius: 14px;
+}
+.touch-sprint {
+  left: calc(env(safe-area-inset-left) + 24px);
+  bottom: 182px;
+  width: 82px;
+  height: 48px;
+  border-radius: 14px;
+}
+.touch-pause {
+  top: calc(env(safe-area-inset-top) + 9px);
+  left: calc(50% - 34px);
+  width: 68px;
+  height: 42px;
+  border-radius: 12px;
+}
+.touch-pause .touch-glyph {
+  font-size: 16px;
+}
+.touch-stick {
+  display: none;
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #ffffff70;
+  border-radius: 50%;
+  background: #ffffff0c;
+  pointer-events: none;
+}
+.touch-stick i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ffffffa0;
+  border-radius: 50%;
+  background: #ffffff35;
+}
+.touch-mode .menu {
+  padding: 12px max(16px, env(safe-area-inset-right)) 12px
+    max(16px, env(safe-area-inset-left));
+}
+.touch-mode .menu-inner {
+  max-width: 760px;
+  width: 100%;
+  padding: 18px 24px;
+  margin: auto;
+  box-sizing: border-box;
+}
+.touch-mode .title {
+  font-size: 38px;
+  letter-spacing: 4px;
+}
+.touch-mode .subtitle {
+  font-size: 13px;
+  letter-spacing: 3px;
+}
+.touch-mode .hud-bl {
+  left: calc(env(safe-area-inset-left) + 12px);
+  top: 12px;
+  bottom: auto;
+  padding: 7px 10px;
+  gap: 4px;
+  transform: scale(0.8);
+  transform-origin: top left;
+}
+.touch-mode .hud-br {
+  right: calc(env(safe-area-inset-right) + 12px);
+  top: 12px;
+  bottom: auto;
+  padding: 7px 10px;
+  transform: scale(0.8);
+  transform-origin: top right;
+}
+.touch-mode .banner {
+  top: 28%;
+}
+.touch-mode .banner-main {
+  font-size: clamp(32px, 7vw, 54px);
+  letter-spacing: 5px;
+}
+.touch-mode .banner-sub {
+  font-size: 13px;
+  letter-spacing: 3px;
+}
+.touch-mode .boot-title {
+  font-size: clamp(28px, 6vw, 54px);
+}
+.touch-mode .menu button {
+  min-height: 44px;
+}
+.touch-mode .ctrl-cols {
+  grid-template-columns: 1fr;
+}
+
+/* ---- sniper optic ------------------------------------------------------ */
+.scope-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  /* --scope is written by the HUD each frame: 0 while hip firing, 1 once the
+     optic has fully taken the view. Everything below is driven from it so the
+     glass blends in with the rifle rather than switching on. */
+  opacity: var(--scope, 0);
+  /* Short enough to feel immediate, long enough that a reload or a weapon
+     switch fades the glass out instead of cutting it. */
+  transition: opacity 90ms linear;
+}
+.scope-aperture {
+  position: absolute;
+  width: min(74vh, 74vw);
+  aspect-ratio: 1;
+  left: 50%;
+  top: 50%;
+  /* Eases open as it fades, the way an optic fills the eye box. */
+  transform: translate(-50%, -50%) scale(calc(0.9 + 0.1 * var(--scope, 0)));
+  border-radius: 50%;
+  box-shadow:
+    /* Opaque surround. Anything translucent lets the world bleed around the
+       lens and the whole thing reads as a flat cutout. */
+    0 0 0 150vmax #000,
+    /* Light falling off toward the rim is what makes it read as glass */ inset
+      0 0 74px 16px rgba(0, 0, 0, 0.82),
+    inset 0 0 16px 2px rgba(0, 0, 0, 0.45),
+    /* Thin bright ring: the edge of the objective */ inset 0 0 0 1.5px
+      rgba(150, 166, 164, 0.32);
+}
+.scope-aperture svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

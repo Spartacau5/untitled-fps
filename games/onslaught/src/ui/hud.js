@@ -71,6 +71,25 @@ export class HUD {
       window.addEventListener("resize", () => {
         ((this.w = window.innerWidth), (this.h = window.innerHeight));
       }));
+    // Sniper optic. The reticle is drawn twice - a soft light halo beneath a
+    // dark core - so it stays readable against bright pavement and dark
+    // interiors alike; a single dark hairline vanishes on either.
+    this.scope = document.createElement("div");
+    this.scope.className = "scope-overlay hidden";
+    this.scope.setAttribute("aria-hidden", "true");
+    this.scope.innerHTML = `<div class="scope-aperture"><svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#e8f0ef" stroke-opacity=".34" stroke-linecap="round"><path d="M200 54V184 M200 216V346 M54 200H184 M216 200H346 M100 195v10 M140 197v6 M260 197v6 M300 195v10 M195 100h10 M197 140h6 M197 260h6 M195 300h10" stroke-width="3.2"/><path d="M200 0V54 M200 346V400 M0 200H54 M346 200H400" stroke-width="7.5"/></g><g fill="none" stroke="#080c0c" stroke-linecap="round"><path d="M200 54V184 M200 216V346 M54 200H184 M216 200H346 M100 195v10 M140 197v6 M260 197v6 M300 195v10 M195 100h10 M197 140h6 M197 260h6 M195 300h10" stroke-width="1.15"/><path d="M200 0V54 M200 346V400 M0 200H54 M346 200H400" stroke-width="5"/></g><circle cx="200" cy="200" r="1.7" fill="#d8402f"/></svg></div>`;
+    this.el.hud.prepend(this.scope);
+    this._scopeT = 0;
+  }
+  // Continuous, not a toggle: the caller passes how far the optic has taken
+  // over and the CSS reads it as a custom property, so the glass irises in with
+  // the rifle instead of appearing in one frame.
+  setScope(amount) {
+    const t = Math.max(0, Math.min(1, amount || 0));
+    if (this._scopeT === t) return;
+    this._scopeT = t;
+    (this.scope.style.setProperty("--scope", t.toFixed(3)),
+      this.scope.classList.toggle("hidden", t <= 0.001));
   }
   _set(t, e, n) {
     this.cache[t] !== n && ((this.cache[t] = n), (e.textContent = n));
