@@ -18,11 +18,11 @@ const STYLES = {
   metal: `
     float grain = noise3(op * vec3(90.0, 90.0, 320.0));
     float mottle = fbm3(op * 26.0);
-    // Edges of a box read as the extremes of local position on each axis, so
-    // this brightens corners and leaves flats alone -- the way a carried gun
-    // actually wears.
-    vec3 ax = abs(normalize(op + 1e-5));
-    float edge = smoothstep(0.55, 0.95, max(ax.x, max(ax.y, ax.z)));
+    // Curvature from the authored bevel normals: long flat receivers stay
+    // satin while narrow edges catch a worn highlight. Dividing by the
+    // position derivative makes this independent of screen size/distance.
+    float curvature = length(fwidth(normalize(vONormal))) / max(length(fwidth(op)), 0.0001);
+    float edge = smoothstep(45.0, 180.0, curvature);
     float rub = edge * smoothstep(0.35, 0.75, mottle);
     tint = 0.90 + 0.16 * grain + rub * 0.42;
     rough = -0.14 * rub + 0.13 * (mottle - 0.5);`,
@@ -30,8 +30,8 @@ const STYLES = {
   metalDark: `
     float grain = noise3(op * vec3(70.0, 70.0, 240.0));
     float mottle = fbm3(op * 22.0);
-    vec3 ax = abs(normalize(op + 1e-5));
-    float edge = smoothstep(0.62, 0.98, max(ax.x, max(ax.y, ax.z)));
+    float curvature = length(fwidth(normalize(vONormal))) / max(length(fwidth(op)), 0.0001);
+    float edge = smoothstep(65.0, 220.0, curvature);
     float rub = edge * smoothstep(0.45, 0.85, mottle);
     tint = 0.88 + 0.12 * grain + rub * 0.55;
     rough = -0.20 * rub + 0.10 * (mottle - 0.5);`,
@@ -80,12 +80,18 @@ export function applyGunWear(material, style, key) {
   if (!body) return material;
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vOPos;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvOPos = position;");
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vOPos;\nvarying vec3 vONormal;",
+      )
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvOPos = position;\nvONormal = normal;",
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
-        `#include <common>\nvarying vec3 vOPos;\n${NOISE_GLSL}`,
+        `#include <common>\nvarying vec3 vOPos;\nvarying vec3 vONormal;\n${NOISE_GLSL}`,
       )
       .replace(
         "#include <map_fragment>",
