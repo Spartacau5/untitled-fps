@@ -59,6 +59,7 @@ import {
   fetchBoard,
   loadPlayerName,
   markPlayed,
+  mountContestTabs,
   renderBoard,
   savePlayerName,
   submitRun as postRun,
@@ -267,6 +268,9 @@ export class Game {
       this._warmViewmodels(),
       this.hud.setContest(Date.now()),
       this.hud.setSlots(this.world.weapons.weapons.length),
+      mountContestTabs(this.hud.el.menuRight, {
+        winnersEl: this.hud.el.winnersBoard,
+      }),
       // The rank strip is on from the first frame the boot reveal shows. Any
       // change to the profile - a banked run, an armory pick - redraws it.
       this.hud.setRank(this.progression),

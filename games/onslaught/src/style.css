@@ -593,6 +593,37 @@ canvas#game {
   color: var(--accent);
   margin-bottom: 14px;
 }
+.contest-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.contest-tab {
+  padding: 8px 6px;
+  border: 1px solid rgba(243, 246, 248, 0.28);
+  background: transparent;
+  color: var(--dim);
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+.contest-tab:hover {
+  color: var(--ui);
+  border-color: rgba(243, 246, 248, 0.5);
+}
+.contest-tab.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 90, 31, 0.1);
+}
+.contest-pane.hidden {
+  display: none !important;
+}
+.winners-board .lb-table td:first-child {
+  color: var(--dim);
+  white-space: nowrap;
+}
 /* Pause: nothing but the decision. */
 .menu[data-mode="paused"] .menu-left,
 .menu[data-mode="paused"] .menu-right {

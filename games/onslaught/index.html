@@ -164,14 +164,22 @@
         </div>
       </section>
 
-      <aside id="menu-right" class="menu-panel menu-right">
-        <div class="panel-kicker">DAILY CONTEST</div>
-        <div id="prize" class="prize hidden">
-          <span class="prize-copy">HIGHEST SCORE TODAY WINS</span>
-          <span class="prize-tag">$10</span>
-          <span id="prize-clock" class="prize-clock"></span>
+      <aside id="menu-right" class="menu-panel menu-right" data-contest-tab="daily">
+        <div class="contest-tabs" role="tablist" aria-label="Contest">
+          <button type="button" class="contest-tab is-on" role="tab" aria-selected="true" data-contest-tab="daily" id="tab-daily">DAILY CONTEST</button>
+          <button type="button" class="contest-tab" role="tab" aria-selected="false" data-contest-tab="winners" id="tab-winners">PREVIOUS WINNERS</button>
         </div>
-        <div id="leaderboard" class="leaderboard"></div>
+        <div id="contest-daily" class="contest-pane" role="tabpanel" aria-labelledby="tab-daily">
+          <div id="prize" class="prize hidden">
+            <span class="prize-copy">HIGHEST SCORE TODAY WINS</span>
+            <span class="prize-tag">$10</span>
+            <span id="prize-clock" class="prize-clock"></span>
+          </div>
+          <div id="leaderboard" class="leaderboard"></div>
+        </div>
+        <div id="contest-winners" class="contest-pane hidden" role="tabpanel" aria-labelledby="tab-winners" hidden>
+          <div id="winners-board" class="leaderboard winners-board"></div>
+        </div>
       </aside>
     </div>
     <div class="menu-inner menu-overlays">

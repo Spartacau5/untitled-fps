@@ -69,6 +69,8 @@ export class HUD {
       prize: t("prize"),
       prizeClock: t("prize-clock"),
       leaderboard: t("leaderboard"),
+      winnersBoard: t("winners-board"),
+      menuRight: t("menu-right"),
       title: document.querySelector(".title"),
       subtitle: document.querySelector(".subtitle"),
     }),

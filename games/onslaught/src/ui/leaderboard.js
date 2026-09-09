@@ -1,3 +1,9 @@
+import {
+  WINNERS,
+  formatWinnerDate,
+  latestWinners,
+} from "../data/winners.js";
+
 const NAME_KEY = "onslaught.playerName";
 const API = "/api/leaderboard";
 
@@ -71,6 +77,61 @@ export function renderBoard(el, payload, youName) {
     .join("");
   el.innerHTML = `<div class="lb-title">TOP OPERATORS</div>
     <table class="lb-table"><thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>${foot}`;
+}
+
+// Hall of fame for closed contest days. Newest five only; seeded winners
+// cover the nights before the daily board started archiving itself.
+export function renderWinners(el, list = WINNERS) {
+  if (!el) return;
+  const rows = latestWinners(list);
+  if (!rows.length) {
+    el.innerHTML =
+      `<div class="lb-title">HALL OF FAME</div><div class="lb-empty">NO WINNERS YET</div>`;
+    return;
+  }
+  const body = rows
+    .map(
+      (w) =>
+        `<tr><td>${formatWinnerDate(w.date)}</td><td>${escapeHtml(w.name)}</td><td>${Number(w.score).toLocaleString("en-US")}</td><td>${w.wave != null ? `W${w.wave}` : ""}</td></tr>`,
+    )
+    .join("");
+  el.innerHTML = `<div class="lb-title">HALL OF FAME</div>
+    <table class="lb-table"><thead><tr><th>DAY</th><th>NAME</th><th>SCORE</th><th></th></tr></thead><tbody>${body}</tbody></table>
+    <div class="lb-count"><span>LATEST ${rows.length} WINNER${rows.length === 1 ? "" : "S"}</span></div>`;
+}
+
+// Tab switcher on the contest card. Defaults to today's board; winners are
+// rendered once up front so flipping tabs never waits on the network.
+export function mountContestTabs(root, { winnersEl } = {}) {
+  if (!root) return { setTab() {} };
+  renderWinners(winnersEl);
+  const setTab = (tab) => {
+    const next = tab === "winners" ? "winners" : "daily";
+    root.dataset.contestTab = next;
+    for (const btn of root.querySelectorAll("[data-contest-tab]")) {
+      if (!btn.matches("button")) continue;
+      const on = btn.dataset.contestTab === next;
+      btn.classList.toggle("is-on", on);
+      btn.setAttribute("aria-selected", String(on));
+    }
+    const daily = root.querySelector("#contest-daily");
+    const winners = root.querySelector("#contest-winners");
+    if (daily) {
+      daily.classList.toggle("hidden", next !== "daily");
+      daily.hidden = next !== "daily";
+    }
+    if (winners) {
+      winners.classList.toggle("hidden", next !== "winners");
+      winners.hidden = next !== "winners";
+    }
+  };
+  root.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-contest-tab]");
+    if (!btn || !root.contains(btn)) return;
+    setTab(btn.dataset.contestTab);
+  });
+  setTab(root.dataset.contestTab || "daily");
+  return { setTab };
 }
 
 export async function fetchBoard() {
