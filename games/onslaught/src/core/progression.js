@@ -8,12 +8,13 @@ import {
 
 export const STORAGE_KEY = "onslaught.profile.v1";
 
-// Cumulative XP needed to reach a level. Quadratic, so early levels arrive
-// quickly and later ones stretch out. Level 1 is where everyone starts.
+// Cumulative XP to reach a level. Mildly quadratic, tuned arcade-easy: the
+// first unlock lands inside a few runs and the whole roster opens in an
+// evening or three, rather than gating firepower behind a grind.
 export const MAX_LEVEL = 50;
 export function xpForLevel(level) {
   const n = Math.max(0, level - 1);
-  return 200 * n + 60 * n * n;
+  return 1200 * n + 300 * n * n;
 }
 export function levelForXp(xp) {
   let level = 1;
@@ -21,10 +22,16 @@ export function levelForXp(xp) {
   return level;
 }
 
-// What a finished run is worth. Score dominates, with kills and depth adding
-// enough that a short aggressive run still pays.
-export function xpForRun({ score = 0, kills = 0, wave = 0 } = {}) {
-  return Math.max(0, Math.round(score / 10) + kills * 2 + wave * 25);
+// Kills are the whole of it, plus a bonus per wave cleared that grows with
+// depth. Score is deliberately not part of this: it is the thing you compete
+// on daily, and letting it feed unlocks would mean the leaderboard and the
+// armory pulled in the same direction and a good run counted twice.
+export const XP_PER_KILL = 12;
+export const XP_PER_WAVE = 25;
+export function xpForRun({ kills = 0, wave = 0 } = {}) {
+  const cleared = Math.max(0, Math.floor(wave));
+  const waveBonus = (XP_PER_WAVE * cleared * (cleared + 1)) / 2;
+  return Math.max(0, Math.round(Math.max(0, kills) * XP_PER_KILL + waveBonus));
 }
 
 const BY_KEY = new Map(WEAPONS.map((w) => [w.key, w]));
@@ -49,10 +56,15 @@ export class Progression {
       (this.picks = this._sanitizePicks(saved.picks)),
       (this.start = this._sanitizeStart(saved.start)));
   }
-  // One gun per band, in band order, so each keeps a fixed number key
-  // whichever gun you put there.
+  // Bands you have reached the level for, in band order, so each keeps a fixed
+  // number key whichever gun you put there. A new profile is three guns; the
+  // rest appear on the keys beneath as they unlock.
+  get bands() {
+    const level = this.level;
+    return BANDS.filter((b) => level >= (b.unlockLevel || 1));
+  }
   get loadout() {
-    return BANDS.map((b) => this.picks[b.id]);
+    return this.bands.map((b) => this.picks[b.id]);
   }
   // A pick has to exist, be unlocked, and actually belong to its band. Any
   // that does not falls back to the first unlocked gun in that band, so an
@@ -63,9 +75,10 @@ export class Progression {
       BANDS.map((b) => {
         const key = want[b.id],
           def = BY_KEY.get(key);
-        if (def && def.band === b.id && this.isUnlocked(key)) return [b.id, key];
+        if (def && def.band === b.id && this.isUnlocked(key))
+          return [b.id, key];
         const open = weaponsInBand(b.id).find((w) => this.isUnlocked(w.key));
-        return [b.id, open ? open.key : DEFAULT_PICKS[b.id]];
+        return [b.id, open ? open.key : weaponsInBand(b.id)[0].key];
       }),
     );
   }

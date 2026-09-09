@@ -7,7 +7,7 @@ export const WEAPONS = [
     name: "VK-7 ASSAULT RIFLE",
     class: "ASSAULT RIFLE",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 1,
     action: "eject",
     mode: "FULL AUTO",
     auto: !0,
@@ -70,7 +70,7 @@ export const WEAPONS = [
     name: "HAMMER-12 SHOTGUN",
     class: "SHOTGUN",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 3,
     action: "pump",
     reload: "shells",
     mode: "PUMP ACTION",
@@ -135,7 +135,7 @@ export const WEAPONS = [
     name: "LONGSHOT DMR",
     class: "MARKSMAN RIFLE",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 1,
     action: "bolt",
     mode: "SEMI AUTO",
     auto: !1,
@@ -196,7 +196,7 @@ export const WEAPONS = [
     name: "SIDEWINDER 9",
     class: "SIDEARM",
     slot: "sidearm",
-    unlockLevel: 0,
+    unlockLevel: 1,
     action: "eject",
     mode: "SEMI AUTO",
     auto: !1,
@@ -259,7 +259,7 @@ export const WEAPONS = [
     // fast, low-damage option, and a sidearm slot with a single gun in it is
     // not a choice at all.
     slot: "sidearm",
-    unlockLevel: 0,
+    unlockLevel: 2,
     action: "eject",
     mode: "FULL AUTO",
     auto: !0,
@@ -322,7 +322,7 @@ export const WEAPONS = [
     name: "OVERWATCH LMG",
     class: "LIGHT MACHINE GUN",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 4,
     action: "eject",
     mode: "FULL AUTO",
     auto: !0,
@@ -385,7 +385,7 @@ export const WEAPONS = [
     name: "MERIDIAN ANTI-MATERIEL",
     class: "SNIPER RIFLE",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 5,
     action: "bolt",
     mode: "BOLT ACTION",
     auto: !1,
@@ -448,7 +448,7 @@ export const WEAPONS = [
     name: "HAVOC RL-4",
     class: "ROCKET LAUNCHER",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 6,
     // Traced, then splashed. See World.fireRocket.
     fire: "rocket",
     action: "none",
@@ -511,7 +511,7 @@ export const WEAPONS = [
     name: "CINDER-6 INCINERATOR",
     class: "FLAMETHROWER",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 9,
     // A stream weapon: no hitscan ray, no shell, no bolt. `fire: "cone"` is
     // what sends Weapons.fire down the cone path instead of the ray path.
     fire: "cone",
@@ -582,7 +582,7 @@ export const WEAPONS = [
     name: "M4A1 CARBINE",
     class: "ASSAULT RIFLE",
     slot: "primary",
-    unlockLevel: 0,
+    unlockLevel: 7,
     action: "eject",
     mode: "FULL AUTO",
     auto: !0,
@@ -648,7 +648,7 @@ export const WEAPONS = [
     name: "MP5A3",
     class: "SUBMACHINE GUN",
     slot: "sidearm",
-    unlockLevel: 0,
+    unlockLevel: 8,
     action: "eject",
     mode: "FULL AUTO",
     auto: !0,
@@ -710,16 +710,26 @@ export const WEAPONS = [
 // that key -- the M4 and the VK-7 are both key 1 -- so adding a rifle gives
 // you something to choose between rather than another key to reach for. The
 // armory picks which gun holds each band; see core/progression.js.
+// Loadout slots, in key order. A band opens at its unlock level, so a new
+// profile carries exactly three guns - sidearm, rifle, marksman - and earns the
+// rest. The order is deliberate: the guns you start with hold keys 1-3 and
+// never move as later bands appear beneath them.
 export const BANDS = [
-  { id: "rifle", label: "ASSAULT RIFLE" },
-  { id: "shotgun", label: "SHOTGUN" },
-  { id: "marksman", label: "MARKSMAN" },
-  { id: "sidearm", label: "SIDEARM" },
-  { id: "smg", label: "SUBMACHINE GUN" },
-  { id: "lmg", label: "MACHINE GUN" },
-  { id: "sniper", label: "SNIPER" },
-  { id: "special", label: "SPECIAL" },
+  { id: "sidearm", label: "SIDEARM", unlockLevel: 1 },
+  { id: "rifle", label: "ASSAULT RIFLE", unlockLevel: 1 },
+  { id: "marksman", label: "MARKSMAN", unlockLevel: 1 },
+  { id: "smg", label: "SUBMACHINE GUN", unlockLevel: 2 },
+  { id: "shotgun", label: "SHOTGUN", unlockLevel: 3 },
+  { id: "lmg", label: "MACHINE GUN", unlockLevel: 4 },
+  { id: "sniper", label: "SNIPER", unlockLevel: 5 },
+  { id: "special", label: "SPECIAL", unlockLevel: 6 },
 ];
+
+// Level at which a band's slot appears at all.
+export function bandUnlockLevel(band) {
+  const found = BANDS.find((b) => b.id === band);
+  return found ? found.unlockLevel : 1;
+}
 
 // The guns available in a band, easiest to unlock first.
 export function weaponsInBand(band) {
