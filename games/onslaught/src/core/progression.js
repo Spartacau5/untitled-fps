@@ -22,16 +22,49 @@ export function levelForXp(xp) {
   return level;
 }
 
-// Kills are the whole of it, plus a bonus per wave cleared that grows with
-// depth. Score is deliberately not part of this: it is the thing you compete on
-// daily, and letting it feed unlocks would mean the leaderboard and the armory
-// pulled in the same direction and a good run counted twice.
-export const XP_PER_KILL = 12;
+// XP is earned as it happens, not totalled up at the end, so the bar moves
+// while you play and a run that ends badly still leaves you with what you did.
+// There are exactly two sources, and they are separate on purpose:
+//
+//   kills   what the enemy is worth (data/enemies.js `xp`), multiplied by how
+//           you got it - a headshot pays more, and so does killing in a hurry.
+//   waves   a flat award on clearing one, growing with the wave, because the
+//           twentieth wave is not the first wave again.
+//
+// Score is not a source. It is what the daily board ranks you on; letting it
+// feed unlocks too would mean one good run counted twice, and the leaderboard
+// and the armory would pull in the same direction instead of rewarding
+// different things.
 export const XP_PER_WAVE = 25;
-export function xpForRun({ kills = 0, wave = 0 } = {}) {
-  const cleared = Math.max(0, Math.floor(wave));
-  const waveBonus = (XP_PER_WAVE * cleared * (cleared + 1)) / 2;
-  return Math.max(0, Math.round(Math.max(0, kills) * XP_PER_KILL + waveBonus));
+// A headshot is worth half again. Enough to be worth aiming for, not enough
+// that body shots stop paying.
+export const XP_HEAD_MULT = 1.5;
+// Multi-kills: kills inside the sim's streak window compound, and the cap
+// stops a wave of husks from being worth a wave of gunships. Its own curve
+// rather than the score multiplier's, so the two can be tuned apart.
+export const XP_STREAK_STEP = 0.15;
+export const XP_STREAK_MAX = 2.5;
+
+export function streakMult(streak = 1) {
+  const n = Math.max(1, Math.floor(streak));
+  return Math.min(XP_STREAK_MAX, 1 + (n - 1) * XP_STREAK_STEP);
+}
+
+// What one kill pays. `xp` comes off the enemy def, so a gunship is worth more
+// than a husk without XP ever being derived from score.
+export function xpForKill({ xp = 0, head = !1, streak = 1 } = {}) {
+  const base = Math.max(0, xp);
+  if (!base) return 0;
+  return Math.max(
+    1,
+    Math.round(base * (head ? XP_HEAD_MULT : 1) * streakMult(streak)),
+  );
+}
+
+// What clearing a wave pays. Linear in the wave number: wave 1 is a nudge,
+// wave 20 is worth going for.
+export function xpForWaveClear(wave = 0) {
+  return Math.max(0, Math.round(XP_PER_WAVE * Math.max(0, Math.floor(wave))));
 }
 
 const BAND_LABEL = new Map(BANDS.map((b) => [b.id, b.label]));
@@ -86,6 +119,10 @@ export class Progression {
     }
     if (!saved || typeof saved !== "object") saved = {};
     ((this.xp = Number.isFinite(saved.xp) && saved.xp > 0 ? saved.xp : 0),
+      // XP banked during the current run, for the debrief. Not persisted: it
+      // is a tally of this sitting, not part of the profile.
+      (this.runXp = 0),
+      (this._dirty = 0),
       (this.slots = this._sanitizeSlots(saved.slots)),
       (this.start = this._sanitizeStart(saved.start)));
   }
@@ -210,14 +247,23 @@ export class Progression {
     return this.slots.indexOf(key) + 1;
   }
 
-  // Bank a finished run. Returns what was earned so the debrief can show it,
-  // including any levels crossed and anything they opened.
-  addRun(summary) {
-    const gained = xpForRun(summary),
-      before = this.level;
+  // Bank XP the moment it is earned. Returns what it did so the caller can
+  // react to a level landing mid-run rather than discovering it at the debrief.
+  //
+  // `flush` exists because this is called from the kill path: a synchronous
+  // localStorage write per kill is a stall in the middle of a firefight, and a
+  // wave of 130 enemies is 130 of them. Kills bank in memory and let the
+  // counter below decide; wave clears and the end of a run always write.
+  award(amount, { flush = !1 } = {}) {
+    const gained = Math.max(0, Math.round(amount || 0));
+    const before = this.level;
     this.xp += gained;
     const after = this.level;
-    (this._save(), this._emit());
+    ((this.runXp += gained), (this._dirty += 1));
+    // Levels are rare and worth a write on their own; otherwise every tenth
+    // award, so a browser closed mid-wave loses seconds of progress at most.
+    ((flush || after > before || this._dirty >= 10) && this._save(),
+      gained > 0 && this._emit());
     return {
       gained,
       level: after,
@@ -226,8 +272,30 @@ export class Progression {
     };
   }
 
+  // Start of a run: zero the tally the debrief reports. The XP itself is
+  // already banked and is never reset.
+  beginRun() {
+    this.runXp = 0;
+  }
+
+  // End of a run: what it earned, in the shape the debrief renders. Awards
+  // nothing itself - everything was banked as it happened - so a run that ends
+  // in a crash or a closed tab has already paid out.
+  endRun() {
+    const before = levelForXp(Math.max(0, this.xp - this.runXp));
+    (this._save(), (this._dirty = 0));
+    return {
+      gained: this.runXp,
+      level: this.level,
+      levelsGained: this.level - before,
+      unlocks: unlocksBetween(before, this.level),
+    };
+  }
+
   reset() {
     ((this.xp = 0),
+      (this.runXp = 0),
+      (this._dirty = 0),
       (this.slots = STARTER_LOADOUT.slice()),
       (this.start = DEFAULT_START),
       this._save(),
@@ -243,6 +311,7 @@ export class Progression {
   }
 
   _save() {
+    this._dirty = 0;
     try {
       this.storage &&
         this.storage.setItem(

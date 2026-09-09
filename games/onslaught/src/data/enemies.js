@@ -1,5 +1,10 @@
 // Gameplay stats only. Body/glow colors live in theme.enemies and are read by
 // render/enemy-view.js, so the sim stays free of presentation imports.
+//
+// `score` and `xp` are deliberately two numbers, not one scaled from the other.
+// Score is what the daily leaderboard ranks you on; xp is what buys guns. They
+// answer to different pressures - a board wants spectacle to pay, progression
+// wants a steady clip - so tuning one must never drag the other with it.
 export const ENEMIES = {
   runner: {
     key: "runner",
@@ -15,6 +20,7 @@ export const ENEMIES = {
     windup: 0.3,
     swing: 0.5,
     score: 100,
+    xp: 10,
     radius: 0.36,
     mass: 1,
     ranged: !1,
@@ -52,6 +58,7 @@ export const ENEMIES = {
     chargeMaxS: 2.2,
     slamRadius: 6,
     score: 400,
+    xp: 35,
     radius: 0.64,
     mass: 6,
     ranged: !1,
@@ -85,6 +92,7 @@ export const ENEMIES = {
     windup: 0.35,
     swing: 0.4,
     score: 200,
+    xp: 18,
     radius: 0.38,
     mass: 1.5,
     ranged: !0,
@@ -130,6 +138,7 @@ export const ENEMIES = {
     windup: 0.28,
     swing: 0.5,
     score: 250,
+    xp: 22,
     radius: 0.34,
     coreRadius: 0.17,
     mass: 0.8,
@@ -166,6 +175,7 @@ export const ENEMIES = {
     windup: 0.55,
     swing: 0.7,
     score: 550,
+    xp: 45,
     radius: 0.62,
     coreRadius: 0.3,
     mass: 2.4,

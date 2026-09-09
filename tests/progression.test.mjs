@@ -12,13 +12,25 @@ import {
   MAX_LEVEL,
   Progression,
   STORAGE_KEY,
+  XP_HEAD_MULT,
+  XP_STREAK_MAX,
   levelForXp,
   nextUnlock,
+  streakMult,
   unlockLadder,
   unlocksBetween,
+  xpForKill,
   xpForLevel,
-  xpForRun,
+  xpForWaveClear,
 } from "../games/onslaught/src/core/progression.js";
+import { ENEMIES } from "../games/onslaught/src/data/enemies.js";
+
+// Runs a whole wave's worth of kills through the live path, the way the
+// game does: one award per kill, one for the clear.
+const playWave = (p, wave, kills, { xp = ENEMIES.runner.xp } = {}) => {
+  for (let i = 0; i < kills; i++) p.award(xpForKill({ xp, streak: 1 }));
+  p.award(xpForWaveClear(wave), { flush: true });
+};
 
 const memStorage = (init = {}) => {
   const m = new Map(Object.entries(init));
@@ -50,7 +62,7 @@ test("an unlock widens the pool without touching the three you carry", () => {
   const p = new Progression(memStorage());
   const before = p.loadout.slice();
   const poolBefore = p.unlocked.length;
-  while (p.level < 2) p.addRun({ kills: 60, wave: 4 });
+  while (p.level < 2) playWave(p, 4, 20, { xp: ENEMIES.brute.xp });
   // This is the whole point of the three-slot model: earning a gun is an
   // invitation to swap, never a fourth key that arrives on its own.
   assert.deepEqual(p.loadout, before, "the loadout is left alone");
@@ -73,39 +85,127 @@ test("the level curve is monotonic and levels track cumulative xp", () => {
   assert.equal(levelForXp(xpForLevel(MAX_LEVEL) * 100), MAX_LEVEL);
 });
 
-test("xp comes from kills and depth, and ignores score entirely", () => {
-  assert.ok(xpForRun({ kills: 105, wave: 5 }) > 0);
-  assert.ok(
-    xpForRun({ kills: 20, wave: 2 }) < xpForRun({ kills: 40, wave: 4 }),
-    "a better run should pay more",
-  );
-  // Score is what the daily board competes on; it must not also buy unlocks.
-  assert.equal(
-    xpForRun({ kills: 40, wave: 4, score: 0 }),
-    xpForRun({ kills: 40, wave: 4, score: 999999 }),
-  );
-  // Deeper waves pay progressively more, not a flat rate.
-  const w2 = xpForRun({ kills: 0, wave: 2 });
-  const w4 = xpForRun({ kills: 0, wave: 4 });
-  assert.ok(w4 > 2 * w2, "wave bonus should escalate with depth");
-  assert.equal(xpForRun({}), 0);
-  assert.equal(xpForRun({ kills: -5, wave: -3 }), 0);
+test("a kill pays what the enemy is worth, never what it scores", () => {
+  const husk = xpForKill({ xp: ENEMIES.runner.xp });
+  const gunship = xpForKill({ xp: ENEMIES.missileDrone.xp });
+  assert.ok(husk > 0 && gunship > husk, "a gunship is worth more");
+  // The two numbers are independent by design: the board ranks on score,
+  // the armory pays on xp, and neither is derived from the other.
+  for (const k of Object.keys(ENEMIES)) {
+    const d = ENEMIES[k];
+    assert.ok(d.xp > 0, `${k} is worth no xp`);
+    assert.notEqual(d.xp, d.score, `${k} xp is just its score`);
+  }
+  assert.equal(xpForKill({}), 0);
+  assert.equal(xpForKill({ xp: -20 }), 0);
 });
 
-test("a finished run banks xp and reports levels crossed", () => {
+test("headshots and multi-kills each carry their own multiplier", () => {
+  const base = ENEMIES.runner.xp;
+  const plain = xpForKill({ xp: base });
+  const head = xpForKill({ xp: base, head: true });
+  assert.equal(head, Math.round(base * XP_HEAD_MULT));
+  assert.ok(head > plain, "aiming has to pay");
+  // Streaks compound, and stack on top of a headshot.
+  assert.equal(streakMult(1), 1);
+  assert.ok(streakMult(5) > streakMult(2));
+  assert.ok(xpForKill({ xp: base, streak: 5 }) > plain);
+  assert.ok(
+    xpForKill({ xp: base, head: true, streak: 5 }) >
+      xpForKill({ xp: base, streak: 5 }),
+    "the two multipliers are independent",
+  );
+  // Capped, so a long wave of husks cannot out-earn a hard one.
+  assert.equal(streakMult(999), XP_STREAK_MAX);
+  assert.equal(
+    xpForKill({ xp: base, streak: 999 }),
+    Math.round(base * XP_STREAK_MAX),
+  );
+});
+
+test("the wave bonus is its own award and grows with the wave", () => {
+  assert.equal(xpForWaveClear(0), 0);
+  assert.ok(xpForWaveClear(1) > 0);
+  for (let w = 1; w < 20; w++)
+    assert.ok(
+      xpForWaveClear(w + 1) > xpForWaveClear(w),
+      `wave ${w + 1} must pay more than ${w}`,
+    );
+  // Deep waves are worth going for rather than a rounding error.
+  assert.ok(xpForWaveClear(20) >= 10 * xpForWaveClear(2));
+  assert.equal(xpForWaveClear(-4), 0);
+});
+
+test("xp lands as it is earned, not when the run ends", () => {
   const st = memStorage(),
     p = new Progression(st);
-  const first = p.addRun({ kills: 105, wave: 5 });
-  assert.equal(first.gained, xpForRun({ kills: 105, wave: 5 }));
-  assert.ok(first.levelsGained >= 1, "a big first run should level you up");
-  assert.equal(p.level, first.level);
+  p.beginRun();
+  const seen = [];
+  p.onChange((x) => seen.push(x.xp));
+  const one = p.award(xpForKill({ xp: ENEMIES.runner.xp }));
+  assert.ok(one.gained > 0, "a kill pays immediately");
+  assert.ok(p.xp > 0, "and the profile already holds it");
+  assert.ok(seen.length > 0, "listeners hear about it, so the bar moves");
+  const afterKill = p.xp;
+  // Ending the run reports the tally but must not pay a second time.
+  const done = p.endRun();
+  assert.equal(p.xp, afterKill, "endRun must not award anything");
+  assert.equal(done.gained, afterKill);
+});
+
+test("a run that is never finished keeps everything it earned", () => {
+  const st = memStorage();
+  const p = new Progression(st);
+  p.beginRun();
+  // Nine waves of husks, then the tab closes: no endRun, no debrief.
+  for (let w = 1; w <= 9; w++) playWave(p, w, 30);
+  const banked = p.xp;
+  assert.ok(banked > 0, "the run earned something");
+  assert.equal(
+    new Progression(st).xp,
+    banked,
+    "a fresh profile off the same storage has all of it",
+  );
+});
+
+test("the run tally counts only the current run, and levels with it", () => {
+  const st = memStorage(),
+    p = new Progression(st);
+  (p.beginRun(), playWave(p, 1, 40), p.endRun());
+  p.beginRun();
+  playWave(p, 2, 40);
+  const second = p.endRun();
+  assert.ok(second.gained > 0);
+  assert.ok(
+    second.gained < p.xp,
+    "the tally is this run, not the profile total",
+  );
   assert.equal(saved(st).xp, p.xp);
+});
+
+test("a level crossed mid-run is reported on the award that crossed it", () => {
+  const p = new Progression(memStorage());
+  p.beginRun();
+  let crossing = null;
+  for (let i = 0; i < 4000 && !crossing; i++) {
+    const got = p.award(xpForKill({ xp: ENEMIES.brute.xp, head: true }));
+    if (got.levelsGained > 0) crossing = got;
+  }
+  assert.ok(crossing, "kills alone must be able to level you");
+  assert.equal(crossing.level, 2);
+  assert.deepEqual(
+    crossing.unlocks.map((r) => r.key),
+    ["smg"],
+    "so the game can say what just opened, while you are still playing",
+  );
 });
 
 test("a run that levels you reports what it opened, ready to render", () => {
   const p = new Progression(memStorage());
-  // Enough to cross at least one gate in one go.
-  const award = p.addRun({ kills: 400, wave: 8 });
+  p.beginRun();
+  // Eight waves, deep enough to cross at least one gate.
+  for (let w = 1; w <= 8; w++) playWave(p, w, 40, { xp: ENEMIES.brute.xp });
+  const award = p.endRun();
   assert.ok(award.levelsGained > 0);
   assert.ok(award.unlocks.length > 0, "crossing a gate must open something");
   assert.deepEqual(
@@ -117,20 +217,42 @@ test("a run that levels you reports what it opened, ready to render", () => {
     assert.equal(r.kind, "weapon");
     assert.ok(r.label && r.klass && r.level > 1);
   }
-  // A run that changes nothing opens nothing.
-  assert.deepEqual(p.addRun({ kills: 0, wave: 0 }).unlocks, []);
+  // A run that earns nothing opens nothing.
+  (p.beginRun(), assert.deepEqual(p.endRun().unlocks, []));
 });
 
 test("the profile answers for its own next unlock", () => {
   const p = new Progression(memStorage());
   assert.deepEqual(p.nextUnlock(), nextUnlock(1));
-  while (p.level < 3) p.addRun({ kills: 60, wave: 4 });
+  while (p.level < 3) playWave(p, 4, 20, { xp: ENEMIES.brute.xp });
   assert.equal(p.nextUnlock().level, 4);
+});
+
+test("the kill path does not write to storage on every kill", () => {
+  let writes = 0;
+  const m = new Map();
+  const st = {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => (writes++, m.set(k, String(v))),
+    removeItem: (k) => m.delete(k),
+  };
+  const p = new Progression(st);
+  p.beginRun();
+  // A wave of 130 husks. A synchronous localStorage write per kill is a
+  // stall in the middle of a firefight, which is the whole reason award()
+  // batches; what it must never do is lose the xp.
+  const before = writes;
+  for (let i = 0; i < 130; i++) p.award(xpForKill({ xp: 1 }));
+  assert.ok(writes - before < 30, `${writes - before} writes for 130 kills`);
+  assert.ok(p.xp >= 130, "every kill still counted");
+  // And a wave clear always flushes, so nothing is left unsaved for long.
+  p.award(xpForWaveClear(3), { flush: true });
+  assert.equal(saved(st).xp, p.xp);
 });
 
 test("progress through the current level is reported for the xp bar", () => {
   const p = new Progression(memStorage());
-  p.addRun({ kills: 10, wave: 2 });
+  p.award(xpForWaveClear(2));
   const { into, span, frac } = p.levelProgress;
   assert.ok(span > 0 && into >= 0 && into < span);
   assert.ok(frac >= 0 && frac < 1);
@@ -192,7 +314,7 @@ test("the roster opens in the intended order as levels arrive", () => {
   let guard = 0;
   while (seen.length < order.length && guard++ < 200) {
     const before = p.unlocked.map((w) => w.key);
-    p.addRun({ kills: 90, wave: 6 });
+    playWave(p, 6, 40, { xp: ENEMIES.brute.xp });
     for (const w of p.unlocked)
       if (!before.includes(w.key) && order.includes(w.key)) seen.push(w.key);
   }
@@ -298,6 +420,6 @@ test("a profile survives storage that throws", () => {
   const p = new Progression(hostile);
   assert.deepEqual(p.loadout, STARTERS);
   assert.equal(p.start, DEFAULT_START);
-  p.addRun({ kills: 5, wave: 1 });
+  p.award(xpForWaveClear(1));
   assert.ok(p.xp > 0, "xp still accrues in memory");
 });

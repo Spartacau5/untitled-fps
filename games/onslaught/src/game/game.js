@@ -28,7 +28,11 @@ import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
 import { parseSeed } from "../core/rng.js";
-import { Progression } from "../core/progression.js";
+import {
+  Progression,
+  xpForKill,
+  xpForWaveClear,
+} from "../core/progression.js";
 import { Settings } from "../core/settings.js";
 import { captureRun } from "../core/run-record.js";
 import { RunLog } from "../core/runlog.js";
@@ -510,9 +514,10 @@ export class Game {
     });
     this.runLog.append(this.lastRun);
     this.telemetry.run(this.lastRun, this.runId);
-    // Bank the XP before the board round-trip, so a failed POST cannot cost
-    // the player their progress.
-    this.lastXp = this.progression.addRun(this.lastRun.summary);
+    // Nothing to bank here any more: every kill and wave clear already paid
+    // out while the run was happening, which is the point - a tab closed at
+    // wave nine keeps wave nine's XP. This only tallies what that came to.
+    this.lastXp = this.progression.endRun();
     // Guns this run opened stay flagged in the armory until the next deploy.
     // They are not equipped for you - three keys is three keys - so the mark
     // is an invitation to go and make room for one.
@@ -591,6 +596,27 @@ export class Game {
       this.world.drainEvents(),
       this.hud.setSlots(this.world.weapons.weapons.length),
       this._renderLoadout());
+  }
+  // Bank XP the instant it is earned and react to anything it crossed. The
+  // rank strip redraws on its own through progression.onChange; what this
+  // adds is the moment - a level landing mid-run should be something you
+  // notice while playing, not a line you read on the debrief.
+  _awardXp(amount, opts) {
+    if (!(amount > 0)) return null;
+    const got = this.progression.award(amount, opts);
+    if (got.levelsGained > 0) {
+      (this.hud.setRank(this.progression, { levelUp: !0 }),
+        this.hud.feed(`LEVEL ${got.level} REACHED`, "wave"),
+        this.hud.popup(
+          `LEVEL ${got.level}`,
+          window.innerWidth / 2,
+          window.innerHeight * 0.3,
+          "bonus",
+        ));
+      for (const r of got.unlocks)
+        this.hud.feed(`${r.label} UNLOCKED`, "wave");
+    }
+    return got;
   }
   // Deferred so it never lands inside the first frames. requestIdleCallback
   // is not in every browser, so fall back to a timeout.
@@ -671,6 +697,7 @@ export class Game {
       return;
     }
     (this.audio.beginSession(),
+      this.progression.beginRun(),
       (this._freshGuns = new Set()),
       this.armoryPanel && this.armoryPanel.setFresh(this._freshGuns),
       this._renderLoadout(),
@@ -1021,6 +1048,11 @@ export class Game {
         const t = h.enemy,
           e = h.head,
           glow = theme.enemies[t.type].glow;
+        // Paid now, not at the debrief. Nothing is written to storage on
+        // the kill path - progression.award batches that itself.
+        this._awardXp(
+          xpForKill({ xp: t.def.xp, head: e, streak: h.streak }),
+        );
         (this.particles.deathBurst(t.pos, glow, t.scale, e),
           A.enemyDeath([t.pos.x, t.pos.y, t.pos.z], t.def.big));
         const a = this.project(t.pos.x, t.pos.y + 1.75 * t.scale, t.pos.z);
@@ -1057,8 +1089,14 @@ export class Game {
           (A.intensity = 2));
         break;
       }
-      case EV.EV_WAVE_CLEAR:
-        (H.banner(
+      case EV.EV_WAVE_CLEAR: {
+        // The wave bonus is its own thing, growing with the wave, and it is
+        // worth saying out loud - it is the one XP award big enough to read
+        // as a reward rather than as a trickle.
+        const waveXp = xpForWaveClear(h.wave);
+        (this._awardXp(waveXp, { flush: !0 }),
+          H.feed(`+${waveXp} XP  ·  WAVE ${h.wave} BONUS`, "wave"),
+          H.banner(
           "WAVE " + h.wave + " CLEARED",
           "+" + h.bonus + " BONUS  ·  REINFORCEMENTS IN 9s",
           4,
@@ -1067,6 +1105,7 @@ export class Game {
           A.waveClear(),
           (A.intensity = 1));
         break;
+      }
       case EV.EV_PICKUP:
         (H.feed("AMMO RESUPPLY", "wave"),
           H.hint("AMMO RESUPPLIED"),

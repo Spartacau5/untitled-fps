@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Progression } from "../games/onslaught/src/core/progression.js";
+import {
+  Progression,
+  xpForWaveClear,
+} from "../games/onslaught/src/core/progression.js";
 import { LOADOUT_SIZE, WEAPONS } from "../games/onslaught/src/data/weapons.js";
 import { mountArmory } from "../games/onslaught/src/ui/armory.js";
+
+// Levelling, the way the game does it: award as you go.
+const levelTo = (p, level) => {
+  for (let w = 1; p.level < level && w < 400; w++) p.award(xpForWaveClear(w));
+};
 
 const memStorage = (init = {}) => {
   const m = new Map(Object.entries(init));
@@ -80,7 +88,7 @@ test("picking a key then a gun swaps that key, and only that key", () => {
   const { armory, progression, click, changes } = mount();
   armory.render();
   // Level up far enough to have something to swap in.
-  while (progression.level < 3) progression.addRun({ kills: 90, wave: 6 });
+  levelTo(progression, 3);
   const before = progression.loadout.slice();
   (click({ act: "slot", slot: "1" }), click({ act: "equip", key: "smg" }));
   assert.deepEqual(progression.loadout, [before[0], "smg", before[2]]);
@@ -123,7 +131,7 @@ test("the spawn button walks the three keys and never leaves the loadout", () =>
 
 test("guns the last run opened are flagged until the next deploy", () => {
   const { armory, progression, body } = mount();
-  while (progression.level < 2) progression.addRun({ kills: 60, wave: 4 });
+  levelTo(progression, 2);
   armory.setFresh(["smg"]);
   armory.render();
   assert.ok(body.innerHTML.includes("NEW · UNLOCKED"));

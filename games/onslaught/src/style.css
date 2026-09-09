@@ -621,9 +621,11 @@ canvas#game {
 }
 
 /* ---- rank strip: progression, always on screen ----
-   Level, bar, XP and the next thing to earn. Compact while playing (only the
-   level and bar), full on every menu. The fill animates so a banked run is
-   seen landing; a level crossed flashes the whole strip once. */
+   Level, bar, XP and the next thing to earn - the same four things whether you
+   are in a menu or mid-wave, because it is one readout and splitting it meant
+   the in-game version could not answer the only question you ask of it. XP is
+   banked as it is earned, so the fill moves during a fight; a level crossed
+   flashes the whole strip once. */
 .rank {
   position: fixed;
   top: 10px;
@@ -676,14 +678,12 @@ canvas#game {
   letter-spacing: 0.2em;
   color: var(--dim);
 }
+/* One strip, one behaviour. It used to drop the XP numbers and the next-unlock
+   line during play, which made the thing you glance at mid-fight a different
+   readout from the one you plan against in the menu - and the half that was
+   hidden was the half that answers "how close am I". It only dims in play. */
 body:has(#menu.hidden) .rank {
-  opacity: 0.8;
-  padding: 5px 12px;
-  gap: 0 10px;
-}
-body:has(#menu.hidden) .rank-next,
-body:has(#menu.hidden) .rank-xp {
-  display: none;
+  opacity: 0.82;
 }
 .rank.is-up {
   animation: rank-up 1.8s ease-out;
@@ -2223,6 +2223,8 @@ body:has(#menu.hidden) .rank-xp {
   padding: 4px 10px;
   gap: 0 8px;
 }
+/* Phones only: the strip is competing with a thumb zone, so the road-ahead
+   line goes and the numbers stay. */
 .touch-mode .rank-next {
   display: none;
 }
