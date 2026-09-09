@@ -498,9 +498,7 @@ canvas#game {
       270px,
       350px
     );
-  grid-template-areas:
-    "left center right"
-    "bottom bottom bottom";
+  grid-template-areas: "left center right";
   gap: 20px 22px;
   /* The three panels share one row height, so their tops and bottoms line
      up whatever each one holds. */
@@ -518,9 +516,6 @@ canvas#game {
 }
 .menu-right {
   grid-area: right;
-}
-.menu-bottom {
-  grid-area: bottom;
 }
 .menu-center {
   grid-area: center;
@@ -544,7 +539,14 @@ canvas#game {
   justify-content: flex-start;
 }
 .mc-foot {
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+/* The key crib closes the card: it takes whatever slack the foot has, so
+   the button row stays up by DEPLOY and nothing floats. */
+.mc-foot .controls {
+  margin-top: auto;
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(243, 246, 248, 0.14);
 }
 .mc-act .btn-start {
   margin: 0;
@@ -572,8 +574,7 @@ canvas#game {
 }
 /* Pause: nothing but the decision. */
 .menu[data-mode="paused"] .menu-left,
-.menu[data-mode="paused"] .menu-right,
-.menu[data-mode="paused"] .menu-bottom {
+.menu[data-mode="paused"] .menu-right {
   display: none;
 }
 .menu[data-mode="paused"] .menu-grid {
@@ -581,8 +582,9 @@ canvas#game {
   grid-template-areas: "center";
   justify-content: center;
 }
-/* Debrief: the crib is noise once you have played. */
-.menu[data-mode="dead"] .menu-bottom {
+/* The crib is for the first deploy; it is noise once you have played. */
+.menu[data-mode="paused"] .controls,
+.menu[data-mode="dead"] .controls {
   display: none;
 }
 /* The armory, how-to-play and settings sheets take the whole shell over:
@@ -598,8 +600,7 @@ canvas#game {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       "center center"
-      "left right"
-      "bottom bottom";
+      "left right";
   }
 }
 @media (max-width: 720px) {
@@ -611,8 +612,7 @@ canvas#game {
     grid-template-areas:
       "center"
       "left"
-      "right"
-      "bottom";
+      "right";
     gap: 14px;
   }
   .menu-center {
@@ -1249,8 +1249,8 @@ body:has(#menu.hidden) .rank-xp {
   flex-wrap: wrap;
   justify-content: center;
   gap: 4px 10px;
-  padding: 10px 16px;
-  font: 600 12px/1.6 var(--font-ui);
+  padding: 10px 0 0;
+  font: 600 11px/1.6 var(--font-ui);
   color: var(--dim);
   letter-spacing: 0.1em;
   text-align: center;
@@ -2070,8 +2070,7 @@ body:has(#menu.hidden) .rank-xp {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
     "center center"
-    "left right"
-    "bottom bottom";
+    "left right";
   gap: 12px;
 }
 .touch-mode .menu-center {
