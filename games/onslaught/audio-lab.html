@@ -15,18 +15,19 @@
   </style>
 </head>
 <body>
-  <header><a href="./">← Back to Midtown</a><h1>Hear the new mix.</h1><p>Compare the weapons without loading a match. This preview uses the same sounds and audio system as the game.</p>
+  <header><a href="./">← Back to Midtown</a><h1>Hear the new mix.</h1><p>Compare the weapons and recorded footfalls without loading a match. This preview uses the same sounds and audio system as the game.</p><p>Mix <strong id="version"></strong></p>
     <div class="row"><button id="enable">Enable audio</button><label>Volume <input id="volume" type="range" min="0" max="100" value="65" /><output id="level">65%</output></label></div>
     <p id="status" role="status" aria-live="polite">Start at a comfortable listening volume.</p>
   </header>
   <section class="row"><label>Weapon <select id="weapon"><option value="pistol">Pistol</option><option value="smg">SMG</option><option value="shotgun">Shotgun</option><option value="m4">M4</option><option value="dmr">DMR</option><option value="lmg">LMG</option><option value="sniper">Sniper</option><option value="rocket">Launcher</option></select></label><button id="stop" disabled>Stop</button></section>
   <section class="cards">
-    <article><h2>Weapon report</h2><div class="row"><button data-action="single" disabled>Single shot</button><button data-action="burst" disabled>Five shots</button></div><p>Alternating takes at the weapon’s in-game firing cadence.</p></article>
+    <article><h2>Weapon report</h2><div class="row"><button data-action="single" disabled>Single shot</button><button data-action="burst" disabled>Five shots</button><button data-action="sustain" disabled>20-shot sequence</button></div><p>Alternating takes at the weapon’s in-game firing cadence. The 20-shot test ignores magazine capacity to expose overlapping tails.</p></article>
     <article><h2>Combat mix</h2><div class="row"><button data-action="exchange" disabled>Fire with nearby bots</button></div><p>Your weapon against spatial gunfire from three directions.</p></article>
     <article><h2>Weapon handling</h2><button data-action="reload" disabled>Reload sequence</button><p>Magazine release, insertion and bolt.</p></article>
     <article><h2>Hit feedback</h2><div class="row"><button data-action="hit" disabled>Hit</button><button data-action="kill" disabled>Kill</button><button data-action="head" disabled>Headshot kill</button></div></article>
+    <article><h2>Recorded footsteps</h2><label>Surface <select id="surface"><option value="boots">Concrete</option><option value="metal">Metal</option><option value="wood">Wood</option></select></label><p>Individual boot contacts with alternating takes. Walk and run previews use fixed demonstration cadence.</p><div class="row"><button data-action="walk" disabled>Walk</button><button data-action="run" disabled>Run</button><button data-action="land" disabled>Land</button></div></article>
   </section>
-  <small>Preview only. No match progress or settings are changed. Reload preview uses a generic magazine sequence.</small>
+  <small>Preview only. No match progress or settings are changed. Reload preview uses a generic magazine sequence. <a href="./audio/credits.html">Sound credits and licenses</a>.</small>
   <script type="module" src="/src/audio/audition.js"></script>
 </body>
 </html>

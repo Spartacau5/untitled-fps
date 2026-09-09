@@ -1,5 +1,9 @@
 import { RecordedBank } from "./recorded-bank.js";
-import { RECORDED_SFX, COMBAT_PROFILES } from "./combat-samples.js";
+import {
+  RECORDED_SFX,
+  COMBAT_PROFILES,
+  FOOTSTEP_KEYS,
+} from "./combat-samples.js";
 
 export function noiseBuffer(i, t) {
   const e = Math.floor(i.sampleRate * t),
@@ -60,6 +64,7 @@ export class Audio {
       (this._beat = 0),
       (this._heartT = 0));
     this.samples = null;
+    this._stepSide = 1;
   }
   // Building the graph is cheap; filling the PCM buffers is not. The impulse
   // response and noise bed together run Math.pow/Math.exp/Math.random across
@@ -107,18 +112,41 @@ export class Audio {
       this._deferBuffers(t));
   }
   _deferBuffers(t) {
+    let resolveLoad, rejectLoad;
+    this.sampleLoad = new Promise((resolve, reject) => {
+      resolveLoad = resolve;
+      rejectLoad = reject;
+    });
     const build = () => {
-      if (this.ctx !== t || this.ready) return;
-      ((this.reverb.buffer = reverbImpulse(t, 0.95, 3.4)),
-        (this.noiseBuf = noiseBuffer(t, 2)),
-        (this.ready = !0),
-        this._applyVolumes(),
-        this._startAmbience(),
-        (this._nextBeat = t.currentTime + 0.1));
-      this.samples = new RecordedBank(t, this.dry, this.reverb);
-      // Optional, two decodes at a time. Never blocks the match or first shot.
-      this.sampleLoad = this.samples.load(RECORDED_SFX);
+      if (this.ctx !== t || this.ready) {
+        resolveLoad([]);
+        return;
+      }
+      try {
+        ((this.reverb.buffer = reverbImpulse(t, 0.95, 3.4)),
+          (this.noiseBuf = noiseBuffer(t, 2)),
+          (this.ready = !0),
+          this._applyVolumes(),
+          this._startAmbience(),
+          (this._nextBeat = t.currentTime + 0.1));
+        this.samples = new RecordedBank(t, this.dry, this.reverb);
+        // Two decodes at a time, in parallel with rendering warmup.
+        resolveLoad(this.samples.load(RECORDED_SFX));
+      } catch (error) {
+        rejectLoad(error);
+      }
     };
+    this.sampleLoad.then(
+      (results) => {
+        this.sampleResults = results;
+      },
+      () => {
+        this.sampleResults = Object.keys(RECORDED_SFX).map((key) => ({
+          key,
+          loaded: false,
+        }));
+      },
+    );
     // After the next paint, so the click that started the run is already on
     // screen before any of this runs.
     typeof requestAnimationFrame === "function"
@@ -286,13 +314,15 @@ export class Audio {
     const level = gain * (occluded ? 0.22 : 1);
     if (level < 0.005) return;
     if (this.groundedCombat) {
-      const played = this._sample(["rifle-a", "rifle-b"], {
+      const played = this._sample(COMBAT_PROFILES.m4.keys, {
         gain: level * 0.3,
         pan,
         rate: 0.992 + Math.random() * 0.016,
         lowpass: occluded ? 900 : 10500,
         priority: 1,
-        send: occluded ? 0.07 : 0.025,
+        groupLimit: 5,
+        group: "world-gunfire",
+        send: 0,
       });
       if (!played) this.rifleReport(this.now, level * 0.7, pan, occluded);
       return;
@@ -322,10 +352,17 @@ export class Audio {
     if (!this.ready) return;
     if (key === "flame") return this.flameLoop();
     const profile = COMBAT_PROFILES[key];
-    if (profile && this._sample(profile.keys, {
-      ...profile, rate: profile.rate * (0.996 + Math.random() * 0.008),
-      priority: 3, group: `player-${key}`, send: 0.015,
-    })) return;
+    if (
+      profile &&
+      this._sample(profile.keys, {
+        ...profile,
+        rate: profile.rate * (0.996 + Math.random() * 0.008),
+        priority: 3,
+        group: `player-${key}`,
+        send: 0,
+      })
+    )
+      return;
     if (this.groundedCombat && !["rocket", "shotgun", "sniper"].includes(key)) {
       const weight = ["pistol", "smg", "mp5"].includes(key) ? 0.68 : 1;
       return this.rifleReport(this.now, weight, 0, false);
@@ -613,7 +650,8 @@ export class Audio {
           }));
   }
   dryFire() {
-    if (this._sample(["click"], { gain: 0.22, priority: 2, send: 0.015 })) return;
+    if (this._sample(["game-dry"], { gain: 0.22, priority: 2, send: 0 }))
+      return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -648,7 +686,8 @@ export class Audio {
       }));
   }
   magOut() {
-    if (this._sample(["mag-out"], { gain: 0.32, priority: 2, send: 0.025 })) return;
+    if (this._sample(["game-mag-out"], { gain: 0.32, priority: 2, send: 0 }))
+      return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -665,7 +704,8 @@ export class Audio {
       }));
   }
   magIn() {
-    if (this._sample(["mag-in"], { gain: 0.4, priority: 2, send: 0.025 })) return;
+    if (this._sample(["game-mag-in"], { gain: 0.4, priority: 2, send: 0 }))
+      return;
     const t = this.now;
     (this.noise(t, { type: "lowpass", freq: 700, gain: 0.5, decay: 0.08 }),
       this.tone(t, {
@@ -684,7 +724,8 @@ export class Audio {
       }));
   }
   bolt() {
-    if (this._sample(["bolt"], { gain: 0.35, priority: 2, send: 0.025 })) return;
+    if (this._sample(["game-bolt"], { gain: 0.26, priority: 2, send: 0 }))
+      return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -709,7 +750,15 @@ export class Audio {
       }));
   }
   pump() {
-    if (this._sample(["bolt"], { gain: 0.4, rate: 1.18, priority: 2, send: 0.025 })) return;
+    if (
+      this._sample(["game-switch"], {
+        gain: 0.24,
+        rate: 1.08,
+        priority: 2,
+        send: 0,
+      })
+    )
+      return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -734,7 +783,15 @@ export class Audio {
       }));
   }
   shellIn() {
-    if (this._sample(["click"], { gain: 0.24, rate: 0.85, priority: 2, send: 0.02 })) return;
+    if (
+      this._sample(["game-dry"], {
+        gain: 0.18,
+        rate: 1.1,
+        priority: 2,
+        send: 0,
+      })
+    )
+      return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -752,7 +809,8 @@ export class Audio {
       }));
   }
   weaponSwitch() {
-    if (this._sample(["mag-out"], { gain: 0.2, rate: 1.3, priority: 2, send: 0.015 })) return;
+    if (this._sample(["game-switch"], { gain: 0.22, priority: 2, send: 0 }))
+      return;
     const t = this.now;
     (this.noise(t, {
       type: "bandpass",
@@ -770,7 +828,14 @@ export class Audio {
       }));
   }
   hitmarker(t = !1) {
-    if (this._sample([t ? "hit-head" : "hit"], { gain: 0.27, priority: 4, send: 0 })) return;
+    if (
+      this._sample([t ? "hit-head" : "hit"], {
+        gain: 0.27,
+        priority: 4,
+        send: 0,
+      })
+    )
+      return;
     const e = this.now;
     (this.tone(e, {
       type: "sine",
@@ -782,7 +847,14 @@ export class Audio {
       this.noise(e, { type: "highpass", freq: 5e3, gain: 0.18, decay: 0.02 }));
   }
   kill(t = !1) {
-    if (this._sample([t ? "kill-head" : "kill"], { gain: 0.42, priority: 4, send: 0 })) return;
+    if (
+      this._sample([t ? "kill-head" : "kill"], {
+        gain: 0.42,
+        priority: 4,
+        send: 0,
+      })
+    )
+      return;
     const e = this.now;
     if (this.groundedCombat) {
       this.noise(e, {
@@ -1061,9 +1133,22 @@ export class Audio {
       send: 0.15,
     });
   }
-  robotFootstep(position) {
+  robotFootstep(position, surface = "boots") {
     if (!this.ready) return;
     const { gain, pan } = this.spatial(position, 3, 22);
+    if (gain < 0.005) return;
+    if (
+      this._sample(FOOTSTEP_KEYS[surface] || FOOTSTEP_KEYS.boots, {
+        gain: gain * 0.26,
+        pan,
+        lowpass: 6500,
+        priority: 1,
+        group: "world-footsteps",
+        groupLimit: 4,
+        send: 0.015,
+      })
+    )
+      return;
     this.noise(this.now, {
       type: "bandpass",
       freq: 430,
@@ -1087,12 +1172,21 @@ export class Audio {
     const { gain, pan } = this.spatial(position, 3, 15);
     if (gain < 0.005) return;
     for (const [delay, freq, key] of [
-      [0, 2100, "mag-out"],
-      [0.7, 1500, "mag-in"],
-      [1.9, 2800, "bolt"],
+      [0, 2100, "game-mag-out"],
+      [0.7, 1500, "game-mag-in"],
+      [1.9, 2800, "game-bolt"],
     ]) {
-      if (this._sample([key], { gain: gain * 0.16, pan, delay,
-        priority: 0, lowpass: 6000, send: 0.06 })) continue;
+      if (
+        this._sample([key], {
+          gain: gain * 0.16,
+          pan,
+          delay,
+          priority: 0,
+          lowpass: 6000,
+          send: 0.06,
+        })
+      )
+        continue;
       this.noise(this.now + delay, {
         type: "bandpass",
         freq,
@@ -1105,6 +1199,18 @@ export class Audio {
     }
   }
   footstep(t = 1, surface = "default") {
+    this._stepSide *= -1;
+    if (
+      this._sample(FOOTSTEP_KEYS[surface] || FOOTSTEP_KEYS.boots, {
+        gain: 0.25 * Math.max(0, Math.min(1.5, t)),
+        pan: this._stepSide * 0.1,
+        priority: 2,
+        group: "player-footsteps",
+        groupLimit: 2,
+        send: 0,
+      })
+    )
+      return;
     const e = this.now;
     (this.noise(e, {
       type: "bandpass",
@@ -1120,7 +1226,18 @@ export class Audio {
         decay: surface === "asphalt" ? 0.06 : 0.03,
       }));
   }
-  land(t) {
+  land(t, surface = "boots") {
+    if (
+      this._sample(FOOTSTEP_KEYS[surface] || FOOTSTEP_KEYS.boots, {
+        gain: 0.42 * Math.max(0, Math.min(1.5, t)),
+        rate: 0.91,
+        priority: 2,
+        group: "player-footsteps",
+        groupLimit: 2,
+        send: 0,
+      })
+    )
+      return;
     const e = this.now;
     (this.noise(e, { type: "lowpass", freq: 500, gain: 0.5 * t, decay: 0.12 }),
       this.tone(e, {
@@ -1132,6 +1249,17 @@ export class Audio {
       }));
   }
   jump() {
+    if (
+      this._sample(FOOTSTEP_KEYS.boots, {
+        gain: 0.1,
+        rate: 1.04,
+        priority: 2,
+        group: "player-footsteps",
+        groupLimit: 2,
+        send: 0,
+      })
+    )
+      return;
     this.noise(this.now, {
       type: "bandpass",
       freq: 500,

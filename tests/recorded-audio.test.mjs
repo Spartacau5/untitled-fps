@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { RecordedBank } from "../games/onslaught/src/audio/recorded-bank.js";
 import { Audio } from "../games/onslaught/src/audio/audio.js";
+import { footstepSurface } from "../games/onslaught/src/audio/footstep-surfaces.js";
+import { MIDTOWN } from "../games/onslaught/src/data/midtown.js";
 
 function context() {
   const nodes = [];
-  const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} });
+  const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, cancelScheduledValues() {} });
   const node = (kind) => {
     const n = { kind, gain: param(), frequency: param(), Q: param(), pan: param(),
       playbackRate: param(), connect() {}, disconnect() { this.disconnected = true; },
@@ -49,7 +51,12 @@ test("voice budget protects player reports, culls quiet sounds and disconnects n
   b.play(["b"], { priority: 3 });
   const sources = ctx.nodes.filter((n) => n.kind === "source");
   assert.equal(b.voices.size, 2);
+  assert.equal(b.retiring.size, 1);
+  assert.equal(sources[1].stopped, 10.014);
+  assert.equal(sources[1].disconnected, undefined);
+  sources[1].onended();
   assert.equal(sources[1].disconnected, true);
+  assert.equal(b.retiring.size, 0);
   assert.equal(sources[0].disconnected, undefined);
   assert.equal(b.play(["a"], { gain: 0.001 }), true);
   assert.equal(ctx.nodes.filter((n) => n.kind === "source").length, 3);
@@ -73,7 +80,7 @@ test("combat routes recordings with individual fallback and preserves legacy sou
   const audio = new Audio(); audio.ctx = { currentTime: 0 }; audio.ready = true; audio.groundedCombat = true;
   const calls = []; let procedural = 0;
   audio.noise = audio.tone = audio.rifleReport = () => procedural++;
-  audio.samples = { play(keys, options) { calls.push({ keys, options }); return !keys.includes("pistol-a"); } };
+  audio.samples = { play(keys, options) { calls.push({ keys, options }); return !keys.includes("game-pistol-a"); } };
   audio.gunshot("m4"); assert.equal(procedural, 0);
   assert.ok(calls.at(-1).options.send < 0.03, "player report stays dry");
   audio.gunshot("pistol"); assert.equal(procedural, 1);
@@ -87,4 +94,60 @@ test("combat routes recordings with individual fallback and preserves legacy sou
   audio.kill(true); assert.deepEqual(calls.at(-1).keys, ["kill-head"]);
   assert.equal(calls.at(-1).options.priority, 4);
   audio.groundedCombat = false; audio.gunshot("m4"); assert.ok(procedural > 1);
+});
+
+test("sustained fire bounds overlapping tails and stop flushes fading sources", () => {
+  const { b, ctx } = bank();
+  for (let i = 0; i < 100; i++) {
+    b.play(["a", "b"], { priority: 3, group: "player", groupLimit: 3 });
+    assert.ok(b.voices.size <= 3);
+    assert.ok(b.retiring.size <= 4);
+  }
+  const created = ctx.nodes.length;
+  b.play(["a"], { priority: 1, group: "player", groupLimit: 3 });
+  assert.equal(ctx.nodes.length, created, "lower priority cannot steal a report within its group");
+  b.stop();
+  assert.equal(b.voices.size + b.retiring.size, 0);
+  assert.ok(ctx.nodes.every(n => n.disconnected));
+});
+
+test("loader accepts designed stereo reports and rejects oversized decoded audio", async () => {
+  const { b, ctx } = bank(); b.buffers.clear();
+  let count = 0;
+  ctx.decodeAudioData = async () => ({ duration: ++count === 1 ? 2.7 : 3.1, numberOfChannels: 2 });
+  const results = await b.load({ report: "/report", bad: "/bad" }, async () => ({
+    ok: true, arrayBuffer: async () => new ArrayBuffer(10),
+  }));
+  assert.equal(results.filter(r => r.loaded).length, 1);
+  assert.equal(b.buffers.get("report").numberOfChannels, 2);
+  assert.equal(b.buffers.has("bad"), false);
+});
+
+test("recorded contacts vary sides, scale with speed, and route surface without synthesis", () => {
+  const audio = new Audio(); audio.ready = true; audio.groundedCombat = true;
+  audio.ctx = { currentTime: 0 };
+  const calls = [];
+  audio.samples = { play(keys, options) { calls.push({ keys, options }); return true; } };
+  audio.noise = audio.tone = () => assert.fail("recordings must not layer procedural footfalls");
+  audio.footstep(0.85, "boots"); audio.footstep(1.25, "boots");
+  assert.ok(calls[1].options.gain > calls[0].options.gain);
+  assert.equal(calls[1].options.pan, -calls[0].options.pan);
+  assert.equal(calls[0].keys.length, 8);
+  audio.land(1, "metal"); assert.ok(calls.at(-1).keys.every(k => k.startsWith("step-metal")));
+  audio.robotFootstep([0, 0, -5], "wood");
+  assert.ok(calls.at(-1).keys.every(k => k.startsWith("step-wood")));
+  assert.equal(calls.at(-1).options.priority, 1);
+  audio.jump();
+});
+
+test("metal footsteps follow rotated bus roofs without leaking to the street or stone decks", () => {
+  const bus = MIDTOWN.solids.find(s => s.kind === "bus");
+  assert.equal(footstepSurface({ x: bus.x, z: bus.z, y: 0 }), "boots");
+  assert.equal(footstepSurface({ x: bus.x, z: bus.z, y: bus.h }), "metal");
+  // Rotate a point near the end of the roof from local to world coordinates.
+  assert.equal(footstepSurface({ x: bus.x + Math.sin(bus.yaw) * 4,
+    z: bus.z + Math.cos(bus.yaw) * 4, y: bus.h }), "metal");
+  assert.equal(footstepSurface({ x: bus.x + 5, z: bus.z, y: bus.h }), "boots");
+  const deck = MIDTOWN.solids.find(s => s.kind === "platform");
+  assert.equal(footstepSurface({ x: deck.x, z: deck.z, y: deck.h }), "boots");
 });

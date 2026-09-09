@@ -9,6 +9,7 @@ export class RecordedBank {
     this.random = random;
     this.buffers = new Map();
     this.voices = new Set();
+    this.retiring = new Set();
     this.last = new Map();
   }
   load(urls, fetcher = fetch) {
@@ -35,11 +36,12 @@ export class RecordedBank {
             const response = await fetcher(url, { signal: controller.signal });
             if (!response.ok) throw new Error(`audio ${response.status}`);
             const bytes = await response.arrayBuffer();
-            if (bytes.byteLength > 512 * 1024) throw new Error("audio size budget");
+            if (bytes.byteLength > 512 * 1024)
+              throw new Error("audio size budget");
             return this.ctx.decodeAudioData(bytes);
           })();
           const buffer = await Promise.race([decode, deadline]);
-          if (buffer.duration > 3 || buffer.numberOfChannels !== 1)
+          if (buffer.duration > 3 || ![1, 2].includes(buffer.numberOfChannels))
             throw new Error("audio decode budget");
           this.buffers.set(key, buffer);
           results.push({ key, loaded: true });
@@ -56,8 +58,20 @@ export class RecordedBank {
   has(keys) {
     return keys.some((key) => this.buffers.has(key));
   }
-  play(keys, { gain = 1, pan = 0, rate = 1, lowpass = 18000,
-    delay = 0, send = 0.08, priority = 1, group = keys.join(",") } = {}) {
+  play(
+    keys,
+    {
+      gain = 1,
+      pan = 0,
+      rate = 1,
+      lowpass = 18000,
+      delay = 0,
+      send = 0.08,
+      priority = 1,
+      group = keys.join(","),
+      groupLimit = this.capacity,
+    } = {},
+  ) {
     const available = keys.filter((key) => this.buffers.has(key));
     if (!available.length) return false;
     // Inaudible and culled sounds are handled, not synthesized as a fallback.
@@ -66,16 +80,29 @@ export class RecordedBank {
     if (!choices.length) choices = available;
     const key = choices[Math.floor(this.random() * choices.length)];
     this.last.set(group, key);
+    // Keep the last shot's authored tail, but fade the oldest overlapping
+    // reports during automatic fire. A full burst must not become a tail cloud.
+    const siblings = [...this.voices].filter((voice) => voice.group === group);
+    if (siblings.length >= Math.max(1, groupLimit)) {
+      const oldestLowest = siblings.reduce((a, b) =>
+        b.priority < a.priority ? b : a,
+      );
+      if (oldestLowest.priority > priority) return true;
+      this._retire(oldestLowest);
+    }
     if (this.voices.size >= this.capacity) {
       let victim;
       for (const voice of this.voices)
         if (!victim || voice.priority < victim.priority) victim = voice;
       if (victim.priority > priority) return true;
-      victim.stop();
+      this._retire(victim);
     }
-    const ctx = this.ctx, time = ctx.currentTime + Math.max(0, delay);
-    const source = ctx.createBufferSource(), envelope = ctx.createGain();
-    const filter = ctx.createBiquadFilter(), panner = ctx.createStereoPanner();
+    const ctx = this.ctx,
+      time = ctx.currentTime + Math.max(0, delay);
+    const source = ctx.createBufferSource(),
+      envelope = ctx.createGain();
+    const filter = ctx.createBiquadFilter(),
+      panner = ctx.createStereoPanner();
     const reverbSend = ctx.createGain();
     const nodes = [source, envelope, filter, panner, reverbSend];
     const buffer = this.buffers.get(key);
@@ -102,9 +129,25 @@ export class RecordedBank {
       if (cleaned) return;
       cleaned = true;
       this.voices.delete(voice);
+      this.retiring.delete(voice);
       for (const node of nodes) node.disconnect();
     };
-    const voice = { priority, stop: () => { source.stop(); cleanup(); } };
+    const voice = {
+      priority,
+      group,
+      stop: () => {
+        source.stop();
+        cleanup();
+      },
+      fade: () => {
+        const now = ctx.currentTime;
+        const value = envelope.gain.value;
+        envelope.gain.cancelScheduledValues(now);
+        envelope.gain.setValueAtTime(value, now);
+        envelope.gain.linearRampToValueAtTime(0, now + 0.012);
+        source.stop(now + 0.014);
+      },
+    };
     source.onended = cleanup;
     this.voices.add(voice);
     source.start(time);
@@ -112,6 +155,13 @@ export class RecordedBank {
     return true;
   }
   stop() {
-    for (const voice of this.voices) voice.stop();
+    for (const voice of [...this.voices, ...this.retiring]) voice.stop();
+  }
+  _retire(voice) {
+    // At most four extra sources can be fading out for 14 ms.
+    if (this.retiring.size >= 4) this.retiring.values().next().value.stop();
+    this.voices.delete(voice);
+    this.retiring.add(voice);
+    voice.fade();
   }
 }

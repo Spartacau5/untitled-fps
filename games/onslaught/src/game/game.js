@@ -24,6 +24,7 @@ import {
 } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Audio } from "../audio/audio.js";
+import { footstepSurface } from "../audio/footstep-surfaces.js";
 import { Input } from "../core/input.js";
 import { FixedLoop } from "../core/loop.js";
 import { UP, damp, rand } from "../core/mathx.js";
@@ -431,6 +432,22 @@ export class Game {
     } finally {
       this.enemyView.finishWarmup?.();
     }
+    if (this.world.match && this.audio.sampleLoad) {
+      step(0.94, "PREPARING COMBAT AUDIO");
+      let deadline;
+      try {
+        await Promise.race([
+          this.audio.sampleLoad,
+          new Promise((resolve) => {
+            deadline = setTimeout(resolve, 1500);
+          }),
+        ]);
+      } catch (error) {
+        console.warn("Combat audio preparation was incomplete", error);
+      } finally {
+        clearTimeout(deadline);
+      }
+    }
     step(0.96, "STARTING");
   }
   // Held back until warmup resolves so nothing renders mid-compile.
@@ -691,6 +708,12 @@ export class Game {
         : this.hud.banner(...theme.strings.deployingBanner, 2.5),
       (this.audio.intensity = 1),
       this._markPlayed());
+    if (this.world.match) {
+      const results = this.audio.sampleResults;
+      if (!results) this.hud.hint("COMBAT AUDIO STILL LOADING");
+      else if (results.some((result) => !result.loaded))
+        this.hud.hint("SOME COMBAT SOUNDS FAILED TO LOAD · RELOAD TO RETRY");
+    }
   }
   pause() {
     if (this.mobile) this.input.unlock();
@@ -828,16 +851,13 @@ export class Game {
         (A.jump(), this.weaponView.onEvent(h, w.weapons));
         break;
       case EV.EV_LAND:
-        (A.land(h.strength), this.weaponView.onEvent(h, w.weapons));
+        (A.land(h.strength, w.match ? footstepSurface(n.pos) : "default"),
+          this.weaponView.onEvent(h, w.weapons));
         break;
       case EV.EV_STEP:
         A.footstep(
           h.sprint ? 1.25 : 0.85,
-          w.match
-            ? Math.abs(n.pos.x) > 17
-              ? "pavement"
-              : "asphalt"
-            : "default",
+          w.match ? footstepSurface(n.pos) : "default",
         );
         break;
       case EV.EV_SLIDE:
@@ -917,7 +937,10 @@ export class Game {
         break;
       }
       case "botStep":
-        A.robotFootstep([h.pos.x, h.pos.y, h.pos.z]);
+        A.robotFootstep(
+          [h.pos.x, h.pos.y, h.pos.z],
+          w.match ? footstepSurface(h.pos) : "default",
+        );
         break;
       case "botReload":
         A.robotReload([h.pos.x, h.pos.y, h.pos.z]);
