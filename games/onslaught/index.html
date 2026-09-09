@@ -110,15 +110,23 @@
       </aside>
 
       <section id="menu-main" class="menu-panel menu-center">
-        <h1 class="title">MIDTOWN / LOCKDOWN</h1>
-        <div class="subtitle">TIMES SQUARE · NEW YORK CITY</div>
-        <div id="menu-stats" class="menu-stats hidden"></div>
-        <div id="xp-award" class="xp-award hidden"></div>
-        <button id="btn-start" class="btn-start">DEPLOY</button>
-        <div id="pause-actions" class="pause-actions hidden">
-          <button type="button" id="btn-restart" class="btn-secondary">RESTART</button>
-          <button type="button" id="btn-exit-menu" class="btn-secondary">EXIT TO MENU</button>
+        <!-- Head pins to the top, the action holds the middle, the foot pins
+             to the bottom; the head and foot share the slack equally so
+             DEPLOY stays centred whatever either one holds. -->
+        <div class="mc-head">
+          <h1 class="title">MIDTOWN / LOCKDOWN</h1>
+          <div class="subtitle">TIMES SQUARE · NEW YORK CITY</div>
+          <div id="menu-stats" class="menu-stats hidden"></div>
+          <div id="xp-award" class="xp-award hidden"></div>
         </div>
+        <div class="mc-act">
+          <button id="btn-start" class="btn-start">DEPLOY</button>
+          <div id="pause-actions" class="pause-actions hidden">
+            <button type="button" id="btn-restart" class="btn-secondary">RESTART</button>
+            <button type="button" id="btn-exit-menu" class="btn-secondary">EXIT TO MENU</button>
+          </div>
+        </div>
+        <div class="mc-foot">
         <div class="menu-buttons">
           <button id="btn-controls" class="btn-secondary">HOW TO PLAY</button>
           <button id="btn-settings" class="btn-secondary">SETTINGS</button>
@@ -146,6 +154,7 @@
             <button id="btn-dl-run" class="btn-secondary">DOWNLOAD RUN LOG</button>
             <button id="btn-dl-all" class="btn-secondary">DOWNLOAD ALL RUNS</button>
           </div>
+        </div>
         </div>
       </section>
 

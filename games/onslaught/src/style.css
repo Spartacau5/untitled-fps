@@ -525,18 +525,37 @@ canvas#game {
 .menu-center {
   grid-area: center;
   text-align: center;
-  /* Stretched to the row, with its content held in the vertical middle and
-     breathing room beneath the button row so the card never looks cut off. */
-  display: grid;
-  align-content: center;
-  justify-items: stretch;
-  padding: 34px 40px 44px;
+  /* Stretched to the row. Head at the top, foot at the bottom, and the two
+     split the slack equally so the action sits in the true middle. */
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 40px 28px;
   border: 2px solid rgba(243, 246, 248, 0.35);
   box-shadow: 12px 12px 0 var(--accent);
 }
-.menu-center > button,
-.menu-center > .xp-award {
-  justify-self: center;
+.mc-head,
+.mc-foot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+}
+.mc-head {
+  justify-content: flex-start;
+}
+.mc-foot {
+  justify-content: flex-end;
+}
+.mc-act .btn-start {
+  margin: 0;
+}
+.mc-act .pause-actions {
+  margin-top: 12px;
+}
+/* Alone in the row (pause), there is no slack to split: pack it. */
+.menu[data-mode="paused"] .menu-center {
+  gap: 22px;
+  padding: 30px 40px 30px;
 }
 .menu-center .title {
   font-size: clamp(34px, 4.4vw, 64px);
