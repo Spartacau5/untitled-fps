@@ -764,7 +764,7 @@ body:has(#menu.hidden) .rank {
    their keys. The spawn gun only carries a small tag. */
 .lo-card {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  grid-template-columns: 72px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -799,6 +799,41 @@ body:has(#menu.hidden) .rank {
 .lo-card.is-new {
   border-color: var(--warn);
   background: rgba(217, 119, 27, 0.12);
+}
+.lo-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 36px;
+  background: rgba(8, 12, 16, 0.72);
+  border: 1px solid rgba(243, 246, 248, 0.22);
+  overflow: hidden;
+}
+.lo-gun {
+  display: block;
+  width: 64px;
+  height: 28px;
+}
+.lo-slot {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  background: var(--accent);
+  font: 800 9px/1 var(--font-title);
+  color: #141210;
+}
+.lo-card.is-new .lo-slot {
+  background: var(--warn);
+}
+.lo-card.is-new .lo-icon {
+  border-color: var(--warn);
 }
 .lo-key {
   display: grid;

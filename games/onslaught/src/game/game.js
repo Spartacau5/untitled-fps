@@ -52,6 +52,7 @@ import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
 import { mountArmory } from "../ui/armory.js";
 import { mountControls, renderControlSummary } from "../ui/controls.js";
+import { loadoutIcon } from "../ui/weapon-icons.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import { Telemetry } from "../ui/telemetry.js";
 import {
@@ -653,7 +654,7 @@ export class Game {
         // key, and the deploy screen is the last place a player looks before
         // a run - so the loadout has to be editable from here, not only from
         // behind the ARMORY button.
-        return `<button type="button" class="${cls}" data-slot="${i}"><b class="lo-key">${key}</b><span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}<span class="lo-swap">SWAP</span></button>`;
+        return `<button type="button" class="${cls}" data-slot="${i}">${loadoutIcon(w.key, key)}<span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}<span class="lo-swap">SWAP</span></button>`;
       })
       .join("");
     // Guns the last run opened that are not yet on a key. Levelling means
