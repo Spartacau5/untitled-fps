@@ -52,6 +52,7 @@ import { HUD } from "../ui/hud.js";
 import { mountFeedback } from "../ui/feedback.js";
 import { mountArmory } from "../ui/armory.js";
 import { mountControls, renderControlSummary } from "../ui/controls.js";
+import { STARTER_LOADOUT, WEAPONS } from "../data/weapons.js";
 import { loadoutIcon } from "../ui/weapon-icons.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
 import { Telemetry } from "../ui/telemetry.js";
@@ -282,10 +283,13 @@ export class Game {
       this._renderLoadout(),
       this.hud.el.loadoutCards &&
         this.hud.el.loadoutCards.addEventListener("click", (e) => {
-          const card = e.target.closest("[data-slot]");
-          card &&
-            this.armoryPanel &&
-            this.armoryPanel.openAt(Number(card.dataset.slot));
+          const card = e.target.closest("[data-key]");
+          if (!card || card.disabled) return;
+          const key = card.dataset.key;
+          this.progression.pick(key);
+          this._freshGuns && this._freshGuns.delete(key);
+          this._applyLoadout(this.progression.loadout, this.progression.start);
+          this.armoryPanel && this.armoryPanel.render();
         }),
       this.hud.el.loadoutFresh &&
         this.hud.el.loadoutFresh.addEventListener(
@@ -631,35 +635,52 @@ export class Game {
       ? requestIdleCallback(warm, { timeout: 4000 })
       : setTimeout(warm, 1200);
   }
-  // The OPERATOR panel: one card per carried gun on its number key, the spawn
-  // gun marked, any key this profile just earned flagged, and beneath them
-  // the next thing the player is working toward. Three cards on a fresh
-  // profile is the point - it says "you carry three" without a sentence.
+  // The OPERATOR panel: every gun in the roster as an icon tile. Carried ones
+  // light up with their key badge; locked ones show a lock silhouette and
+  // refuse clicks. Names and classes stay out of the way - the art is the
+  // label. Beneath the grid, the next unlock so the ladder still reads.
   _renderLoadout() {
     const cards = this.hud.el.loadoutCards,
       nextEl = this.hud.el.loadoutNext;
     if (!cards) return;
     const l = this.world.weapons.loadout,
-      startIndex = this.world.weapons.startIndex;
-    cards.innerHTML = l
-      .map((w, i) => {
-        const key = i + 1,
-          isNew = this._freshGuns && this._freshGuns.has(w.key),
+      startKey = l[this.world.weapons.startIndex]?.key,
+      roster = WEAPONS.slice().sort((a, b) => {
+        const byLevel = (a.unlockLevel || 0) - (b.unlockLevel || 0);
+        if (byLevel) return byLevel;
+        const ai = STARTER_LOADOUT.indexOf(a.key),
+          bi = STARTER_LOADOUT.indexOf(b.key);
+        if (ai >= 0 || bi >= 0)
+          return (ai >= 0 ? ai : 99) - (bi >= 0 ? bi : 99);
+        return a.name.localeCompare(b.name);
+      });
+    cards.innerHTML = roster
+      .map((w) => {
+        const locked = !this.progression.isUnlocked(w.key),
+          slot = this.progression.slotOf(w.key),
+          selected = slot > 0,
+          isNew = !!(this._freshGuns && this._freshGuns.has(w.key)),
+          starts = selected && w.key === startKey,
           cls =
             "lo-card" +
-            (i === startIndex ? " is-spawn" : "") +
+            (selected ? " is-on" : "") +
+            (starts ? " is-spawn" : "") +
+            (locked ? " is-locked" : "") +
             (isNew ? " is-new" : "");
-        const tag = isNew ? "NEW" : "";
-        // A button, not a div: this row is how you change the gun on that
-        // key, and the deploy screen is the last place a player looks before
-        // a run - so the loadout has to be editable from here, not only from
-        // behind the ARMORY button.
-        return `<button type="button" class="${cls}" data-slot="${i}">${loadoutIcon(w.key, key)}<span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}<span class="lo-swap">SWAP</span></button>`;
+        const label = locked
+          ? `${w.name} · LOCKED · LEVEL ${w.unlockLevel}`
+          : selected
+            ? `${w.name} · KEY ${slot}${starts ? " · SPAWN" : ""}`
+            : `${w.name} · AVAILABLE`;
+        return `<button type="button" class="${cls}" data-key="${w.key}" aria-label="${label}" aria-pressed="${selected}"${
+          locked ? " disabled" : ""
+        }>${loadoutIcon(w.key, { slot, locked })}${
+          isNew ? `<span class="lo-tag">NEW</span>` : ""
+        }</button>`;
       })
       .join("");
-    // Guns the last run opened that are not yet on a key. Levelling means
-    // nothing if the player never goes and picks one up, and the armory is
-    // behind a button - so the deploy screen has to say it out loud.
+    // Guns the last run opened that are not yet on a key. The tiles already
+    // flash NEW; this banner is the loud "go pick one" nudge.
     const waiting = [...(this._freshGuns || [])].filter(
       (k) => !this.progression.isEquipped(k),
     );
@@ -674,10 +695,8 @@ export class Game {
             const w = this.progression.unlocked.find((x) => x.key === k);
             return w ? w.name : k;
           })
-          .join(" · ")}</span><span class="lo-fresh-a">SWAP ONE IN</span>`;
+          .join(" · ")}</span><span class="lo-fresh-a">TAP TO EQUIP</span>`;
     }
-    // The road ahead, under the three you are taking: what opens next and
-    // when, so the strip says "three, and here is the fourth to choose from".
     const next = this.progression.nextUnlock();
     if (nextEl)
       nextEl.innerHTML = next

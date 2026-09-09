@@ -754,66 +754,75 @@ body:has(#menu.hidden) .rank {
   }
 }
 
-/* ---- operator panel: name, carried keys, next unlock ---- */
+/* ---- operator panel: roster grid, next unlock ---- */
 .loadout-cards {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
   margin: 0 0 12px;
 }
-/* Every carried gun reads as selected - these are all yours, all live on
-   their keys. The spawn gun only carries a small tag. */
+/* Icon-only tiles. Selected = accent fill + key badge. Locked = mute + lock.
+   Art does the naming so we do not print SIDEARM / VK-7 on every cell. */
 .lo-card {
+  position: relative;
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
+  place-items: center;
+  aspect-ratio: 1.55 / 1;
   width: 100%;
-  padding: 8px 10px;
-  text-align: left;
+  padding: 4px;
+  text-align: center;
   -webkit-appearance: none;
   appearance: none;
-  border: 1px solid var(--accent);
-  background: rgba(255, 90, 31, 0.1);
+  border: 1px solid rgba(243, 246, 248, 0.22);
+  background: rgba(243, 246, 248, 0.04);
   font: inherit;
   color: var(--ui);
   cursor: pointer;
 }
-.lo-card:hover {
-  background: rgba(255, 90, 31, 0.2);
+.lo-card:hover:not(:disabled) {
+  border-color: rgba(243, 246, 248, 0.5);
+  background: rgba(243, 246, 248, 0.08);
 }
 .lo-card:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* Quiet until the row is pointed at: the affordance should not compete with
-   the gun's name, but it must be there before the player wonders. */
-.lo-swap {
-  font: 700 9px/1 var(--font-ui);
-  letter-spacing: 0.18em;
-  color: rgba(243, 246, 248, 0.4);
+.lo-card.is-on {
+  border-color: var(--accent);
+  background: rgba(255, 90, 31, 0.14);
 }
-.lo-card:hover .lo-swap,
-.lo-card:focus-visible .lo-swap {
-  color: var(--accent);
+.lo-card.is-on:hover:not(:disabled) {
+  background: rgba(255, 90, 31, 0.22);
+}
+.lo-card.is-spawn {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.lo-card.is-locked {
+  cursor: not-allowed;
+  border-color: rgba(243, 246, 248, 0.12);
+  background: rgba(10, 14, 18, 0.55);
+  color: rgba(243, 246, 248, 0.35);
+}
+.lo-card.is-locked .lo-gun {
+  opacity: 0.22;
+  filter: grayscale(1);
 }
 .lo-card.is-new {
   border-color: var(--warn);
-  background: rgba(217, 119, 27, 0.12);
 }
 .lo-icon {
   position: relative;
   display: grid;
   place-items: center;
-  width: 104px;
-  height: 56px;
-  background: #0a0e12;
-  border: 1px solid rgba(243, 246, 248, 0.22);
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 .lo-gun {
   display: block;
-  width: 96px;
-  height: 54px;
+  width: 100%;
+  height: 100%;
+  max-height: 52px;
   object-fit: contain;
   object-position: center;
   pointer-events: none;
@@ -821,17 +830,26 @@ body:has(#menu.hidden) .rank {
 .lo-gun-fallback {
   width: 64px;
   height: 28px;
+  max-height: none;
+}
+.lo-lock {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: rgba(243, 246, 248, 0.7);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+  pointer-events: none;
 }
 .lo-slot {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: 0;
+  left: 0;
   z-index: 1;
   display: grid;
   place-items: center;
-  min-width: 12px;
-  height: 12px;
-  padding: 0 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
   background: var(--accent);
   font: 800 9px/1 var(--font-title);
   color: #141210;
@@ -839,50 +857,18 @@ body:has(#menu.hidden) .rank {
 .lo-card.is-new .lo-slot {
   background: var(--warn);
 }
-.lo-card.is-new .lo-icon {
-  border-color: var(--warn);
-}
-.lo-key {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  font: 800 14px/1 var(--font-title);
-  color: #141210;
-}
-.lo-card.is-new .lo-key {
-  background: var(--warn);
-  border-color: var(--warn);
-}
-.lo-body {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.lo-name {
-  font: 700 13px/1 var(--font-ui);
-  letter-spacing: 0.08em;
-  color: var(--ui);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lo-class {
-  font: 600 10px/1 var(--font-ui);
-  letter-spacing: 0.14em;
-  color: var(--dim);
-}
 .lo-tag {
-  font: 700 9px/1 var(--font-ui);
-  letter-spacing: 0.18em;
-  padding: 4px 6px;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
+  font: 700 8px/1 var(--font-ui);
+  letter-spacing: 0.14em;
+  padding: 3px 4px;
   border: 1px solid currentColor;
-  color: var(--accent);
-}
-.lo-card.is-new .lo-tag {
   color: var(--warn);
+  background: rgba(10, 14, 18, 0.75);
+  pointer-events: none;
 }
 /* "You levelled, now go and use it." The three-slot model only works if a new
    gun is an invitation the player actually sees, so this sits between the

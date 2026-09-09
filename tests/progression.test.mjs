@@ -350,6 +350,34 @@ test("equipping refuses locked guns and swaps rather than duplicates", () => {
   assert.equal(new Set(p.loadout).size, LOADOUT_SIZE, `dupes: ${p.loadout}`);
 });
 
+test("pick rotates a bench gun onto the next key and marks spawn on re-click", () => {
+  const p = new Progression(memStorage());
+  // Unlock the SMG so the deploy roster can take it.
+  p.award(xpForLevel(2));
+  assert.equal(p.isUnlocked("smg"), true);
+  const starters = p.loadout.slice();
+  p.pick("smg");
+  assert.equal(p.loadout[0], "smg");
+  assert.equal(p.loadout[1], starters[1]);
+  assert.equal(p.loadout[2], starters[2]);
+  // Spawn stays put unless the spawn gun itself was benched.
+  assert.equal(p.start, DEFAULT_START);
+  // Second pick lands on key 2.
+  p.award(xpForLevel(3) - p.xp);
+  assert.equal(p.isUnlocked("shotgun"), true);
+  p.pick("shotgun");
+  assert.equal(p.loadout[1], "shotgun");
+  assert.equal(p.loadout[0], "smg");
+  // Clicking a carried gun only changes spawn.
+  const carried = p.loadout.slice();
+  p.pick(carried[0]);
+  assert.deepEqual(p.loadout, carried);
+  assert.equal(p.start, carried[0]);
+  // Locked guns stay out.
+  p.pick("sniper");
+  assert.deepEqual(p.loadout, carried);
+});
+
 test("the unlock ladder lists every gate once, in level order", () => {
   const ladder = unlockLadder();
   const levels = ladder.map((r) => r.level);

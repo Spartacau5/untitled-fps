@@ -13,9 +13,16 @@ test("every weapon in the table has a side-profile icon asset", () => {
   }
 });
 
-test("loadoutIcon keeps the slot number next to the glyph", () => {
-  const html = loadoutIcon("ar", 2);
+test("loadoutIcon keeps the slot number on a carried gun", () => {
+  const html = loadoutIcon("ar", { slot: 2 });
   assert.match(html, /lo-icon/);
   assert.match(html, />2</);
   assert.match(html, /guns\/ar\.png/);
+  assert.doesNotMatch(html, /lo-lock/);
+});
+
+test("loadoutIcon shows a lock silhouette when locked", () => {
+  const html = loadoutIcon("sniper", { locked: true });
+  assert.match(html, /lo-lock/);
+  assert.doesNotMatch(html, /lo-slot/);
 });

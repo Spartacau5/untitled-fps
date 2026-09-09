@@ -182,6 +182,25 @@ export class Progression {
     return this.loadout;
   }
 
+  // Deploy-screen roster pick: you always carry three. Clicking a carried gun
+  // marks it as the spawn weapon; clicking an unlocked bench gun puts it on
+  // the next key in rotation (starting at key 1), so a fourth pick knocks the
+  // oldest slot off without opening the armory.
+  pick(key) {
+    if (!this.isUnlocked(key)) return this.loadout;
+    if (this.slots.includes(key)) {
+      this.setStart(key);
+      return this.loadout;
+    }
+    const at = Math.max(
+      0,
+      Math.min(LOADOUT_SIZE - 1, Math.floor(this._replaceAt) || 0),
+    );
+    this.equip(key, at);
+    this._replaceAt = (at + 1) % LOADOUT_SIZE;
+    return this.loadout;
+  }
+
   // The gun a run begins on. Must exist, be unlocked, and be one you carry; an
   // edited or stale save falls back rather than starting you empty-handed.
   _sanitizeStart(key) {
