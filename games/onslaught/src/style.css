@@ -712,12 +712,37 @@ body:has(#menu.hidden) .rank-xp {
    their keys. The spawn gun only carries a small tag. */
 .lo-card {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 8px 10px;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
   border: 1px solid var(--accent);
   background: rgba(255, 90, 31, 0.1);
+  font: inherit;
+  color: var(--ui);
+  cursor: pointer;
+}
+.lo-card:hover {
+  background: rgba(255, 90, 31, 0.2);
+}
+.lo-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Quiet until the row is pointed at: the affordance should not compete with
+   the gun's name, but it must be there before the player wonders. */
+.lo-swap {
+  font: 700 9px/1 var(--font-ui);
+  letter-spacing: 0.18em;
+  color: rgba(243, 246, 248, 0.4);
+}
+.lo-card:hover .lo-swap,
+.lo-card:focus-visible .lo-swap {
+  color: var(--accent);
 }
 .lo-card.is-new {
   border-color: var(--warn);

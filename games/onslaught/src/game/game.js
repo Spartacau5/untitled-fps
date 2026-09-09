@@ -271,6 +271,13 @@ export class Game {
       (this._freshGuns = new Set()),
       this.hud.setMenuMode("deploy"),
       this._renderLoadout(),
+      this.hud.el.loadoutCards &&
+        this.hud.el.loadoutCards.addEventListener("click", (e) => {
+          const card = e.target.closest("[data-slot]");
+          card &&
+            this.armoryPanel &&
+            this.armoryPanel.openAt(Number(card.dataset.slot));
+        }),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       this.hud.el.btnRestart &&
@@ -607,7 +614,11 @@ export class Game {
             (i === startIndex ? " is-spawn" : "") +
             (isNew ? " is-new" : "");
         const tag = isNew ? "NEW" : i === startIndex ? "SPAWN" : "";
-        return `<div class="${cls}"><b class="lo-key">${key}</b><span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}</div>`;
+        // A button, not a div: this row is how you change the gun on that
+        // key, and the deploy screen is the last place a player looks before
+        // a run - so the loadout has to be editable from here, not only from
+        // behind the ARMORY button.
+        return `<button type="button" class="${cls}" data-slot="${i}"><b class="lo-key">${key}</b><span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}<span class="lo-swap">SWAP</span></button>`;
       })
       .join("");
     // The road ahead, under the three you are taking: what opens next and

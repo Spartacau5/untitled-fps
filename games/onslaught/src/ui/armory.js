@@ -202,6 +202,12 @@ export function mountArmory(progression, els, onChange) {
     els.panel.classList.remove("hidden");
     els.menuMain.classList.add("hidden");
   };
+  // Opened from a card on the deploy screen: that card is the key the
+  // player means to change, so the panel arrives already pointing at it.
+  const openAt = (at) => {
+    slot = Math.max(0, Math.min(LOADOUT_SIZE - 1, Math.floor(at) || 0));
+    open();
+  };
   const close = () => {
     els.panel.classList.add("hidden");
     els.menuMain.classList.remove("hidden");
@@ -215,5 +221,5 @@ export function mountArmory(progression, els, onChange) {
   };
   els.btnOpen.addEventListener("click", open);
   els.btnBack.addEventListener("click", close);
-  return { open, close, isOpen, render, setFresh };
+  return { open, openAt, close, isOpen, render, setFresh };
 }
