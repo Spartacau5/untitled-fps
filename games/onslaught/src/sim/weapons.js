@@ -196,6 +196,19 @@ export class Weapons {
         : u &&
           (world.emit(EV_DRY_FIRE, {}),
           r.reserve > 0 && this.startReload(r, world)));
+    // Run dry and the reload starts itself. Placed after the fire block so the
+    // shot that empties the magazine triggers it on the same tick rather than
+    // costing a frame. The action has to finish first - a bolt still cycling or
+    // a pump mid-stroke would otherwise be interrupted by the magazine swap -
+    // and switching weapons stays a way to opt out of the reload.
+    !r.reloading &&
+      !this.switching &&
+      !r.pumping &&
+      r.boltDelayT < 0 &&
+      !n.dead &&
+      r.mag === 0 &&
+      r.reserve > 0 &&
+      this.startReload(r, world);
   }
   fire(t, e, world) {
     const n = t.def;
