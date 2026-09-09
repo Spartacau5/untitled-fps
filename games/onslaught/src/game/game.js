@@ -278,6 +278,11 @@ export class Game {
             this.armoryPanel &&
             this.armoryPanel.openAt(Number(card.dataset.slot));
         }),
+      this.hud.el.loadoutFresh &&
+        this.hud.el.loadoutFresh.addEventListener(
+          "click",
+          () => this.armoryPanel && this.armoryPanel.open(),
+        ),
       this._refreshBoard(),
       this.hud.el.btnStart.addEventListener("click", () => this.start()),
       this.hud.el.btnRestart &&
@@ -621,6 +626,25 @@ export class Game {
         return `<button type="button" class="${cls}" data-slot="${i}"><b class="lo-key">${key}</b><span class="lo-body"><span class="lo-name">${w.name}</span><span class="lo-class">${w.class}</span></span>${tag ? `<span class="lo-tag">${tag}</span>` : ""}<span class="lo-swap">SWAP</span></button>`;
       })
       .join("");
+    // Guns the last run opened that are not yet on a key. Levelling means
+    // nothing if the player never goes and picks one up, and the armory is
+    // behind a button - so the deploy screen has to say it out loud.
+    const waiting = [...(this._freshGuns || [])].filter(
+      (k) => !this.progression.isEquipped(k),
+    );
+    const freshEl = this.hud.el.loadoutFresh;
+    if (freshEl) {
+      freshEl.classList.toggle("hidden", waiting.length === 0);
+      if (waiting.length)
+        freshEl.innerHTML = `<span class="lo-fresh-k">${waiting.length} NEW ${
+          waiting.length === 1 ? "GUN" : "GUNS"
+        }</span><span class="lo-fresh-v">${waiting
+          .map((k) => {
+            const w = this.progression.unlocked.find((x) => x.key === k);
+            return w ? w.name : k;
+          })
+          .join(" · ")}</span><span class="lo-fresh-a">SWAP ONE IN</span>`;
+    }
     // The road ahead, under the three you are taking: what opens next and
     // when, so the strip says "three, and here is the fourth to choose from".
     const next = this.progression.nextUnlock();

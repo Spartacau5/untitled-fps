@@ -790,6 +790,56 @@ body:has(#menu.hidden) .rank-xp {
 .lo-card.is-new .lo-tag {
   color: var(--warn);
 }
+/* "You levelled, now go and use it." The three-slot model only works if a new
+   gun is an invitation the player actually sees, so this sits between the
+   loadout and the road ahead and pulses once until it is acted on. */
+.loadout-fresh {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 12px;
+  margin: 0 0 10px;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--warn);
+  background: rgba(217, 119, 27, 0.14);
+  font: inherit;
+  color: var(--ui);
+  cursor: pointer;
+  animation: fresh-pulse 1.8s ease-out 3;
+}
+.loadout-fresh:hover {
+  background: rgba(217, 119, 27, 0.24);
+}
+.loadout-fresh:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
+.lo-fresh-k {
+  font: 700 9px/1 var(--font-ui);
+  letter-spacing: 0.26em;
+  color: var(--warn);
+}
+.lo-fresh-v {
+  font: 700 12px/1.2 var(--font-ui);
+  letter-spacing: 0.08em;
+  color: var(--ui);
+}
+.lo-fresh-a {
+  font: 600 9px/1 var(--font-ui);
+  letter-spacing: 0.18em;
+  color: rgba(243, 246, 248, 0.66);
+}
+@keyframes fresh-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 27, 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px rgba(217, 119, 27, 0);
+  }
+}
 .loadout-next {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

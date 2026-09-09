@@ -50,6 +50,7 @@ export class HUD {
       rankXp: t("rank-xp"),
       rankNext: t("rank-next"),
       xpAward: t("xp-award"),
+      loadoutFresh: t("loadout-fresh"),
       btnRunDetails: t("btn-run-details"),
       runDetails: t("run-details"),
       menuGrid: t("menu-grid"),
