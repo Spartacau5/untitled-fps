@@ -105,8 +105,30 @@ test("the requested layout is the layout", () => {
   // Jump on the bottom face button, which is A on Xbox and Cross on
   // PlayStation - the same index on both, so this is one binding.
   bound(PAD.CROSS, "jump");
-  (bound(PAD.SQUARE, "reload"), bound(PAD.CIRCLE, "swapLast"));
+  bound(PAD.SQUARE, "reload");
+  // Triangle cycles guns. Circle is Back, not a weapon key: it is the cancel
+  // button in every console menu, so binding a gun to it would mean the same
+  // press did two unrelated things depending on what was on screen.
+  (bound(PAD.TRIANGLE, "cycleGun"), bound(PAD.CIRCLE, "back"));
+  bound(PAD.CROSS, "confirm");
   (bound(PAD.L1, "prevGun"), bound(PAD.R1, "nextGun"));
+});
+
+test("menu directions come from the d-pad and the left stick alike", () => {
+  const nav = (spec) => {
+    const s = readPad(pad(spec));
+    return [s.navX, s.navY];
+  };
+  assert.deepEqual(nav({ buttons: { [PAD.DPAD_DOWN]: 1 } }), [0, 1]);
+  assert.deepEqual(nav({ buttons: { [PAD.DPAD_UP]: 1 } }), [0, -1]);
+  assert.deepEqual(nav({ buttons: { [PAD.DPAD_RIGHT]: 1 } }), [1, 0]);
+  assert.deepEqual(nav({ buttons: { [PAD.DPAD_LEFT]: 1 } }), [-1, 0]);
+  // The stick agrees. Pushing it up is -1 on the pad and up the list, which
+  // is navY -1, the same as the d-pad.
+  assert.deepEqual(nav({ axes: { [AXIS.LY]: -1 } }), [0, -1]);
+  assert.deepEqual(nav({ axes: { [AXIS.LX]: 1 } }), [1, 0]);
+  // A light lean aims but must not also walk a menu.
+  assert.deepEqual(nav({ axes: { [AXIS.LX]: 0.3 } }), [0, 0]);
 });
 
 test("anything at all counts as the pad being in someone's hands", () => {
@@ -209,4 +231,23 @@ test("Options is a button like any other, and reports as an edge", () => {
     padActive(readPad(pad({ buttons: { [PAD.OPTIONS]: 1 } }))),
     true,
   );
+});
+
+test("every direction counts as the pad being in use, down included", () => {
+  // The nav flag gates menu navigation, so a direction that does not set it
+  // is a direction that cannot drive a menu. d-pad DOWN belongs to no other
+  // field in the snapshot, which is exactly how it got missed the first time.
+  for (const [name, spec] of [
+    ["d-pad down", { buttons: { [PAD.DPAD_DOWN]: 1 } }],
+    ["d-pad up", { buttons: { [PAD.DPAD_UP]: 1 } }],
+    ["d-pad left", { buttons: { [PAD.DPAD_LEFT]: 1 } }],
+    ["d-pad right", { buttons: { [PAD.DPAD_RIGHT]: 1 } }],
+    ["stick down", { axes: { [AXIS.LY]: 1 } }],
+    ["stick up", { axes: { [AXIS.LY]: -1 } }],
+  ])
+    assert.equal(
+      padActive(readPad(pad(spec))),
+      true,
+      `${name} must register as the pad being used`,
+    );
 });

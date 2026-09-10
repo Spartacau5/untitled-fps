@@ -1,5 +1,11 @@
 import { Gamepads, SPRINT_DROP, TURN_RATE } from "./gamepad.js";
 
+// Frames a pad stays 'the input in use' after the last thing it did. Long
+// enough to cover a pause and a look round the menu, short enough that
+// putting the pad down and reaching for the mouse hands control straight
+// back.
+const PAD_RECENT = 180;
+
 // Every binding the player can press, in the order the how-to-play screen
 // lists them. `frame()` below reads the movement/action codes straight out of
 // this table, so the controls screen can never drift from what the game
@@ -127,6 +133,7 @@ export class Input {
       (this.adsAmount = 0),
       // Sprint is a toggle. See pollPad for what puts it out.
       (this.padSprint = !1),
+      (this.padRecent = 0),
       // Set on the Options/Start edge, consumed by the Game.
       (this.padPause = !1),
       // Aim slowdown, written by the Game each frame: 1 is free look, less
@@ -261,9 +268,10 @@ export class Input {
     // button that pauses has to be able to unpause, and nothing runs during
     // a pause otherwise.
     if (!pad.connected) {
-      ((this.padHeld = null), (this.padSprint = !1));
+      ((this.padHeld = null), (this.padSprint = !1), (this.padRecent = 0));
       return !1;
     }
+    this.padRecent = pad.active ? PAD_RECENT : Math.max(0, this.padRecent - 1);
     pad.edge("pause") && (this.padPause = !0);
     // Sprint toggles on L3 and drops itself the moment it stops making
     // sense: shooting, aiming, or easing off the stick. Deliberately NOT on
@@ -289,7 +297,7 @@ export class Input {
       pad.edge("jump") && this.pressed.add("Pad:jump"),
       pad.edge("reload") && this.pressed.add("Pad:reload"),
       pad.edge("crouch") && this.pressed.add("Pad:crouch"),
-      pad.edge("swapLast") && this.pressed.add("Pad:swapLast"),
+      pad.edge("cycleGun") && (this.wheel += 1),
       pad.edge("fire") && (this.mousePressed[0] = !0),
       pad.edge("prevGun") && (this.wheel -= 1),
       pad.edge("nextGun") && (this.wheel += 1));
@@ -330,11 +338,17 @@ export class Input {
       crouch: k("crouch") || !!(p && p.crouch),
       crouchPressed: jp("crouch") || this.pressed.has("Pad:crouch"),
       switchTo,
-      swapLast: jp("swapLast") || this.pressed.has("Pad:swapLast"),
+      swapLast: jp("swapLast"),
       wheel: this.wheel,
     };
   }
   // Edge-triggered input is consumed by the sim, so it is cleared per tick.
+  // Is a controller the thing the player is actually holding? Used where
+  // the answer changes behaviour rather than just a glyph - losing the
+  // pointer lock means nothing to someone on a pad, for instance.
+  usingPad() {
+    return this.padRecent > 0;
+  }
   endTick() {
     (this.pressed.clear(),
       (this.mousePressed = [!1, !1, !1]),

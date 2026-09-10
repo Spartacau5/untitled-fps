@@ -14,9 +14,9 @@
 // why "A on Xbox, Cross on PlayStation" is one number and not a branch.
 export const PAD = {
   CROSS: 0, // A / Cross      - jump
-  CIRCLE: 1, // B / Circle     - swap to last gun
+  CIRCLE: 1, // B / Circle     - back / cancel
   SQUARE: 2, // X / Square     - reload
-  TRIANGLE: 3, // Y / Triangle   - unused for now
+  TRIANGLE: 3, // Y / Triangle   - cycle to the next gun
   L1: 4,
   R1: 5,
   L2: 6, // analog          - aim down sight
@@ -50,6 +50,11 @@ export const TURN_RATE = 210;
 // below a light push so easing off does not cancel it, but above nothing, so
 // letting go entirely does.
 export const SPRINT_DROP = 0.4;
+
+// How far a stick has to lean before it counts as a menu direction. Higher
+// than the look deadzone: a nudge that should only aim must not also step
+// through a list.
+export const NAV_POINT = 0.55;
 
 // Stick response. Linear sticks make fine aim impossible because the first
 // millimetre of travel is already a third of your turn rate; a cubic-ish
@@ -104,9 +109,24 @@ export function readPad(gp, { deadzone = DEADZONE } = {}) {
     crouch: pressed(b[PAD.R3]),
     jump: pressed(b[PAD.CROSS]),
     reload: pressed(b[PAD.SQUARE]),
-    swapLast: pressed(b[PAD.CIRCLE]),
+    // Cycles forward through the carried guns, wrapping at the end.
+    cycleGun: pressed(b[PAD.TRIANGLE]),
+    // Confirm and cancel. Cross/A and Circle/B are the same two indices on
+    // both families, and the same two roles in almost every console menu.
+    confirm: pressed(b[PAD.CROSS]),
+    back: pressed(b[PAD.CIRCLE]),
     // Options on PlayStation, Menu on Xbox - the same index on both.
     pause: pressed(b[PAD.OPTIONS]),
+    // Menu movement. The d-pad and the left stick both drive it, so a
+    // player can use whichever is already under their thumb.
+    navX:
+      (pressed(b[PAD.DPAD_RIGHT]) ? 1 : 0) -
+      (pressed(b[PAD.DPAD_LEFT]) ? 1 : 0) +
+      (Math.abs(move.x) > NAV_POINT ? Math.sign(move.x) : 0),
+    navY:
+      (pressed(b[PAD.DPAD_DOWN]) ? 1 : 0) -
+      (pressed(b[PAD.DPAD_UP]) ? 1 : 0) +
+      (Math.abs(move.y) > NAV_POINT ? Math.sign(move.y) : 0),
     prevGun: pressed(b[PAD.L1]),
     nextGun: pressed(b[PAD.R1]),
     slots: [
@@ -122,6 +142,12 @@ export function readPad(gp, { deadzone = DEADZONE } = {}) {
 // between pad and keyboard without a setting.
 export function padActive(s) {
   return (
+    // navX/navY first: the d-pad is how someone drives a menu, and DOWN in
+    // particular belongs to no other field here - without it, pressing down on
+    // a fresh menu did not count as touching the pad, so the navigation that
+    // reads this flag gated itself off and the first press did nothing.
+    !!s.navX ||
+    !!s.navY ||
     Math.hypot(s.move.x, s.move.y) > 0 ||
     Math.hypot(s.look.x, s.look.y) > 0 ||
     s.ads ||
@@ -130,7 +156,9 @@ export function padActive(s) {
     s.crouch ||
     s.jump ||
     s.reload ||
-    s.swapLast ||
+    s.cycleGun ||
+    s.confirm ||
+    s.back ||
     s.pause ||
     s.prevGun ||
     s.nextGun ||
@@ -149,8 +177,12 @@ const EMPTY = {
   crouch: !1,
   jump: !1,
   reload: !1,
-  swapLast: !1,
+  cycleGun: !1,
+  confirm: !1,
+  back: !1,
   pause: !1,
+  navX: 0,
+  navY: 0,
   prevGun: !1,
   nextGun: !1,
   slots: [!1, !1, !1],

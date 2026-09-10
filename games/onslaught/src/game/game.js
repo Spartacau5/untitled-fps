@@ -55,6 +55,7 @@ import { mountControls, renderControlSummary } from "../ui/controls.js";
 import { STARTER_LOADOUT, WEAPONS } from "../data/weapons.js";
 import { loadoutIcon } from "../ui/weapon-icons.js";
 import { mountSettingsPanel } from "../ui/settings-panel.js";
+import { PadMenu } from "../ui/pad-menu.js";
 import { Telemetry } from "../ui/telemetry.js";
 import {
   applyAssignedCallsign,
@@ -272,6 +273,7 @@ export class Game {
         mobile,
         menuMain: this.hud.el.menuGrid,
       })),
+      (this.padMenu = new PadMenu()),
       (this.runLog = new RunLog()),
       (this.telemetry = new Telemetry()),
       (this.lastRun = null),
@@ -349,7 +351,14 @@ export class Game {
         this.hud.el.playerName ? this.hud.el.playerName.value : "",
       ),
       (this.input.onLockChange = (l) => {
-        !l && this.state === "playing" && !this.debug && this.pause();
+        // Losing the pointer means nothing to someone on a pad - they never
+        // needed it - so it must not yank them into the pause menu. It is
+        // still the pause gesture for a mouse.
+        !l &&
+          this.state === "playing" &&
+          !this.debug &&
+          !this.input.usingPad() &&
+          this.pause();
       }),
       (this.input.onKeyDown = (l) => this.onKey(l)),
       // Autoplay policy holds the context suspended until the player interacts.
@@ -759,7 +768,11 @@ export class Game {
       this._markPlayed());
   }
   pause() {
-    if (this.mobile) this.input.unlock();
+    // Always drop the pointer lock, whatever paused us. Holding it kept the
+    // cursor hidden on the pause screen, so a run paused from the pad left
+    // the player looking at buttons they could not click. The lock is only
+    // worth keeping while something is being aimed.
+    this.input.unlock();
     const w = this.world;
     ((this.state = "paused"),
       this.hud.setMenuMode("paused"),
@@ -932,6 +945,24 @@ export class Game {
       if (out.length >= 8) break;
     }
     this.hud.setEnemyBars(out);
+  }
+  // Let the pad work the menus. Only while one is actually open, and only
+  // while the pad is the thing in the player's hands - otherwise a controller
+  // resting on the desk would be stealing focus from someone using a mouse.
+  _padMenuNav(frameDt) {
+    const input = this.input,
+      s = input.padHeld;
+    const open = this.state !== "playing" && this.state !== "dead";
+    if (!s || !open || !input.usingPad()) {
+      this._padNavWas && ((this._padNavWas = !1), this.padMenu.blur());
+      return;
+    }
+    this._padNavWas = !0;
+    const pad = input.pad;
+    this.padMenu.update(s, frameDt, {
+      confirm: pad.edge("confirm"),
+      back: pad.edge("back"),
+    });
   }
   // Options on PlayStation, Menu on Xbox. Pauses and unpauses, so a pad
   // player never has to reach for the keyboard mid-run.
@@ -1321,6 +1352,7 @@ export class Game {
       (this.input.adsAmount = playing ? w.weapons.adsSmooth : 0),
       this.input.pollPad && this.input.pollPad(frameDt),
       this._padMenu(),
+      this._padMenuNav(frameDt),
       playing && w.player.applyLook(this.input));
     const alpha = this.fixed.advance(frameDt, this.timeScale, (dt) => {
       this.time += dt;
