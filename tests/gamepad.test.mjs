@@ -114,7 +114,7 @@ test("the requested layout is the layout", () => {
   (bound(PAD.L1, "prevGun"), bound(PAD.R1, "nextGun"));
 });
 
-test("menu directions come from the d-pad and the left stick alike", () => {
+test("the d-pad reports menu directions directly", () => {
   const nav = (spec) => {
     const s = readPad(pad(spec));
     return [s.navX, s.navY];
@@ -123,12 +123,11 @@ test("menu directions come from the d-pad and the left stick alike", () => {
   assert.deepEqual(nav({ buttons: { [PAD.DPAD_UP]: 1 } }), [0, -1]);
   assert.deepEqual(nav({ buttons: { [PAD.DPAD_RIGHT]: 1 } }), [1, 0]);
   assert.deepEqual(nav({ buttons: { [PAD.DPAD_LEFT]: 1 } }), [-1, 0]);
-  // The stick agrees. Pushing it up is -1 on the pad and up the list, which
-  // is navY -1, the same as the d-pad.
-  assert.deepEqual(nav({ axes: { [AXIS.LY]: -1 } }), [0, -1]);
-  assert.deepEqual(nav({ axes: { [AXIS.LX]: 1 } }), [1, 0]);
-  // A light lean aims but must not also walk a menu.
-  assert.deepEqual(nav({ axes: { [AXIS.LX]: 0.3 } }), [0, 0]);
+  // The stick is deliberately NOT folded in here: it has to be debounced
+  // against its own wobble, which needs memory of the last frame, so it is
+  // handled in PadMenu. What readPad owes it is `move`.
+  assert.deepEqual(nav({ axes: { [AXIS.LY]: -1 } }), [0, 0]);
+  assert.ok(readPad(pad({ axes: { [AXIS.LY]: -1 } })).move.y > 0.9);
 });
 
 test("anything at all counts as the pad being in someone's hands", () => {

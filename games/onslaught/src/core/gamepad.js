@@ -51,10 +51,13 @@ export const TURN_RATE = 210;
 // letting go entirely does.
 export const SPRINT_DROP = 0.4;
 
-// How far a stick has to lean before it counts as a menu direction. Higher
-// than the look deadzone: a nudge that should only aim must not also step
-// through a list.
-export const NAV_POINT = 0.55;
+// How far a stick has to lean to start moving through a menu, and how far
+// back it has to come to stop. The gap between the two is the whole point:
+// with a single threshold, a stick held anywhere near it flickers in and
+// out, and since entering a direction fires a step immediately, that reads
+// as the list machine-gunning past whatever you were aiming for.
+export const NAV_ENTER = 0.62;
+export const NAV_EXIT = 0.32;
 
 // Stick response. Linear sticks make fine aim impossible because the first
 // millimetre of travel is already a third of your turn rate; a cubic-ish
@@ -117,16 +120,16 @@ export function readPad(gp, { deadzone = DEADZONE } = {}) {
     back: pressed(b[PAD.CIRCLE]),
     // Options on PlayStation, Menu on Xbox - the same index on both.
     pause: pressed(b[PAD.OPTIONS]),
-    // Menu movement. The d-pad and the left stick both drive it, so a
-    // player can use whichever is already under their thumb.
+    // Menu movement from the d-pad, which is already digital and needs no
+    // smoothing. The left stick drives menus too, but a stick has to be
+    // debounced against its own wobble and that needs memory of the last
+    // frame, so it is handled in ui/pad-menu.js where the rest of the feel
+    // state already lives. `move` is what it reads.
     navX:
       (pressed(b[PAD.DPAD_RIGHT]) ? 1 : 0) -
-      (pressed(b[PAD.DPAD_LEFT]) ? 1 : 0) +
-      (Math.abs(move.x) > NAV_POINT ? Math.sign(move.x) : 0),
+      (pressed(b[PAD.DPAD_LEFT]) ? 1 : 0),
     navY:
-      (pressed(b[PAD.DPAD_DOWN]) ? 1 : 0) -
-      (pressed(b[PAD.DPAD_UP]) ? 1 : 0) +
-      (Math.abs(move.y) > NAV_POINT ? Math.sign(move.y) : 0),
+      (pressed(b[PAD.DPAD_DOWN]) ? 1 : 0) - (pressed(b[PAD.DPAD_UP]) ? 1 : 0),
     prevGun: pressed(b[PAD.L1]),
     nextGun: pressed(b[PAD.R1]),
     slots: [
@@ -145,7 +148,8 @@ export function padActive(s) {
     // navX/navY first: the d-pad is how someone drives a menu, and DOWN in
     // particular belongs to no other field here - without it, pressing down on
     // a fresh menu did not count as touching the pad, so the navigation that
-    // reads this flag gated itself off and the first press did nothing.
+    // reads this flag gated itself off and the first press did nothing. The
+    // stick's own contribution arrives through `move` on the next line.
     !!s.navX ||
     !!s.navY ||
     Math.hypot(s.move.x, s.move.y) > 0 ||

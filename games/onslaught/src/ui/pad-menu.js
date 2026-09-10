@@ -10,10 +10,17 @@
 // along, and clicking with a mouse and moving with a stick cannot disagree
 // about what is selected.
 
-// Held direction repeats like a key: a pause, then a steady rate. Without it a
-// stick either steps once per push or sprints down a list uncontrollably.
-const REPEAT_DELAY = 0.42;
-const REPEAT_RATE = 0.11;
+import { NAV_ENTER, NAV_EXIT } from "../core/gamepad.js";
+
+// Held direction repeats like a key: a pause, then a steady rate. The rate
+// started at 0.11 s, which is nine items a second - fast enough to overshoot
+// anything in a list of eleven. About five and a half is what a console menu
+// actually feels like.
+const REPEAT_DELAY = 0.45;
+const REPEAT_RATE = 0.18;
+
+// How far ahead the other axis has to be before a held diagonal changes lane.
+const LANE_MARGIN = 1.4;
 
 // Anything a player can operate. Order is DOM order, which is reading order,
 // which is the order the eye expects to travel in.
@@ -25,7 +32,49 @@ const visible = (el) =>
 
 export class PadMenu {
   constructor(doc = typeof document === "undefined" ? null : document) {
-    ((this.doc = doc), (this.holdX = 0), (this.holdY = 0), (this.wait = 0));
+    ((this.doc = doc),
+      (this.holdX = 0),
+      (this.holdY = 0),
+      (this.wait = 0),
+      // Which way the stick is currently latched, held across frames so it
+      // can be released on a different threshold than it was caught on.
+      (this.stickX = 0),
+      (this.stickY = 0),
+      (this.lane = null));
+  }
+  // The left stick as a menu direction, debounced against its own wobble.
+  //
+  // Two rules, both about not firing when the player did not ask. A firm
+  // push is needed to catch a direction and a real release to let it go, so
+  // resting near the threshold cannot rattle; and only one axis is ever
+  // live, so a diagonal picks a lane instead of alternating between two.
+  _stickNav(move) {
+    // move.y is already flipped so forward is +1; down a list is the other
+    // way, which is what a player pulling the stick toward them expects.
+    const x = move ? move.x : 0,
+      y = move ? -move.y : 0;
+    const latch = (v, was) => {
+      const m = Math.abs(v);
+      if (was) return m > NAV_EXIT && Math.sign(v) === was ? was : 0;
+      return m > NAV_ENTER ? Math.sign(v) : 0;
+    };
+    ((this.stickX = latch(x, this.stickX)),
+      (this.stickY = latch(y, this.stickY)));
+    // One lane at a time, and the lane is sticky too. Comparing the two axes
+    // outright swaps lanes the moment they cross, and on a diagonal they cross
+    // constantly - a thumb wandering a few degrees either side of 45 flipped
+    // between across and down every other frame. The lane only changes when
+    // the other axis is clearly ahead.
+    if (!this.stickX && !this.stickY) this.lane = null;
+    else if (this.stickX && this.stickY) {
+      const ax = Math.abs(x),
+        ay = Math.abs(y);
+      if (!this.lane) this.lane = ax >= ay ? "x" : "y";
+      else if (this.lane === "x" && ay > ax * LANE_MARGIN) this.lane = "y";
+      else if (this.lane === "y" && ax > ay * LANE_MARGIN) this.lane = "x";
+      this.lane === "x" ? (this.stickY = 0) : (this.stickX = 0);
+    } else this.lane = this.stickX ? "x" : "y";
+    return { x: this.stickX, y: this.stickY };
   }
   // Everything operable inside the panel that is currently on top. Overlay
   // panels (settings, armory, controls) take priority over the menu behind
@@ -88,15 +137,22 @@ export class PadMenu {
     if (!d || !s) return !1;
     const list = this.targets();
     if (!list.length) {
-      ((this.holdX = 0), (this.holdY = 0), (this.wait = 0));
+      ((this.holdX = 0),
+        (this.holdY = 0),
+        (this.wait = 0),
+        (this.stickX = 0),
+        (this.stickY = 0),
+        (this.lane = null));
       return !1;
     }
     const focused = d.activeElement;
     const onSlider = this._isSlider(focused) && list.includes(focused);
 
     // A direction fires once on the way in, then repeats while it is held.
-    const x = Math.sign(s.navX || 0),
-      y = Math.sign(s.navY || 0);
+    // The d-pad is taken as given; the stick is debounced first.
+    const stick = this._stickNav(s.move);
+    const x = Math.sign(s.navX || 0) || stick.x,
+      y = Math.sign(s.navY || 0) || stick.y;
     let stepX = 0,
       stepY = 0;
     if (x !== this.holdX || y !== this.holdY) {
@@ -140,6 +196,11 @@ export class PadMenu {
   blur() {
     const d = this.doc;
     if (d && d.activeElement && d.activeElement.blur) d.activeElement.blur();
-    ((this.holdX = 0), (this.holdY = 0), (this.wait = 0));
+    ((this.holdX = 0),
+      (this.holdY = 0),
+      (this.wait = 0),
+      (this.stickX = 0),
+      (this.stickY = 0),
+      (this.lane = null));
   }
 }
