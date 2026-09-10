@@ -1,6 +1,5 @@
 import {
   BANDS,
-  DEFAULT_START,
   LOADOUT_SIZE,
   STARTER_LOADOUT,
   WEAPONS,
@@ -123,8 +122,19 @@ export class Progression {
       // is a tally of this sitting, not part of the profile.
       (this.runXp = 0),
       (this._dirty = 0),
-      (this.slots = this._sanitizeSlots(saved.slots)),
-      (this.start = this._sanitizeStart(saved.start)));
+      (this.slots = this._sanitizeSlots(saved.slots)));
+  }
+
+  // You deploy holding key 1, always. It used to be a second, separate
+  // choice stored beside the loadout, and it drifted: equipping a gun over
+  // the one that was deploying moved the spawn to that key, so editing the
+  // loadout could silently leave you starting on key 3.
+  //
+  // Deriving it removes the whole class of bug and loses nothing, because
+  // the rail already lets you put any gun on any key - the order IS the
+  // choice. Want to open with the sniper? Put it on key 1.
+  get start() {
+    return this.slots[0];
   }
 
   // The three guns you deploy with, in key order.
@@ -173,12 +183,7 @@ export class Progression {
     if (existing === at) return this.loadout;
     if (existing >= 0) next[existing] = next[at];
     next[at] = key;
-    ((this.slots = next),
-      // If the gun that was deploying just got benched, deploy with whatever
-      // replaced it rather than a gun you are no longer carrying.
-      this.slots.includes(this.start) || (this.start = this.slots[at]),
-      this._save(),
-      this._emit());
+    ((this.slots = next), this._save(), this._emit());
     return this.loadout;
   }
 
@@ -188,10 +193,9 @@ export class Progression {
   // oldest slot off without opening the armory.
   pick(key) {
     if (!this.isUnlocked(key)) return this.loadout;
-    if (this.slots.includes(key)) {
-      this.setStart(key);
-      return this.loadout;
-    }
+    // Already carried: move it to key 1, which is the same thing as "deploy
+    // holding this" now that key 1 is the gun you start on.
+    if (this.slots.includes(key)) return this.equip(key, 0);
     const at = Math.max(
       0,
       Math.min(LOADOUT_SIZE - 1, Math.floor(this._replaceAt) || 0),
@@ -199,13 +203,6 @@ export class Progression {
     this.equip(key, at);
     this._replaceAt = (at + 1) % LOADOUT_SIZE;
     return this.loadout;
-  }
-
-  // The gun a run begins on. Must exist, be unlocked, and be one you carry; an
-  // edited or stale save falls back rather than starting you empty-handed.
-  _sanitizeStart(key) {
-    if (key && this.slots.includes(key) && this.isUnlocked(key)) return key;
-    return this.slots.includes(DEFAULT_START) ? DEFAULT_START : this.slots[0];
   }
 
   get level() {
@@ -250,15 +247,6 @@ export class Progression {
 
   isEquipped(key) {
     return this.slots.includes(key);
-  }
-
-  // Choose the gun you deploy holding. Deliberately does not reorder the
-  // loadout: the number keys stay put so picking a new favourite does not move
-  // the other two.
-  setStart(key) {
-    if (!this.slots.includes(key)) return this.start;
-    ((this.start = key), this._save(), this._emit());
-    return this.start;
   }
 
   // Which key selects a gun mid-run, 1-based, or 0 if it is not carried.
@@ -316,7 +304,6 @@ export class Progression {
       (this.runXp = 0),
       (this._dirty = 0),
       (this.slots = STARTER_LOADOUT.slice()),
-      (this.start = DEFAULT_START),
       this._save(),
       this._emit());
   }
@@ -338,7 +325,6 @@ export class Progression {
           JSON.stringify({
             xp: this.xp,
             slots: this.slots,
-            start: this.start,
           }),
         );
     } catch {

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  DEFAULT_START,
   LOADOUT_SIZE,
   STARTER_LOADOUT,
   WEAPONS,
@@ -47,7 +46,9 @@ test("a fresh profile carries three guns, not the whole roster", () => {
   assert.equal(p.xp, 0);
   assert.equal(p.level, 1);
   assert.deepEqual(p.loadout, STARTERS);
-  assert.equal(p.start, DEFAULT_START);
+  // You deploy holding key 1. Always - it is derived from the loadout rather
+  // than stored beside it, so there is no second value to drift out of sync.
+  assert.equal(p.start, p.loadout[0]);
 });
 
 test("each carried gun reports a stable 1-based key", () => {
@@ -258,27 +259,37 @@ test("progress through the current level is reported for the xp bar", () => {
   assert.ok(frac >= 0 && frac < 1);
 });
 
-test("choosing a start weapon persists and never reorders the keys", () => {
+test("the gun you deploy holding is whatever sits on key 1", () => {
   const st = memStorage(),
-    p = new Progression(st),
-    before = p.loadout.slice();
-  p.setStart("dmr");
-  assert.equal(p.start, "dmr");
-  assert.equal(saved(st).start, "dmr");
-  // The whole point of a separate start weapon: every gun keeps its key.
-  assert.deepEqual(p.loadout, before);
-  p.setStart("nonsense");
-  assert.equal(p.start, "dmr", "an unknown key is refused");
-  p.setStart("sniper");
-  assert.equal(p.start, "dmr", "a gun you have not unlocked is refused");
+    p = new Progression(st);
+  assert.equal(p.start, p.loadout[0]);
+  // Reordering the keys moves the spawn gun with them, because the two are
+  // the same fact stated once instead of twice.
+  const wasSecond = p.loadout[1];
+  p.equip(wasSecond, 0);
+  (assert.equal(p.loadout[0], wasSecond), assert.equal(p.start, wasSecond));
+  // Never persisted, so no save can carry a stale spawn gun forward.
+  assert.equal("start" in saved(st), false);
 });
 
-test("a saved start weapon is restored, and a corrupt profile falls back", () => {
-  const st = memStorage();
-  const first = new Progression(st);
-  first.setStart("pistol");
-  assert.equal(new Progression(st).start, "pistol");
+test("editing the loadout can never leave you deploying on key 3", () => {
+  // The bug this replaced: equipping over the gun that was deploying moved
+  // the spawn to that key, so a couple of swaps could silently leave a run
+  // starting on the third weapon.
+  const p = new Progression(memStorage());
+  while (p.level < 4) p.award(xpForWaveClear(p.level * 4));
+  for (const w of p.unlocked)
+    for (const at of [2, 1, 0, 2]) {
+      p.equip(w.key, at);
+      assert.equal(
+        p.start,
+        p.loadout[0],
+        `deploying on ${p.start} with ${p.loadout} on the keys`,
+      );
+    }
+});
 
+test("a corrupt or outdated profile falls back to the starters", () => {
   for (const bad of [
     '{"start":"nonsense"}',
     '{"start":42}',
@@ -286,8 +297,10 @@ test("a saved start weapon is restored, and a corrupt profile falls back", () =>
     "not json at all",
   ]) {
     const p = new Progression(memStorage({ [STORAGE_KEY]: bad }));
-    assert.equal(p.start, DEFAULT_START);
     assert.deepEqual(p.loadout, STARTERS);
+    // An older save still carrying a `start` field is ignored rather than
+    // honoured, so nobody is stranded on a stale spawn gun.
+    assert.equal(p.start, STARTERS[0]);
   }
 });
 
@@ -350,7 +363,7 @@ test("equipping refuses locked guns and swaps rather than duplicates", () => {
   assert.equal(new Set(p.loadout).size, LOADOUT_SIZE, `dupes: ${p.loadout}`);
 });
 
-test("pick rotates a bench gun onto the next key and marks spawn on re-click", () => {
+test("pick fills the next key, and a carried gun jumps to key 1", () => {
   const p = new Progression(memStorage());
   // Unlock the SMG so the deploy roster can take it.
   p.award(xpForLevel(2));
@@ -360,22 +373,25 @@ test("pick rotates a bench gun onto the next key and marks spawn on re-click", (
   assert.equal(p.loadout[0], "smg");
   assert.equal(p.loadout[1], starters[1]);
   assert.equal(p.loadout[2], starters[2]);
-  // Spawn stays put unless the spawn gun itself was benched.
-  assert.equal(p.start, DEFAULT_START);
+  // Key 1 is the spawn, so picking a benched gun onto it makes it the spawn.
+  assert.equal(p.start, "smg");
   // Second pick lands on key 2.
   p.award(xpForLevel(3) - p.xp);
   assert.equal(p.isUnlocked("shotgun"), true);
   p.pick("shotgun");
   assert.equal(p.loadout[1], "shotgun");
   assert.equal(p.loadout[0], "smg");
-  // Clicking a carried gun only changes spawn.
+  // Clicking a gun you already carry moves it to key 1, which is what
+  // "deploy holding this" means now.
   const carried = p.loadout.slice();
-  p.pick(carried[0]);
-  assert.deepEqual(p.loadout, carried);
-  assert.equal(p.start, carried[0]);
+  p.pick(carried[2]);
+  assert.equal(p.loadout[0], carried[2]);
+  assert.equal(p.start, carried[2]);
+  assert.equal(new Set(p.loadout).size, 3, "and never duplicates a gun");
   // Locked guns stay out.
+  const before = p.loadout.slice();
   p.pick("sniper");
-  assert.deepEqual(p.loadout, carried);
+  assert.deepEqual(p.loadout, before);
 });
 
 test("the unlock ladder lists every gate once, in level order", () => {
@@ -447,7 +463,7 @@ test("a profile survives storage that throws", () => {
   };
   const p = new Progression(hostile);
   assert.deepEqual(p.loadout, STARTERS);
-  assert.equal(p.start, DEFAULT_START);
+  assert.equal(p.start, STARTERS[0]);
   p.award(xpForWaveClear(1));
   assert.ok(p.xp > 0, "xp still accrues in memory");
 });

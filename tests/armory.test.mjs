@@ -105,28 +105,42 @@ test("a locked gun cannot be equipped from the panel", () => {
   assert.deepEqual(progression.loadout, before);
 });
 
-test("tapping a gun you already carry selects its key rather than swapping", () => {
-  const { armory, progression, body, click } = mount();
-  armory.render();
-  const carried = progression.loadout[2];
-  click({ act: "equip", key: carried });
-  assert.deepEqual(progression.loadout[2], carried, "nothing moved");
-  assert.ok(body.innerHTML.includes("KEY 3 IS SELECTED"));
-});
-
-test("the spawn button walks the three keys and never leaves the loadout", () => {
+test("a carried gun moves to the key you have selected", () => {
   const { armory, progression, click } = mount();
   armory.render();
-  const seen = new Set();
-  for (let i = 0; i < LOADOUT_SIZE + 1; i++) {
-    click({ act: "start-cycle" });
-    assert.ok(
-      progression.loadout.includes(progression.start),
-      "you must deploy holding something you carry",
-    );
-    seen.add(progression.start);
-  }
-  assert.equal(seen.size, LOADOUT_SIZE, "it visits every key");
+  const before = progression.loadout.slice();
+  // Select key 1, then tap the gun sitting on key 3: they trade places. This
+  // is the only way to choose what you deploy holding, so it has to work.
+  (click({ act: "slot", slot: "0" }), click({ act: "equip", key: before[2] }));
+  assert.equal(progression.loadout[0], before[2]);
+  assert.equal(progression.loadout[2], before[0]);
+  assert.equal(new Set(progression.loadout).size, 3, "never a duplicate");
+});
+
+test("tapping a gun already on the selected key changes nothing", () => {
+  const { armory, progression, click } = mount();
+  armory.render();
+  const before = progression.loadout.slice();
+  (click({ act: "slot", slot: "1" }), click({ act: "equip", key: before[1] }));
+  assert.deepEqual(progression.loadout, before);
+});
+
+test("the rail shows key 1 as the gun you deploy holding", () => {
+  const { armory, progression, body, click } = mount();
+  armory.render();
+  assert.ok(body.innerHTML.includes("SPAWN"), "key 1 has to say so");
+  assert.ok(
+    body.innerHTML.includes("KEY 1 IS WHAT YOU DEPLOY HOLDING"),
+    "and the panel has to explain why",
+  );
+  // There is no separate spawn control any more: the key order is the choice,
+  // so moving a gun to key 1 is how you pick what you start with.
+  assert.equal(body.innerHTML.includes("DEPLOY WITH THIS"), false);
+  assert.equal(body.innerHTML.includes("DEPLOYS WITH"), false);
+  const wasThird = progression.loadout[2];
+  (click({ act: "slot", slot: "0" }), click({ act: "equip", key: wasThird }));
+  assert.equal(progression.loadout[0], wasThird);
+  assert.equal(progression.start, wasThird);
 });
 
 test("guns the last run opened are flagged until the next deploy", () => {

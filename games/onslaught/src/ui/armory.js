@@ -56,14 +56,12 @@ export function mountArmory(progression, els, onChange) {
         </button>`;
       })
       .join("");
-    const startKey = progression.start,
-      startW = byKey.get(startKey);
+    // No separate 'deploy with' control any more: you start on key 1, so
+    // the way to choose is to put that gun on key 1. One concept instead of
+    // two that could disagree.
     return `<div class="arm-rail">
-      <h3 class="arm-slot-title">YOUR LOADOUT<em>PICK A KEY, THEN A GUN</em></h3>
+      <h3 class="arm-slot-title">YOUR LOADOUT<em>KEY 1 IS WHAT YOU DEPLOY HOLDING</em></h3>
       <div class="arm-rail-row">${cards}</div>
-      <button type="button" class="arm-start on" data-act="start-cycle">DEPLOYS WITH ${
-        startW ? startW.name : "KEY 1"
-      }</button>
     </div>`;
   }
 
@@ -113,11 +111,6 @@ export function mountArmory(progression, els, onChange) {
           ><span class="arm-mode">${weapon.mode}</span></span
         >
       </button>
-      ${
-        carried && !starts
-          ? `<button type="button" class="arm-start" data-act="start" data-key="${weapon.key}">DEPLOY WITH THIS</button>`
-          : ""
-      }
     </div>`;
   }
 
@@ -177,21 +170,17 @@ export function mountArmory(progression, els, onChange) {
     if (act === "slot") slot = Number(btn.dataset.slot) || 0;
     else if (act === "equip") {
       const key = btn.dataset.key;
-      // Tapping a gun you already carry selects its key rather than swapping
-      // it with itself - so the rail and the grid stay in step.
-      const at = progression.slotOf(key);
-      if (at) slot = at - 1;
-      else {
+      // A gun already on the selected key has nowhere to go; anything else
+      // moves onto it, and equip() swaps rather than duplicating.
+      //
+      // This used to just move the cursor to whatever key a carried gun sat
+      // on, which meant a gun you already had could never be moved - and now
+      // that key 1 is the gun you deploy holding, being unable to move one
+      // onto key 1 would leave no way to choose it at all.
+      if (progression.slotOf(key) !== slot + 1) {
         progression.equip(key, slot);
         fresh.delete(key);
       }
-    } else if (act === "start") progression.setStart(btn.dataset.key);
-    else if (act === "start-cycle") {
-      // One button that walks the three keys, so choosing a spawn gun does not
-      // need a second click target on every card.
-      const l = progression.loadout,
-        i = l.indexOf(progression.start);
-      progression.setStart(l[(i + 1) % l.length]);
     }
     render();
     onChange && onChange(progression.loadout, progression.start);
