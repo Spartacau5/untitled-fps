@@ -469,6 +469,7 @@ export class Game {
           this.hud.el.leaderboard,
           { entries: [], visitors: 0, players: 0 },
           this._playerName(),
+          this.hud.el.audience,
         ),
       );
   }
@@ -481,7 +482,12 @@ export class Game {
   }
   _applyBoard(data) {
     applyAssignedCallsign(this.hud.el.playerName, data.callsign);
-    renderBoard(this.hud.el.leaderboard, data, this._playerName());
+    renderBoard(
+      this.hud.el.leaderboard,
+      data,
+      this._playerName(),
+      this.hud.el.audience,
+    );
     this.contestTabs && this.contestTabs.setWinners(data.winners);
   }
   _markPlayed() {

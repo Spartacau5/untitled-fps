@@ -89,6 +89,7 @@ test("audienceLine shows unique visitors and unique players", () => {
   const html = audienceLine({ visitors: 1, players: 0 });
   assert.match(html, /1 UNIQUE VISITOR</);
   assert.match(html, /0 UNIQUE PLAYERS/);
+  assert.doesNotMatch(html, /lb-count/, "wrapper lives on the panel footer");
   assert.match(audienceLine({ visitors: 2, players: 1 }), /2 UNIQUE VISITORS/);
   assert.match(audienceLine({ visitors: 2, players: 1 }), /1 UNIQUE PLAYER</);
 });

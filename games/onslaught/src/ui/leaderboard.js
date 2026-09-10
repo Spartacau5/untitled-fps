@@ -56,16 +56,21 @@ export function audienceLine(payload) {
   );
   const noun = (n, one, many) =>
     `${n} UNIQUE ${n === 1 ? one : many}`;
-  return `<div class="lb-count"><span>${noun(visitors, "VISITOR", "VISITORS")}</span><span>${noun(players, "PLAYER", "PLAYERS")}</span></div>`;
+  return `<span>${noun(visitors, "VISITOR", "VISITORS")}</span><span>${noun(players, "PLAYER", "PLAYERS")}</span>`;
 }
 
-export function renderBoard(el, payload, youName) {
+export function renderAudience(el, payload) {
+  if (!el) return;
+  el.innerHTML = audienceLine(payload);
+}
+
+export function renderBoard(el, payload, youName, audienceEl) {
   if (!el) return;
   const entries = (payload && payload.entries) || [];
-  const foot = audienceLine(payload);
+  renderAudience(audienceEl, payload);
   if (!entries.length) {
     el.innerHTML =
-      `<div class="lb-title">TOP OPERATORS</div><div class="lb-empty">NO RUNS RECORDED</div>${foot}`;
+      `<div class="lb-title">TOP OPERATORS</div><div class="lb-empty">NO RUNS RECORDED</div>`;
     return;
   }
   const rows = entries
@@ -76,7 +81,7 @@ export function renderBoard(el, payload, youName) {
     })
     .join("");
   el.innerHTML = `<div class="lb-title">TOP OPERATORS</div>
-    <table class="lb-table"><thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>${foot}`;
+    <table class="lb-table"><thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // Hall of fame for closed contest days. Newest five only. Prefer the server

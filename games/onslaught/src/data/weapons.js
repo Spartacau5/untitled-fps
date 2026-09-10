@@ -1,5 +1,28 @@
 import { Vector3 } from "three";
 
+// Recoil, and what the three fields mean, because the names do not say it.
+//
+//   recoilPitch      degrees of muzzle climb per shot
+//   recoilPermanent  the fraction of that climb which does NOT spring back
+//   recoilYaw        horizontal kick, shaped by the gun's `pattern`
+//
+// recoilPermanent is the mastery dial. The rest of the kick returns on a
+// spring whether you help it or not; that fraction stays, so it is the part
+// the player has to pull down against. The automatics were tuned low enough
+// that a full magazine climbed less than eight degrees, which is why holding
+// one on target took no skill at all.
+//
+// Climb over one magazine, permanent portion only:
+//
+//   MP5     6.1 deg over 30      tamest, the forgiving one
+//   M4      9.9 deg over 30      the controllable rifle
+//   WASP-9 10.4 deg over 40      smallest per shot, widest wander
+//   VK-7   12.8 deg over 30      the reference, hardest to hold
+//   LMG    35.2 deg over 100     least per second, but a hundred of them
+//
+// The launcher and the flamethrower are deliberately untouched: one is a
+// single shot you commit to and the other has no point of impact to pull off.
+
 // How a gun changes your pace. Applied to walking, sprinting and crouching
 // alike - see sim/player.js - so the weight of what you are carrying is felt
 // all the time rather than only down the sights.
@@ -43,10 +66,10 @@ export const WEAPONS = [
     bloomPerShot: 0.0032,
     bloomMax: 0.026,
     bloomDecay: 0.09,
-    recoilPitch: 0.62,
-    recoilYaw: 0.42,
+    recoilPitch: 0.85,
+    recoilYaw: 0.55,
     adsRecoilReduce: 0.35,
-    recoilPermanent: 0.42,
+    recoilPermanent: 0.5,
     pattern: [
       0, 0.1, 0.25, 0.45, 0.6, 0.6, 0.4, 0.1, -0.2, -0.5, -0.7, -0.7, -0.5,
       -0.2, 0.1, 0.4, 0.6, 0.5, 0.2, 0,
@@ -171,10 +194,10 @@ export const WEAPONS = [
     bloomPerShot: 0.004,
     bloomMax: 0.02,
     bloomDecay: 0.06,
-    recoilPitch: 2.7,
-    recoilYaw: 0.9,
+    recoilPitch: 3.4,
+    recoilYaw: 1,
     adsRecoilReduce: 0.25,
-    recoilPermanent: 0.45,
+    recoilPermanent: 0.52,
     pattern: null,
     kickBack: 0.135,
     kickUp: 0.033,
@@ -295,10 +318,10 @@ export const WEAPONS = [
     bloomPerShot: 0.0026,
     bloomMax: 0.032,
     bloomDecay: 0.11,
-    recoilPitch: 0.42,
-    recoilYaw: 0.5,
+    recoilPitch: 0.62,
+    recoilYaw: 0.72,
     adsRecoilReduce: 0.3,
-    recoilPermanent: 0.36,
+    recoilPermanent: 0.42,
     pattern: [
       0, 0.15, 0.3, 0.4, 0.35, 0.15, -0.15, -0.4, -0.55, -0.5, -0.25, 0.05,
       0.35, 0.55, 0.5, 0.25, -0.05, -0.3, -0.45, -0.3,
@@ -358,10 +381,10 @@ export const WEAPONS = [
     bloomPerShot: 0.0022,
     bloomMax: 0.03,
     bloomDecay: 0.055,
-    recoilPitch: 0.72,
-    recoilYaw: 0.52,
+    recoilPitch: 0.95,
+    recoilYaw: 0.66,
     adsRecoilReduce: 0.4,
-    recoilPermanent: 0.34,
+    recoilPermanent: 0.37,
     pattern: [
       0, 0.08, 0.2, 0.36, 0.52, 0.62, 0.6, 0.45, 0.2, -0.1, -0.38, -0.58, -0.66,
       -0.6, -0.4, -0.12, 0.18, 0.42, 0.58, 0.6,
@@ -618,10 +641,10 @@ export const WEAPONS = [
     bloomPerShot: 0.0026,
     bloomMax: 0.022,
     bloomDecay: 0.1,
-    recoilPitch: 0.52,
-    recoilYaw: 0.3,
+    recoilPitch: 0.72,
+    recoilYaw: 0.4,
     adsRecoilReduce: 0.42,
-    recoilPermanent: 0.38,
+    recoilPermanent: 0.46,
     pattern: [
       0, 0.08, 0.18, 0.3, 0.4, 0.44, 0.38, 0.2, -0.05, -0.28, -0.44, -0.48,
       -0.4, -0.2, 0.05, 0.28, 0.44, 0.44, 0.26, 0.05,
@@ -684,10 +707,10 @@ export const WEAPONS = [
     bloomPerShot: 0.0024,
     bloomMax: 0.024,
     bloomDecay: 0.12,
-    recoilPitch: 0.3,
-    recoilYaw: 0.26,
+    recoilPitch: 0.46,
+    recoilYaw: 0.36,
     adsRecoilReduce: 0.45,
-    recoilPermanent: 0.3,
+    recoilPermanent: 0.44,
     pattern: [
       0, 0.1, 0.2, 0.26, 0.24, 0.12, -0.06, -0.22, -0.3, -0.28, -0.14, 0.04,
       0.2, 0.3, 0.28, 0.16, -0.02, -0.18, -0.26, -0.2,

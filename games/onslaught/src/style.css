@@ -573,6 +573,18 @@ canvas#game {
 }
 .menu-right {
   grid-area: right;
+  /* Tabs + prize + board up top; audience count pinned to the panel floor. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.menu-right .contest-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.menu-right > .lb-count {
+  margin-top: auto;
+  padding-top: 16px;
 }
 .menu-center {
   grid-area: center;
