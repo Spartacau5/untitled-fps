@@ -264,7 +264,16 @@ export class Player {
     if (
       (this.sprinting && (f = 7.7),
       this.crouch && !this.sliding && (f = 2.8),
-      (f *= MathUtils.lerp(1, 0.62 * this.moveMult, this.ads)),
+      // The gun sets the pace at every speed, not just down the sights.
+      // This used to live inside the ADS term alone, which meant every
+      // weapon moved identically while hipfiring - and hipfiring is most
+      // of the game, so nothing about carrying a launcher felt different
+      // from carrying a pistol.
+      (f *= this.moveMult),
+      // Aiming costs the same proportion whatever you hold. The weight is
+      // already in the line above; folding it in here as well would square
+      // it, and a sniper would crawl.
+      (f *= MathUtils.lerp(1, 0.62, this.ads)),
       this.onGround)
     ) {
       if (this.sliding) {

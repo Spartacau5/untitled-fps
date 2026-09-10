@@ -1,5 +1,21 @@
 import { Vector3 } from "three";
 
+// How a gun changes your pace. Applied to walking, sprinting and crouching
+// alike - see sim/player.js - so the weight of what you are carrying is felt
+// all the time rather than only down the sights.
+//
+// Five buckets, centred on the assault rifle at 1.00 so today's speed is the
+// middle of the range and not its ceiling: a sidearm is quicker than the game
+// used to be, a launcher a little slower. The whole spread is 16%, which is
+// enough to feel and nowhere near enough to make the heavy guns a chore -
+// even at 0.90 a sprint is 6.9 m/s, still faster than a husk's 6.0, so no
+// weapon can ever leave you unable to break away.
+//
+//   1.06  sidearm
+//   1.03  submachine guns
+//   1.00  assault rifles, shotgun
+//   0.95  marksman, sniper
+//   0.90  machine gun, launcher, flamethrower
 export const WEAPONS = [
   {
     key: "ar",
@@ -19,7 +35,7 @@ export const WEAPONS = [
     reloadTime: 1.85,
     adsTime: 0.2,
     adsFov: 58,
-    moveMult: 1,
+    moveMult: 1.0,
     pellets: 1,
     spreadHip: 0.024,
     spreadAds: 0.0022,
@@ -85,7 +101,7 @@ export const WEAPONS = [
     reloadOutro: 0.32,
     adsTime: 0.24,
     adsFov: 64,
-    moveMult: 1.05,
+    moveMult: 1.0,
     pellets: 9,
     pelletSpread: 0.052,
     pelletSpreadAds: 0.036,
@@ -147,7 +163,7 @@ export const WEAPONS = [
     reloadTime: 2.35,
     adsTime: 0.3,
     adsFov: 42,
-    moveMult: 0.9,
+    moveMult: 0.95,
     pellets: 1,
     spreadHip: 0.032,
     spreadAds: 6e-4,
@@ -208,7 +224,7 @@ export const WEAPONS = [
     reloadTime: 1.35,
     adsTime: 0.14,
     adsFov: 64,
-    moveMult: 1.12,
+    moveMult: 1.06,
     pellets: 1,
     spreadHip: 0.028,
     spreadAds: 0.0018,
@@ -271,7 +287,7 @@ export const WEAPONS = [
     reloadTime: 1.55,
     adsTime: 0.15,
     adsFov: 66,
-    moveMult: 1.12,
+    moveMult: 1.03,
     pellets: 1,
     spreadHip: 0.026,
     spreadAds: 0.0035,
@@ -334,7 +350,7 @@ export const WEAPONS = [
     reloadTime: 4.2,
     adsTime: 0.34,
     adsFov: 60,
-    moveMult: 0.8,
+    moveMult: 0.9,
     pellets: 1,
     spreadHip: 0.042,
     spreadAds: 0.0035,
@@ -397,7 +413,7 @@ export const WEAPONS = [
     reloadTime: 3.1,
     adsTime: 0.42,
     adsFov: 20,
-    moveMult: 0.78,
+    moveMult: 0.95,
     pellets: 1,
     spreadHip: 0.075,
     spreadAds: 0,
@@ -464,7 +480,7 @@ export const WEAPONS = [
     reloadTime: 2.6,
     adsTime: 0.34,
     adsFov: 58,
-    moveMult: 0.82,
+    moveMult: 0.9,
     pellets: 1,
     spreadHip: 0.02,
     spreadAds: 0.004,
@@ -530,7 +546,7 @@ export const WEAPONS = [
     reloadTime: 2.9,
     adsTime: 0.22,
     adsFov: 70,
-    moveMult: 0.92,
+    moveMult: 0.9,
     pellets: 1,
     // Spread is meaningless for a cone, but the shared spread maths still
     // runs, so keep it at zero rather than leaving the fields undefined.
@@ -594,7 +610,7 @@ export const WEAPONS = [
     reloadTime: 1.75,
     adsTime: 0.17,
     adsFov: 56,
-    moveMult: 1.02,
+    moveMult: 1.0,
     pellets: 1,
     spreadHip: 0.022,
     spreadAds: 0.0014,
@@ -660,7 +676,7 @@ export const WEAPONS = [
     reloadTime: 1.7,
     adsTime: 0.16,
     adsFov: 62,
-    moveMult: 1.08,
+    moveMult: 1.03,
     pellets: 1,
     spreadHip: 0.021,
     spreadAds: 0.0022,
