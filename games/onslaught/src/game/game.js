@@ -877,13 +877,13 @@ export class Game {
       const pxPerMetre = Math.abs(off.x - at.x);
       // Clamped so it stays legible across the arena without ever dominating
       // the screen when one is in your face.
-      const width = Math.max(46, Math.min(150, pxPerMetre * 1.5 * e.scale));
+      const width = Math.max(38, Math.min(108, pxPerMetre * 1.05 * e.scale));
       // Sit it above the head so it never covers what you are shooting at,
       // but clamp the gap in PIXELS rather than metres. A fixed world offset
       // is a fixed offset on the model and a wildly varying one on screen -
       // 65 px adrift at seven metres against 22 px at eighteen - which reads
       // as the bar coming loose from the body it belongs to.
-      const gap = Math.max(14, Math.min(34, pxPerMetre * 0.34 * e.scale));
+      const gap = Math.max(12, Math.min(28, pxPerMetre * 0.3 * e.scale));
       out.push({
         x: at.x,
         y: at.y - gap,
