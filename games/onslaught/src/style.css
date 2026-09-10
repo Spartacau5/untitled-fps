@@ -2468,3 +2468,63 @@ body:has(#menu.hidden) .rank {
   height: 100%;
   display: block;
 }
+
+/* --- Controller focus ---------------------------------------------------
+   What the player sees when a pad is driving the menu. This is a class the
+   pad stamps rather than :focus-visible, because :focus-visible could not do
+   the job: a gamepad poll is not an input event so the browser's own
+   heuristic never lit for it, a range input does not match it on a
+   programmatic focus at all, and most of these controls had no :focus rule
+   in the first place - they fell back to the user-agent outline, which is
+   1px of #101010 on a #101010 panel. Focus was moving the whole time and was
+   invisible everywhere except the loadout cards.
+
+   The ring is white, not accent orange, and that is deliberate. Orange is
+   already carrying meaning all over this menu - a loadout card outlines
+   orange when the gun is equipped, the armory uses it for the spawn gun, the
+   live contest tab fills with it - so an orange highlight cannot be told
+   apart from the state underneath it. White is not used for anything else,
+   so it can only mean "this is what the stick is on".
+
+   One rule for everything, so there is no control the highlight fails to
+   show up on. The offset keeps it clear of the borders the panels draw. */
+.pad-focus {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px rgba(8, 12, 16, 0.9),
+    0 0 20px rgba(255, 255, 255, 0.35);
+  position: relative;
+  z-index: 3;
+}
+/* Each of these beats a bare class on specificity - the cards with their own
+   :focus-visible ring, the inputs with `outline: none` - so the highlight
+   has to out-specify them by name to land at all. */
+.lo-card.pad-focus,
+.loadout-fresh.pad-focus,
+.arm-pick.pad-focus,
+.arm-start.pad-focus,
+.arm-rail-slot.pad-focus,
+.contest-tab.pad-focus {
+  outline: 3px solid #fff;
+}
+.callsign input.pad-focus,
+.feedback-field input.pad-focus,
+.feedback-field textarea.pad-focus {
+  outline: 3px solid #fff;
+  border-color: #fff;
+}
+/* A slider is two pixels tall, so a ring around the track alone is a thin
+   sliver that says nothing about which setting you are on. Light the whole
+   row as well, and push the ring clear of the thumb. */
+.settings-row input[type="range"].pad-focus {
+  outline: 2px solid #fff;
+  outline-offset: 7px;
+}
+.settings-row:has(.pad-focus) {
+  background: rgba(255, 90, 31, 0.1);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.settings-row:has(.pad-focus) .settings-k {
+  color: #fff;
+}
