@@ -112,7 +112,8 @@ All optional, all off by default, and all parsed in `src/game/game.js`.
 | --- | --- |
 | `?seed=123` | Fix the run's seed. The same seed replays the same layout, spawns and combat stream. |
 | `?wave=8` | Start at that wave instead of wave 1. For looking at a late-wave enemy without playing up to it. |
-| `?air` | Fill every wave with flyers, six at a time. Combine with `?wave=` to see drones immediately. |
+| `?only=brute` | Fill every wave with one enemy type. Heavies cap at four alive, everything else at six. |
+| `?air` | Alias for `?only=drone`, and mixes in gunships once wave 12 has been reached. |
 | `?god` | No damage taken. |
 | `?nospawn` | Nothing spawns. An empty arena to walk around. |
 | `?debug` | Debug panel, no music or ambience, and the pointer stays unlocked. |

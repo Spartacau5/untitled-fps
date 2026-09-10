@@ -93,10 +93,11 @@ export class Game {
       seed: this.seed,
       god: this.god,
       noSpawn: e.has("nospawn"),
-      // ?wave=8 starts there; ?air fills the wave with drones. Both are for
-      // looking at a late-wave enemy without playing up to it.
+      // ?wave=8 starts there; ?only=brute fills the wave with one enemy type.
+      // Both are for looking at something without playing up to it. ?air is
+      // kept as the drone alias because it is already in use.
       firstWave: Number(e.get("wave")) || 1,
-      airOnly: e.has("air"),
+      onlyType: e.has("air") ? "drone" : e.get("only"),
       loadout: this.progression.loadout,
       startKey: this.progression.start,
     });

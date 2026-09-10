@@ -298,7 +298,7 @@ test("the default is still wave 1, so nothing changes for a real run", () => {
 });
 
 test("air-only fills the wave with flyers and keeps it small enough to see", () => {
-  const w = new World({ seed: 4, firstWave: 8, airOnly: true });
+  const w = new World({ seed: 4, firstWave: 8, onlyType: "drone" });
   w.startRun();
   for (let i = 0; i < 400 && !w.waveActive; i++) w.step(1 / 60, idle());
   assert.equal(w.wave, 8);
@@ -307,11 +307,11 @@ test("air-only fills the wave with flyers and keeps it small enough to see", () 
     assert.ok(ENEMIES[k].fly, `${k} is not a flyer but is in an air-only wave`);
   assert.ok(w.maxAlive <= 8, `${w.maxAlive} at once is too many to look at`);
   // Before gunships unlock it is wasps only; after, they are mixed in.
-  const early = new World({ seed: 4, firstWave: 8, airOnly: true });
+  const early = new World({ seed: 4, firstWave: 8, onlyType: "drone" });
   early.startRun();
   for (let i = 0; i < 400 && !early.waveActive; i++) early.step(1 / 60, idle());
   assert.equal(early.queue.includes("missileDrone"), false);
-  const late = new World({ seed: 4, firstWave: 14, airOnly: true });
+  const late = new World({ seed: 4, firstWave: 14, onlyType: "drone" });
   late.startRun();
   for (let i = 0; i < 400 && !late.waveActive; i++) late.step(1 / 60, idle());
   assert.ok(late.queue.includes("missileDrone"), "gunships once they exist");
@@ -423,4 +423,28 @@ test("the air ramp starts at one and grows slowly", () => {
       `wave ${w} is ${a.wasp + a.gunship}/${a.total} air`,
     );
   }
+});
+
+test("only= fills a wave with any one enemy, capped small enough to look at", () => {
+  for (const type of ["brute", "spitter", "runner"]) {
+    const w = new World({ seed: 4, firstWave: 6, onlyType: type });
+    w.startRun();
+    for (let i = 0; i < 400 && !w.waveActive; i++) w.step(1 / 60, idle());
+    assert.ok(w.queue.length > 0, `${type}: empty queue`);
+    for (const k of w.queue) assert.equal(k, type, `${type}: got a ${k}`);
+    // Heavies get a tighter cap: they are slow, and each one carries a health
+    // bar, so a full wave of them would be a wall of bars.
+    assert.ok(
+      w.maxAlive <= (ENEMIES[type].big ? 4 : 6),
+      `${type}: ${w.maxAlive} alive at once is too many to study`,
+    );
+  }
+});
+
+test("an unknown only= is ignored rather than emptying the arena", () => {
+  const w = new World({ seed: 4, firstWave: 6, onlyType: "nonsense" });
+  w.startRun();
+  for (let i = 0; i < 400 && !w.waveActive; i++) w.step(1 / 60, idle());
+  assert.equal(w.onlyType, null);
+  assert.ok(w.queue.includes("runner"), "it must fall back to a real wave");
 });
