@@ -99,7 +99,8 @@ test("the requested layout is the layout", () => {
       true,
       `button ${index} should be ${field}`,
     );
-  // Sprint on L3 and crouch on R3, held rather than toggled.
+  // L3 and R3. This is the raw button level; Input turns the L3 one into a
+  // toggle, which pad-input.test.mjs covers.
   (bound(PAD.L3, "sprint"), bound(PAD.R3, "crouch"));
   // Jump on the bottom face button, which is A on Xbox and Cross on
   // PlayStation - the same index on both, so this is one binding.
@@ -189,4 +190,23 @@ test("the d-pad picks a weapon slot, once per press", () => {
   assert.equal(pads.slotEdge(), 1, "up is the middle slot");
   pads.poll();
   assert.equal(pads.slotEdge(), -1, "holding must not keep switching");
+});
+
+test("Options is a button like any other, and reports as an edge", () => {
+  let down = !1;
+  const pads = new Gamepads({
+    getGamepads: () => [pad({ buttons: { [PAD.OPTIONS]: down ? 1 : 0 } })],
+  });
+  pads.poll();
+  assert.equal(pads.edge("pause"), false);
+  down = !0;
+  pads.poll();
+  assert.equal(pads.edge("pause"), true);
+  pads.poll();
+  assert.equal(pads.edge("pause"), false, "holding must not re-fire");
+  // And it counts as the pad being in someone's hands.
+  assert.equal(
+    padActive(readPad(pad({ buttons: { [PAD.OPTIONS]: 1 } }))),
+    true,
+  );
 });

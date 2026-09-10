@@ -46,6 +46,11 @@ export const DEADZONE = 0.14;
 // setting. Slow enough to hold an aim, fast enough to spin on a flanker.
 export const TURN_RATE = 210;
 
+// Toggled sprint drops when the left stick stops asking to go forward. Set
+// below a light push so easing off does not cancel it, but above nothing, so
+// letting go entirely does.
+export const SPRINT_DROP = 0.4;
+
 // Stick response. Linear sticks make fine aim impossible because the first
 // millimetre of travel is already a third of your turn rate; a cubic-ish
 // curve spends most of the throw on small corrections and saves the top end
@@ -100,6 +105,8 @@ export function readPad(gp, { deadzone = DEADZONE } = {}) {
     jump: pressed(b[PAD.CROSS]),
     reload: pressed(b[PAD.SQUARE]),
     swapLast: pressed(b[PAD.CIRCLE]),
+    // Options on PlayStation, Menu on Xbox - the same index on both.
+    pause: pressed(b[PAD.OPTIONS]),
     prevGun: pressed(b[PAD.L1]),
     nextGun: pressed(b[PAD.R1]),
     slots: [
@@ -124,6 +131,7 @@ export function padActive(s) {
     s.jump ||
     s.reload ||
     s.swapLast ||
+    s.pause ||
     s.prevGun ||
     s.nextGun ||
     s.slots.some(Boolean)
@@ -142,6 +150,7 @@ const EMPTY = {
   jump: !1,
   reload: !1,
   swapLast: !1,
+  pause: !1,
   prevGun: !1,
   nextGun: !1,
   slots: [!1, !1, !1],

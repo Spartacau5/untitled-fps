@@ -1,4 +1,4 @@
-import { Gamepads, TURN_RATE } from "./gamepad.js";
+import { Gamepads, SPRINT_DROP, TURN_RATE } from "./gamepad.js";
 
 // Every binding the player can press, in the order the how-to-play screen
 // lists them. `frame()` below reads the movement/action codes straight out of
@@ -119,6 +119,16 @@ export class Input {
       // gets its own setting; a number tuned for a mouse means nothing on a
       // stick. Set by the Game from Settings.
       (this.padSensitivity = 1),
+      // Aiming is a different job from looking around - one is tracking, the
+      // other is placing a crosshair - so they get their own numbers rather
+      // than one scaled by the zoom. Blended by how far into the sight the
+      // player is, so the change is not a step when the gun comes up.
+      (this.padAdsSensitivity = 1),
+      (this.adsAmount = 0),
+      // Sprint is a toggle. See pollPad for what puts it out.
+      (this.padSprint = !1),
+      // Set on the Options/Start edge, consumed by the Game.
+      (this.padPause = !1),
       // Aim slowdown, written by the Game each frame: 1 is free look, less
       // than 1 means the crosshair is over something. Pad only - a mouse
       // player has not asked for their aim to be touched.
@@ -247,11 +257,31 @@ export class Input {
     const pad = this.pad;
     if (!pad) return !1;
     const s = pad.poll();
-    if (!pad.connected) return !1;
+    // Note the Game polls this every frame, not only while playing: the
+    // button that pauses has to be able to unpause, and nothing runs during
+    // a pause otherwise.
+    if (!pad.connected) {
+      ((this.padHeld = null), (this.padSprint = !1));
+      return !1;
+    }
+    pad.edge("pause") && (this.padPause = !0);
+    // Sprint toggles on L3 and drops itself the moment it stops making
+    // sense: shooting, aiming, or easing off the stick. Deliberately NOT on
+    // jump or crouch - those are the sprint-jump-slide chain, and cancelling
+    // there would mean re-clicking L3 in the middle of the one movement
+    // sequence the toggle exists to make comfortable.
+    (pad.edge("sprint") && (this.padSprint = !this.padSprint),
+      (s.fire || s.ads || s.move.y < SPRINT_DROP) && (this.padSprint = !1));
     // Convert stick deflection to the mouse-delta units applyLook expects.
     // It multiplies dx by 0.0021 * sensitivity, so dividing that back out
     // leaves TURN_RATE meaning what it says: degrees per second at full tilt.
-    const deg = TURN_RATE * this.padSensitivity * this.aimAssist * frameDt;
+    // Hipfire and aimed sensitivity are separate settings, mixed by how far
+    // the sight is up. applyLook already narrows the look with the zoom; this
+    // is the player's say over that, not a replacement for it.
+    const a = Math.max(0, Math.min(1, this.adsAmount || 0));
+    const sens =
+      this.padSensitivity + (this.padAdsSensitivity - this.padSensitivity) * a;
+    const deg = TURN_RATE * sens * this.aimAssist * frameDt;
     const perUnit = (deg * Math.PI) / 180 / (0.0021 * (this.sensitivity || 1));
     ((this.dx += s.look.x * perUnit), (this.dy += s.look.y * perUnit));
     // Level buttons: held straight through, since `keys` is read the same way.
@@ -295,7 +325,7 @@ export class Input {
       fireHeld: this.mouseDown[0] || !!(p && p.fire),
       ads: this.mouseDown[2] || !!(p && p.ads),
       reload: jp("reload") || this.pressed.has("Pad:reload"),
-      sprint: k("sprint") || !!(p && p.sprint),
+      sprint: k("sprint") || (!!p && this.padSprint),
       jump: jp("jump") || this.pressed.has("Pad:jump"),
       crouch: k("crouch") || !!(p && p.crouch),
       crouchPressed: jp("crouch") || this.pressed.has("Pad:crouch"),

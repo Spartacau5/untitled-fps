@@ -419,6 +419,7 @@ export class Game {
     const apply = (k, v) => {
       (k === "sensitivity" && (this.input.sensitivity = v),
         k === "padSensitivity" && (this.input.padSensitivity = v),
+        k === "padAdsSensitivity" && (this.input.padAdsSensitivity = v),
         k === "quality" && this._applyQuality(v),
         (k === "master" || k === "music" || k === "sfx") &&
           this.audio.setVolumes({ [k]: v }));
@@ -737,6 +738,7 @@ export class Game {
       return;
     }
     (this.audio.beginSession(),
+      (this.input.padSprint = !1),
       this.progression.beginRun(),
       (this._freshGuns = new Set()),
       this.armoryPanel && this.armoryPanel.setFresh(this._freshGuns),
@@ -930,6 +932,18 @@ export class Game {
       if (out.length >= 8) break;
     }
     this.hud.setEnemyBars(out);
+  }
+  // Options on PlayStation, Menu on Xbox. Pauses and unpauses, so a pad
+  // player never has to reach for the keyboard mid-run.
+  //
+  // Unlike Escape this does not drop the pointer lock, which matters: coming
+  // back needs a lock, and a lock needs a user gesture the browser will not
+  // accept from a gamepad. Keeping it means resume is instant.
+  _padMenu() {
+    if (!this.input.padPause) return;
+    this.input.padPause = !1;
+    if (this.state === "playing") this.pause();
+    else if (this.state === "paused") this.start();
   }
   // Stick aim assist, the cheap half: slow the look down while the crosshair
   // is near something worth shooting. No magnetism - nothing moves the aim for
@@ -1298,9 +1312,15 @@ export class Game {
       playing = this.state === "playing" || this.state === "dead";
     // Pad first: it writes into the same dx/dy the mouse does, so the look
     // below picks both up in one go. The slowdown is computed from the frame
-    // just rendered, which is the one the player is reacting to.
-    (playing && this.input.pollPad && this._aimAssist(),
-      playing && this.input.pollPad && this.input.pollPad(frameDt),
+    // just rendered, which is the one the player is reacting to, and has to
+    // land before pollPad because that is what reads it.
+    //
+    // Polled in every state, not just while playing: Options has to be able
+    // to unpause, and nothing else runs during a pause.
+    (playing && this._aimAssist(),
+      (this.input.adsAmount = playing ? w.weapons.adsSmooth : 0),
+      this.input.pollPad && this.input.pollPad(frameDt),
+      this._padMenu(),
       playing && w.player.applyLook(this.input));
     const alpha = this.fixed.advance(frameDt, this.timeScale, (dt) => {
       this.time += dt;

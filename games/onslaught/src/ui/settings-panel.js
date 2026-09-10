@@ -6,6 +6,7 @@ const LABELS = {
   quality: ["GRAPHICS", (v) => QUALITY[v] || QUALITY[2]],
   sensitivity: ["MOUSE SENSITIVITY", (v) => v.toFixed(1)],
   padSensitivity: ["CONTROLLER LOOK", (v) => v.toFixed(1)],
+  padAdsSensitivity: ["CONTROLLER AIM (ADS)", (v) => v.toFixed(1)],
   fov: ["FIELD OF VIEW", (v) => v.toFixed(0) + "°"],
   master: ["MASTER VOLUME", (v) => Math.round(v * 100) + "%"],
   music: ["MUSIC", (v) => Math.round(v * 100) + "%"],
