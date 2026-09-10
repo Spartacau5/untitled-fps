@@ -25,6 +25,11 @@ import { Weapons } from "./weapons.js";
 // The whole game simulation. Math only: no DOM, no WebGL, no audio. Advanced
 // with step(dt, inputFrame); side effects come out as events for the Game to
 // present. Runs identically in the browser and under node.
+// What a headshot kill is worth, as a multiple of the body-shot score.
+// Damage already scales per weapon (weapons.js headMult); this is the
+// score side of the same idea.
+export const HEAD_SCORE_MULT = 1.5;
+
 export class World {
   constructor({
     seed = 1,
@@ -321,8 +326,13 @@ export class World {
     const n = this.elapsed;
     ((this.streak = n - this.lastKillT < 1.8 ? this.streak + 1 : 1),
       (this.lastKillT = n));
+    // A headshot pays half again, rather than the flat +50 it used to.
+    // A tip that size is half a husk and an eighth of a brute, so the
+    // harder the target the less the better shot was worth - exactly
+    // backwards. Scaling it keeps the reward proportional to what you
+    // just dropped, and matches the XP side, which already multiplies.
     const s = Math.min(4, 1 + (this.streak - 1) * 0.25),
-      r = Math.round(t.def.score * s) + (e ? 50 : 0);
+      r = Math.round(t.def.score * s * (e ? HEAD_SCORE_MULT : 1));
     ((this.score += r),
       this.emit(EV_KILL, {
         enemy: t,

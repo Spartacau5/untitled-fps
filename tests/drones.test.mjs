@@ -208,7 +208,7 @@ test("a killed drone falls out of the sky and is cleaned up", () => {
   );
 });
 
-test("a drone can be shot: the shell registers, the core is a headshot", () => {
+test("a drone can be shot anywhere on the hull, and none of it is a headshot", () => {
   const { w, e } = airWorld("drone", { dist: 12 });
   step(w, 10);
   const from = new Vector3(
@@ -216,33 +216,36 @@ test("a drone can be shot: the shell registers, the core is a headshot", () => {
     w.player.pos.y + 1.6,
     w.player.pos.z,
   );
-  const core = new Vector3().subVectors(e.pos, from).normalize();
-  const hit = w.enemies.raycast(from, core, 240);
+  const centre = new Vector3().subVectors(e.pos, from).normalize();
+  const hit = w.enemies.raycast(from, centre, 240);
   assert.ok(hit, "a ray straight at the hull must connect");
   assert.equal(hit.enemy, e);
-  assert.equal(hit.head, true, "dead centre is the core");
-  // Aim between the core and the shell, derived from the actual radii and
-  // range rather than a constant - the drone has been resized once already,
-  // and a hardcoded offset silently stops testing anything when it changes.
+  // A drone is all body. The whole machine is about the size of a head, so
+  // paying a bonus for a centre hit would be paying for the fact that it is
+  // small rather than for the shot.
+  assert.equal(hit.head, false, "dead centre is still just a hit");
+
+  // Off centre, derived from the actual radii and range rather than a
+  // constant - the drone has been resized once already, and a hardcoded
+  // offset silently stops testing anything when it changes.
   const range = e.pos.distanceTo(from);
   const shellR = e.def.radius * e.scale,
     coreR = e.def.coreRadius * e.scale;
-  const lateral = (coreR + shellR) / 2;
-  const edge = new Vector3()
-    .subVectors(e.pos, from)
-    .normalize()
-    .addScaledVector(new Vector3(0, 1, 0), lateral / range)
-    .normalize();
-  const graze = w.enemies.raycast(from, edge, 240);
+  const aimOff = (lateral) =>
+    new Vector3()
+      .subVectors(e.pos, from)
+      .normalize()
+      .addScaledVector(new Vector3(0, 1, 0), lateral / range)
+      .normalize();
+  const graze = w.enemies.raycast(from, aimOff((coreR + shellR) / 2), 240);
   assert.ok(graze, "the shell is wider than the core");
-  assert.equal(graze.head, false, "outside the core is not a headshot");
+  assert.equal(graze.head, false);
   // And past the shell entirely, nothing.
-  const miss = new Vector3()
-    .subVectors(e.pos, from)
-    .normalize()
-    .addScaledVector(new Vector3(0, 1, 0), (shellR * 1.6) / range)
-    .normalize();
-  assert.equal(w.enemies.raycast(from, miss, 240), null, "a clean miss");
+  assert.equal(
+    w.enemies.raycast(from, aimOff(shellR * 1.6), 240),
+    null,
+    "a clean miss",
+  );
 });
 
 test("drones join the roster on the waves they are meant to", () => {
