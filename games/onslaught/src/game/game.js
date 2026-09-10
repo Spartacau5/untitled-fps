@@ -73,6 +73,15 @@ import {
 // below 1; a fight raises it to 2.
 const MENU_MUSIC = 1;
 
+// Stick aim assist. Looking slows to ASSIST_SLOWDOWN of its rate when the
+// crosshair sits on a body, easing back to full at the edge of a bubble
+// ASSIST_BUBBLE times the angle that body subtends. Nothing beyond
+// ASSIST_RANGE counts - at that distance you are lining up a shot, not
+// tracking, and slowing the look would just feel like drag.
+const ASSIST_SLOWDOWN = 0.55;
+const ASSIST_BUBBLE = 2.6;
+const ASSIST_RANGE = 55;
+
 const QUALITY_TIERS = [
   { pixelRatio: 1, samples: 0, shadow: 1024, enemyShadows: !1 },
   { pixelRatio: 1.25, samples: 2, shadow: 2048, enemyShadows: !0 },
@@ -409,6 +418,7 @@ export class Game {
     this.camFov = this.settings.get("fov");
     const apply = (k, v) => {
       (k === "sensitivity" && (this.input.sensitivity = v),
+        k === "padSensitivity" && (this.input.padSensitivity = v),
         k === "quality" && this._applyQuality(v),
         (k === "master" || k === "music" || k === "sfx") &&
           this.audio.setVolumes({ [k]: v }));
@@ -921,6 +931,47 @@ export class Game {
     }
     this.hud.setEnemyBars(out);
   }
+  // Stick aim assist, the cheap half: slow the look down while the crosshair
+  // is near something worth shooting. No magnetism - nothing moves the aim for
+  // you, it only gets easier to hold still - so it cannot fight a player who
+  // knows where they are pointing.
+  //
+  // Lives here rather than in the sim because it is an input-feel concern and
+  // needs the camera and the enemy list, and because a mouse must never get
+  // it: nobody asked for their aim to be touched.
+  _aimAssist() {
+    const input = this.input;
+    if (!input.pad || !input.pad.connected) {
+      input.aimAssist = 1;
+      return;
+    }
+    const cam = this.camera;
+    (cam.getWorldDirection(this._bv), this._bv.normalize());
+    const from = cam.position;
+    let best = 1;
+    for (const e of this.world.enemies.list) {
+      if (e.state === "die" || e.state === "spawn") continue;
+      const m = this.world.enemies.metrics[e.type];
+      // Aim at the middle of the body, which is what a player tracks.
+      const tx = e.pos.x - from.x,
+        ty = (e.fly ? e.pos.y : e.pos.y + m.torsoTop * e.scale * 0.6) - from.y,
+        tz = e.pos.z - from.z;
+      const dist = Math.hypot(tx, ty, tz);
+      if (dist < 1 || dist > ASSIST_RANGE) continue;
+      const along =
+        (tx * this._bv.x + ty * this._bv.y + tz * this._bv.z) / dist;
+      if (along <= 0) continue;
+      // How far off the crosshair sits, as a multiple of the angle the body
+      // subtends. Under 1 is on the target; the bubble reaches a bit past it.
+      const half = Math.asin(Math.min(0.9, Math.max(e.def.radius, 0.5) / dist));
+      const off = Math.acos(Math.min(1, along)) / (half * ASSIST_BUBBLE);
+      if (off >= 1) continue;
+      // Full slowdown dead on, easing back to none at the edge of the bubble.
+      const t = off * off * (3 - 2 * off);
+      best = Math.min(best, ASSIST_SLOWDOWN + (1 - ASSIST_SLOWDOWN) * t);
+    }
+    input.aimAssist = best;
+  }
   project(t, e, n) {
     const s = this._v.set(t, e, n).project(this.camera);
     return s.z > 1
@@ -1245,7 +1296,12 @@ export class Game {
     // fixed rate and the renderer interpolates between the last two ticks.
     const w = this.world,
       playing = this.state === "playing" || this.state === "dead";
-    playing && w.player.applyLook(this.input);
+    // Pad first: it writes into the same dx/dy the mouse does, so the look
+    // below picks both up in one go. The slowdown is computed from the frame
+    // just rendered, which is the one the player is reacting to.
+    (playing && this.input.pollPad && this._aimAssist(),
+      playing && this.input.pollPad && this.input.pollPad(frameDt),
+      playing && w.player.applyLook(this.input));
     const alpha = this.fixed.advance(frameDt, this.timeScale, (dt) => {
       this.time += dt;
       playing ? this.stepGame(dt) : this.stepIdle(dt);

@@ -6,6 +6,9 @@ export const DEFAULTS = {
   // frames on a weak GPU. See Game._applyQuality.
   quality: 2,
   sensitivity: 1,
+  // Sticks are a rate and a mouse is a distance, so they cannot share a
+  // number: a mouse sensitivity that feels right is meaningless on a pad.
+  padSensitivity: 1,
   fov: 80,
   master: 0.9,
   music: 1,
@@ -16,6 +19,7 @@ export const DEFAULTS = {
 export const RANGES = {
   quality: { min: 0, max: 2, step: 1 },
   sensitivity: { min: 0.2, max: 3, step: 0.1 },
+  padSensitivity: { min: 0.2, max: 3, step: 0.1 },
   fov: { min: 70, max: 110, step: 1 },
   master: { min: 0, max: 1, step: 0.05 },
   music: { min: 0, max: 1, step: 0.05 },

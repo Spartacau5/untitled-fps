@@ -4,7 +4,8 @@ const QUALITY = ["PERFORMANCE", "BALANCED", "HIGH"];
 
 const LABELS = {
   quality: ["GRAPHICS", (v) => QUALITY[v] || QUALITY[2]],
-  sensitivity: ["SENSITIVITY", (v) => v.toFixed(1)],
+  sensitivity: ["MOUSE SENSITIVITY", (v) => v.toFixed(1)],
+  padSensitivity: ["CONTROLLER LOOK", (v) => v.toFixed(1)],
   fov: ["FIELD OF VIEW", (v) => v.toFixed(0) + "°"],
   master: ["MASTER VOLUME", (v) => Math.round(v * 100) + "%"],
   music: ["MUSIC", (v) => Math.round(v * 100) + "%"],
@@ -16,6 +17,11 @@ export function mountSettingsPanel(settings, els) {
   const inputs = {};
   for (const key in DEFAULTS) {
     if (els.mobile && key === "quality") continue;
+    // A setting with no label here is one nobody has designed a row for yet.
+    // Skip it rather than destructuring undefined: this loop builds the whole
+    // panel, so throwing here takes settings, graphics and audio down with it
+    // - which is exactly what adding padSensitivity did before this guard.
+    if (!LABELS[key] || !RANGES[key]) continue;
     const r = RANGES[key],
       [label, fmt] = LABELS[key],
       row = document.createElement("label");
@@ -35,7 +41,8 @@ export function mountSettingsPanel(settings, els) {
     inputs[key] = show;
   }
   if (els.mobile && els.note) {
-    els.note.textContent = "MOBILE TEST PROFILE · 1× resolution · no shadows or postprocessing. Sensitivity adjusts touch aiming.";
+    els.note.textContent =
+      "MOBILE TEST PROFILE · 1× resolution · no shadows or postprocessing. Sensitivity adjusts touch aiming.";
     els.note.classList.remove("hidden");
   }
   settings.onChange((k, v) => inputs[k] && inputs[k](v));

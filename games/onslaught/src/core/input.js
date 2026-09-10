@@ -1,3 +1,5 @@
+import { Gamepads, TURN_RATE } from "./gamepad.js";
+
 // Every binding the player can press, in the order the how-to-play screen
 // lists them. `frame()` below reads the movement/action codes straight out of
 // this table, so the controls screen can never drift from what the game
@@ -16,7 +18,13 @@ export const BINDINGS = [
     caps: ["SHIFT"],
     group: "move",
   },
-  { id: "jump", label: "JUMP", codes: ["Space"], caps: ["SPACE"], group: "move" },
+  {
+    id: "jump",
+    label: "JUMP",
+    codes: ["Space"],
+    caps: ["SPACE"],
+    group: "move",
+  },
   {
     id: "crouch",
     label: "CROUCH / SLIDE",
@@ -89,6 +97,10 @@ for (const b of BINDINGS) BIND[b.id] = b.codes || [];
 // slot back is a one-line change in the table above.
 export const WEAPON_SLOT_CODES = BIND.slots;
 
+// Controller support rides inside the keyboard backend rather than being a
+// fourth one. A player switches between a pad and a mouse mid-session without
+// telling anyone, so both feed the same snapshot and whichever they touched
+// last is simply the one that moved it. The sim never learns a pad exists.
 export class Input {
   constructor(t) {
     ((this.canvas = t),
@@ -102,6 +114,17 @@ export class Input {
       (this.wheel = 0),
       (this.locked = !1),
       (this.sensitivity = 1),
+      (this.pad = new Gamepads()),
+      // Pad look is a rate, so it is scaled separately from the mouse and
+      // gets its own setting; a number tuned for a mouse means nothing on a
+      // stick. Set by the Game from Settings.
+      (this.padSensitivity = 1),
+      // Aim slowdown, written by the Game each frame: 1 is free look, less
+      // than 1 means the crosshair is over something. Pad only - a mouse
+      // player has not asked for their aim to be touched.
+      (this.aimAssist = 1),
+      (this.padHeld = null),
+      (this.padSlot = -1),
       // null until the first lock resolves; false means the OS pointer
       // acceleration curve is sitting between the mouse and the aim.
       (this.rawInput = null),
@@ -212,6 +235,38 @@ export class Input {
   // Snapshot of the current input as the sim sees it. This is the only shape
   // the simulation reads, so a headless run (or a network peer) can feed the
   // same object without a DOM.
+  // Read the pad once per render frame and fold it into the same state the
+  // keyboard and mouse write to. Called with the frame's delta because a stick
+  // is a rate and a mouse is a distance: holding the stick right for twice as
+  // long has to turn you twice as far, which a raw axis value cannot say.
+  //
+  // Edge buttons land in `pressed`, the same set the keyboard uses, so they
+  // are consumed by exactly one simulation tick and survive a render frame
+  // that happens to run none.
+  pollPad(frameDt) {
+    const pad = this.pad;
+    if (!pad) return !1;
+    const s = pad.poll();
+    if (!pad.connected) return !1;
+    // Convert stick deflection to the mouse-delta units applyLook expects.
+    // It multiplies dx by 0.0021 * sensitivity, so dividing that back out
+    // leaves TURN_RATE meaning what it says: degrees per second at full tilt.
+    const deg = TURN_RATE * this.padSensitivity * this.aimAssist * frameDt;
+    const perUnit = (deg * Math.PI) / 180 / (0.0021 * (this.sensitivity || 1));
+    ((this.dx += s.look.x * perUnit), (this.dy += s.look.y * perUnit));
+    // Level buttons: held straight through, since `keys` is read the same way.
+    ((this.padHeld = s),
+      pad.edge("jump") && this.pressed.add("Pad:jump"),
+      pad.edge("reload") && this.pressed.add("Pad:reload"),
+      pad.edge("crouch") && this.pressed.add("Pad:crouch"),
+      pad.edge("swapLast") && this.pressed.add("Pad:swapLast"),
+      pad.edge("fire") && (this.mousePressed[0] = !0),
+      pad.edge("prevGun") && (this.wheel -= 1),
+      pad.edge("nextGun") && (this.wheel += 1));
+    const slot = pad.slotEdge();
+    if (slot >= 0) this.padSlot = slot;
+    return pad.active;
+  }
   frame() {
     const any = (codes, set) => codes.some((c) => set.has(c)),
       k = (id) => any(BIND[id], this.keys),
@@ -222,21 +277,30 @@ export class Input {
         switchTo = i;
         break;
       }
+    // The pad is folded in here rather than replacing anything, so a player
+    // can steer with a stick and still hit R to reload. Movement takes
+    // whichever input is pushing harder, so a stick at rest never cancels the
+    // keys and a key held never pins the stick to 1.
+    const p = this.padHeld;
+    const kx = (k("right") ? 1 : 0) - (k("left") ? 1 : 0),
+      ky = (k("forward") ? 1 : 0) - (k("back") ? 1 : 0);
+    const move =
+      p && Math.hypot(p.move.x, p.move.y) > Math.hypot(kx, ky)
+        ? { x: p.move.x, y: p.move.y }
+        : { x: kx, y: ky };
+    if (this.padSlot >= 0 && switchTo < 0) switchTo = this.padSlot;
     return {
-      move: {
-        x: (k("right") ? 1 : 0) - (k("left") ? 1 : 0),
-        y: (k("forward") ? 1 : 0) - (k("back") ? 1 : 0),
-      },
+      move,
       fire: this.mousePressed[0],
-      fireHeld: this.mouseDown[0],
-      ads: this.mouseDown[2],
-      reload: jp("reload"),
-      sprint: k("sprint"),
-      jump: jp("jump"),
-      crouch: k("crouch"),
-      crouchPressed: jp("crouch"),
+      fireHeld: this.mouseDown[0] || !!(p && p.fire),
+      ads: this.mouseDown[2] || !!(p && p.ads),
+      reload: jp("reload") || this.pressed.has("Pad:reload"),
+      sprint: k("sprint") || !!(p && p.sprint),
+      jump: jp("jump") || this.pressed.has("Pad:jump"),
+      crouch: k("crouch") || !!(p && p.crouch),
+      crouchPressed: jp("crouch") || this.pressed.has("Pad:crouch"),
       switchTo,
-      swapLast: jp("swapLast"),
+      swapLast: jp("swapLast") || this.pressed.has("Pad:swapLast"),
       wheel: this.wheel,
     };
   }
@@ -244,6 +308,7 @@ export class Input {
   endTick() {
     (this.pressed.clear(),
       (this.mousePressed = [!1, !1, !1]),
+      (this.padSlot = -1),
       (this.wheel = 0));
   }
   // Look deltas are consumed per render frame.
