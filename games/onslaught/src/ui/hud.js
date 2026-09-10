@@ -51,6 +51,7 @@ export class HUD {
       rankNext: t("rank-next"),
       xpAward: t("xp-award"),
       loadoutFresh: t("loadout-fresh"),
+      hpBars: t("hpbars"),
       btnRunDetails: t("btn-run-details"),
       runDetails: t("run-details"),
       menuGrid: t("menu-grid"),
@@ -285,6 +286,41 @@ export class HUD {
   }
   // One pip per carried weapon, rebuilt when the loadout changes rather than
   // fixed in markup, so the row always matches what the number keys do.
+  // Health bars over the heavy units, given as screen-space entries the
+  // Game has already projected and culled. Divs are pooled and reused: a
+  // wave can put several brutes on screen at once and rebuilding the
+  // markup every frame would churn the DOM for no reason.
+  setEnemyBars(entries) {
+    const host = this.el.hpBars;
+    if (!host) return;
+    const pool = this._ehp || (this._ehp = []);
+    while (pool.length < entries.length) {
+      const bar = document.createElement("div");
+      bar.className = "ehp";
+      const fill = document.createElement("i");
+      fill.className = "ehp-fill";
+      (bar.appendChild(fill), host.appendChild(bar));
+      pool.push({ bar, fill, w: -1, f: -1, low: null });
+    }
+    for (let i = 0; i < pool.length; i++) {
+      const p = pool[i],
+        e = entries[i];
+      if (!e) {
+        p.bar.hidden || (p.bar.hidden = !0);
+        continue;
+      }
+      p.bar.hidden && (p.bar.hidden = !1);
+      // Position every frame, but only touch width and fill when the
+      // rounded value actually moves.
+      p.bar.style.transform = `translate(${e.x.toFixed(1)}px, ${e.y.toFixed(1)}px) translate(-50%, -50%) skew(-18deg)`;
+      const w = Math.round(e.w);
+      p.w !== w && ((p.w = w), (p.bar.style.width = w + "px"));
+      const f = Math.round(e.frac * 100);
+      p.f !== f && ((p.f = f), (p.fill.style.width = f + "%"));
+      const low = f <= 25;
+      p.low !== low && ((p.low = low), p.bar.classList.toggle("is-low", low));
+    }
+  }
   setSlots(count) {
     if (!this.el.slotRow || this.el.slots.length === count) return;
     this.el.slotRow.innerHTML = "";

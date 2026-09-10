@@ -96,10 +96,11 @@ export class Game {
       seed: this.seed,
       god: this.god,
       noSpawn: e.has("nospawn"),
-      // ?wave=8 starts there; ?air fills the wave with drones. Both are for
-      // looking at a late-wave enemy without playing up to it.
+      // ?wave=8 starts there; ?only=brute fills the wave with one enemy type.
+      // Both are for looking at something without playing up to it. ?air is
+      // kept as the drone alias because it is already in use.
       firstWave: Number(e.get("wave")) || 1,
-      airOnly: e.has("air"),
+      onlyType: e.has("air") ? "drone" : e.get("only"),
       loadout: this.progression.loadout,
       startKey: this.progression.start,
     });
@@ -219,6 +220,11 @@ export class Game {
       (this.fps = 60),
       (this.fixed = new FixedLoop({ tick: 1 / 60, maxSteps: 5 })),
       (this._v = new Vector3()),
+      // Scratch for the heavy-unit health bars: a look direction and the
+      // camera basis, kept off the per-frame allocation path.
+      (this._bv = new Vector3()),
+      (this._bv2 = new Vector3()),
+      (this._bright = new Vector3()),
       (this._v2 = new Vector3()),
       (this._q = new Quaternion()),
       (this._e = new Euler()),
@@ -847,6 +853,74 @@ export class Game {
     (this.hud.setWeapon(t.def.name, t.def.mode, this.world.weapons.current),
       this.hud.setAmmo(t.mag, t.reserve, t.def.magSize));
   }
+  // Health bars over the heavy units. Only the brute carries one: a husk
+  // dies to a burst, and a bar over every body in a wave of 130 would be a
+  // wall of them - but a 640 hp target you are emptying a magazine into has
+  // no other way of telling you how far along you are.
+  //
+  // The Game owns the camera, so projection and culling happen here and the
+  // HUD is handed finished screen-space entries.
+  _syncEnemyBars() {
+    const out = this._barEntries || (this._barEntries = []);
+    out.length = 0;
+    // Nothing to draw between runs, and a stale bar left hanging over the
+    // menu would be worse than none.
+    if (this.state !== "playing") {
+      this.hud.setEnemyBars(out);
+      return;
+    }
+    const cam = this.camera.position,
+      metrics = this.world.enemies.metrics;
+    for (const e of this.world.enemies.list) {
+      if (!e.def.big || e.state === "die" || e.state === "spawn") continue;
+      const top = e.pos.y + metrics[e.type].headY * e.scale;
+      const dx = e.pos.x - cam.x,
+        dy = top - cam.y,
+        dz = e.pos.z - cam.z,
+        dist = Math.hypot(dx, dy, dz);
+      // Far enough away that the bar would be a smear, or so close it is
+      // behind you: either way, skip before paying for a projection.
+      if (dist > 70 || dist < 0.6) continue;
+      const at = this.project(e.pos.x, top, e.pos.z);
+      if (!at) continue;
+      // A bar visible through a facade would be an aimbot. The arena raycast
+      // is the same one the guns use, so cover means cover.
+      this._bv.set(dx / dist, dy / dist, dz / dist);
+      const wall = this.world.arena.raycast(cam, this._bv, dist - 0.35);
+      if (wall) continue;
+      // Width in pixels for a fixed world width, so the bar shrinks with
+      // distance the way the body does. Measured by projecting a point one
+      // metre along the camera's right vector at the same depth, which gets
+      // fov and aspect right without duplicating the projection maths.
+      this.camera.matrixWorld.extractBasis(this._bright, this._bv, this._bv2);
+      const off = this.project(
+        e.pos.x + this._bright.x,
+        top + this._bright.y,
+        e.pos.z + this._bright.z,
+      );
+      if (!off) continue;
+      const pxPerMetre = Math.abs(off.x - at.x);
+      // Clamped so it stays legible across the arena without ever dominating
+      // the screen when one is in your face.
+      const width = Math.max(38, Math.min(108, pxPerMetre * 1.05 * e.scale));
+      // Sit it above the head so it never covers what you are shooting at,
+      // but clamp the gap in PIXELS rather than metres. A fixed world offset
+      // is a fixed offset on the model and a wildly varying one on screen -
+      // 65 px adrift at seven metres against 22 px at eighteen - which reads
+      // as the bar coming loose from the body it belongs to.
+      const gap = Math.max(12, Math.min(28, pxPerMetre * 0.3 * e.scale));
+      out.push({
+        x: at.x,
+        y: at.y - gap,
+        w: width,
+        frac: Math.max(0, Math.min(1, e.hp / e.maxHp)),
+      });
+      // A handful is all a screen can carry; nearest win because the list is
+      // walked in spawn order and the cap is generous.
+      if (out.length >= 8) break;
+    }
+    this.hud.setEnemyBars(out);
+  }
   project(t, e, n) {
     const s = this._v.set(t, e, n).project(this.camera);
     return s.z > 1
@@ -1329,6 +1403,7 @@ export class Game {
         w.kills,
         w.score,
       ),
+      this._syncEnemyBars(),
       this.state === "playing")
     ) {
       const h = W.weapon;

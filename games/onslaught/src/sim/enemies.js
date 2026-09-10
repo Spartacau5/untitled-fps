@@ -140,12 +140,17 @@ export class Enemies {
         const shell = raySphere(t, e, this._headC, r.def.radius * o),
           core = raySphere(t, e, this._headC, r.def.coreRadius * o);
         const hit = core >= 0 ? core : shell;
+        // A drone is all body. It has no head to aim at - the whole
+        // machine is about the size of one - so rewarding a centre hit
+        // would be rewarding the fact that it is small, not the shot.
+        // The core is still tracked because it is where the hit spark
+        // reads best, but it does not pay a bonus.
         !(hit < 0 || hit > n) &&
           (!s || hit < s.t) &&
           (s = {
             enemy: r,
             t: hit,
-            head: core >= 0,
+            head: !1,
             point: new Vector3(
               t.x + e.x * hit,
               t.y + e.y * hit,
@@ -171,19 +176,23 @@ export class Enemies {
         u + h * g,
       );
       const v = raySphere(t, e, this._headC, l.head * 0.64 * o);
+      // A capsule reaches its own radius past each end of its segment, so
+      // a segment drawn to torsoTop puts a dome of that radius ABOVE the
+      // shoulders. On the brute - widest torso in the game, scaled 1.72 -
+      // that dome topped out at 3.20 m while its head sphere ended at
+      // 3.17 m, so the torso enclosed the head completely and the nearest
+      // -surface tie-break below picked the torso every single time: the
+      // brute could not be headshot at all, by anyone, ever. Ending the
+      // segment a radius short puts the capsule's surface at torsoTop,
+      // where the shoulders actually are.
+      const torsoR = Math.max(l.torso[0], l.torso[2]) * 0.52 * o;
       (this._a.set(d, r.pos.y + a.torsoBot * o, u),
         this._b.set(
           d + c * g * 0.7,
-          r.pos.y + a.torsoTop * o,
+          r.pos.y + Math.max(a.torsoBot * o, a.torsoTop * o - torsoR),
           u + h * g * 0.7,
         ));
-      const p = rayCapsule(
-        t,
-        e,
-        this._a,
-        this._b,
-        Math.max(l.torso[0], l.torso[2]) * 0.52 * o,
-      );
+      const p = rayCapsule(t, e, this._a, this._b, torsoR);
       (this._a.set(d, r.pos.y + 0.08, u),
         this._b.set(d, r.pos.y + a.torsoBot * o, u));
       const f = rayCapsule(t, e, this._a, this._b, l.hips[0] * 0.5 * o);

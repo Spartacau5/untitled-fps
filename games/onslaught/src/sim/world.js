@@ -1,5 +1,6 @@
 import { MathUtils, Vector3 } from "three";
 import { RNG } from "../core/rng.js";
+import { ENEMIES } from "../data/enemies.js";
 import { GUNSHIP_WAVE, composeWave } from "../data/waves.js";
 import { Arena } from "./arena.js";
 import { FlowField } from "./flowfield.js";
@@ -25,6 +26,11 @@ import { Weapons } from "./weapons.js";
 // The whole game simulation. Math only: no DOM, no WebGL, no audio. Advanced
 // with step(dt, inputFrame); side effects come out as events for the Game to
 // present. Runs identically in the browser and under node.
+// What a headshot kill is worth, as a multiple of the body-shot score.
+// Damage already scales per weapon (weapons.js headMult); this is the
+// score side of the same idea.
+export const HEAD_SCORE_MULT = 1.5;
+
 export class World {
   constructor({
     seed = 1,
@@ -34,17 +40,19 @@ export class World {
     startKey = null,
     // Testing affordances, off by default and only ever set from the URL.
     // firstWave skips the climb so a late-wave enemy can be looked at without
-    // playing to it; airOnly fills the queue with flyers so it arrives now
-    // rather than two thirds of the way through a wave of husks.
+    // playing to it; onlyType fills the queue with one kind so it arrives now
+    // rather than somewhere in the middle of a wave of husks.
     //
     // Both change what the wave RNG is asked for, so a run using either is not
     // comparable to a seeded replay. That is the point of them - they are for
     // looking at something, not for measuring it.
     firstWave = 1,
-    airOnly = !1,
+    onlyType = null,
   } = {}) {
     ((this.firstWave = Math.max(1, Math.floor(firstWave) || 1)),
-      (this.airOnly = !!airOnly),
+      // Ignore a type that does not exist rather than spawning nothing and
+      // leaving the player in an empty arena wondering what they typed wrong.
+      (this.onlyType = onlyType && ENEMIES[onlyType] ? onlyType : null),
       (this.seed = seed),
       (this.god = god),
       (this.noSpawn = noSpawn),
@@ -321,8 +329,13 @@ export class World {
     const n = this.elapsed;
     ((this.streak = n - this.lastKillT < 1.8 ? this.streak + 1 : 1),
       (this.lastKillT = n));
+    // A headshot pays half again, rather than the flat +50 it used to.
+    // A tip that size is half a husk and an eighth of a brute, so the
+    // harder the target the less the better shot was worth - exactly
+    // backwards. Scaling it keeps the reward proportional to what you
+    // just dropped, and matches the XP side, which already multiplies.
     const s = Math.min(4, 1 + (this.streak - 1) * 0.25),
-      r = Math.round(t.def.score * s) + (e ? 50 : 0);
+      r = Math.round(t.def.score * s * (e ? HEAD_SCORE_MULT : 1));
     ((this.score += r),
       this.emit(EV_KILL, {
         enemy: t,
@@ -337,16 +350,22 @@ export class World {
   startWave(t) {
     ((this.wave = t), (this.waveActive = !0));
     const w = composeWave(t, this.waveRng);
-    // Air-only: same wave, every slot a flyer, and few enough alive at once to
-    // actually look at one. Composed normally first so the wave still knows
-    // whether gunships have unlocked yet.
-    const queue = this.airOnly
+    // One type only: same wave length, every slot the same enemy, and few
+    // enough alive at once to actually look at one. `air` mixes in gunships
+    // once they exist, which is why the wave is composed normally first -
+    // it still has to know whether they have unlocked.
+    const only = this.onlyType;
+    const queue = only
       ? w.queue.map((k, i) =>
-          t >= GUNSHIP_WAVE && i % 4 === 0 ? "missileDrone" : "drone",
+          only === "drone" && t >= GUNSHIP_WAVE && i % 4 === 0
+            ? "missileDrone"
+            : only,
         )
       : w.queue;
+    // A brute is slow and there is one bar per body, so a smaller cap keeps
+    // a heavies-only wave readable rather than a wall of health bars.
     ((this.queue = queue),
-      (this.maxAlive = this.airOnly ? 6 : w.maxAlive),
+      (this.maxAlive = only ? (ENEMIES[only].big ? 4 : 6) : w.maxAlive),
       (this.spawnInterval = w.spawnInterval),
       (this.spawnTimer = 1),
       this.emit(EV_WAVE_START, {

@@ -1,6 +1,21 @@
 import { Euler, MathUtils, Quaternion, Vector2, Vector3 } from "three";
 import { damp4 } from "../core/mathx.js";
 
+// How long a crouch press stays live waiting for a chance to become a slide.
+// Long enough to press it on the way up from a jump and still get the slide on
+// landing; short enough that a crouch you meant as a crouch does not turn into
+// a slide half a second later.
+const SLIDE_BUFFER = 0.28;
+// How long after sprinting a slide is still allowed. On the ground this is a
+// coyote grace; in the air it does not tick down at all, because "I was
+// sprinting when I took off" has to survive the whole jump - a sprint jump is
+// airborne for about two thirds of a second, longer than any sane grace.
+const SPRINT_GRACE = 0.3;
+// A slide has to come from real speed. Without this, holding crouch while
+// walking off a ledge would slide on landing, which is not a move anyone
+// pressed for. Walk is 5.3 and sprint 7.7.
+const SLIDE_MIN_SPEED = 5.6;
+
 export class Player {
   constructor(t) {
     ((this.arena = t),
@@ -17,6 +32,10 @@ export class Player {
       (this.crouch = !1),
       (this.sliding = !1),
       (this.slideT = 0),
+      // Input smoothing for the sprint-jump-slide chain; see the slide
+      // block in update() for what each one buys.
+      (this.slideBuffer = 0),
+      (this.sprintRecent = 0),
       (this.sprinting = !1),
       (this.sprintBlock = 0),
       (this.sprintBlend = 0),
@@ -76,6 +95,8 @@ export class Player {
       // fractionally different place and did fractionally different damage.
       (this.onGround = !0),
       (this.slideT = 0),
+      (this.slideBuffer = 0),
+      (this.sprintRecent = 0),
       (this.sprintBlock = 0),
       (this.sprintBlend = 0),
       (this.slideBlend = 0),
@@ -182,8 +203,50 @@ export class Player {
       !this.dead;
     this.sprinting = v && !this.sliding;
     const p = e.crouch;
-    if (!this.sliding && this.sprinting && this.onGround && e.crouchPressed) {
-      ((this.sliding = !0), (this.slideT = 0.95), (this.sprinting = !1));
+    // Sprint -> jump -> crouch, the way it works everywhere it feels good.
+    //
+    // The old gate wanted sprinting AND grounded AND the crouch edge, all true
+    // on one tick. Coming out of a jump that is unsatisfiable: you are not
+    // grounded on the frame you press crouch, and `crouchPressed` is an edge,
+    // so it is gone by the time you land. The only way through was to mash the
+    // key and hope one press happened to land on the touchdown frame.
+    //
+    // Two memories fix it. The press is buffered, so an early crouch waits for
+    // the ground instead of being thrown away; and sprint is remembered, so
+    // the landing frame can still see that you were sprinting when you took
+    // off. Holding crouch in mid-air sets `crouch`, which clears `sprinting`
+    // on the very next tick - asking for it at touchdown asks for something
+    // that cannot be there.
+    //
+    // Both memories freeze while airborne rather than ticking down. A jump
+    // hangs for about two thirds of a second, so any grace short enough to be
+    // safe on the ground would expire before you landed - and "slide when I
+    // touch down" is the whole request. On the ground they decay normally, so
+    // neither can go stale and fire a slide you did not ask for.
+    ((this.slideBuffer = this.onGround
+      ? Math.max(0, this.slideBuffer - t)
+      : this.slideBuffer),
+      e.crouchPressed && (this.slideBuffer = SLIDE_BUFFER),
+      (this.sprintRecent = this.sprinting
+        ? SPRINT_GRACE
+        : this.onGround
+          ? Math.max(0, this.sprintRecent - t)
+          : this.sprintRecent));
+    if (
+      !this.sliding &&
+      this.onGround &&
+      !this.dead &&
+      this.slideBuffer > 0 &&
+      this.sprintRecent > 0 &&
+      this.speed > SLIDE_MIN_SPEED
+    ) {
+      ((this.sliding = !0),
+        (this.slideT = 0.95),
+        (this.sprinting = !1),
+        // Spent, so one press is one slide rather than a slide the moment
+        // each of the next few frames allows it.
+        (this.slideBuffer = 0),
+        (this.sprintRecent = 0));
       const K = m.lengthSq() > 0.1 ? m : new Vector3(c, 0, h),
         nt = Math.max(10.5, this.speed + 3);
       ((this.vel.x = K.x * nt),
