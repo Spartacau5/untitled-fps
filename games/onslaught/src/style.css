@@ -438,6 +438,42 @@ canvas#game {
 .hint.warn {
   color: var(--danger);
 }
+/* Heavy-unit health bars, pinned over the head in world space. Only the
+   brute carries one: a husk dies to a burst and a bar over every body in
+   a wave of 130 would be a wall of them, but a 640 hp target you are
+   emptying a magazine into needs to say how far along you are.
+
+   Same language as the player's vitals - skewed rectangle, hairline
+   border, hot gradient - in the brute's own red rather than the player's
+   orange, so at a glance it reads as their health, not yours. */
+.hpbars {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.ehp {
+  position: absolute;
+  height: 9px;
+  background: rgba(8, 10, 14, 0.72);
+  border: 1px solid rgba(243, 246, 248, 0.45);
+  transform: translate(-50%, -50%) skew(-18deg);
+  overflow: hidden;
+  will-change: transform, width;
+}
+.ehp-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff3b1f, #ffb08a);
+  box-shadow: 0 0 10px rgba(255, 59, 31, 0.8);
+  /* Snappy, not laggy: a bar that eases behind the damage numbers makes
+     a burst feel weaker than it was. */
+  transition: width 0.09s linear;
+}
+/* Nearly down. Flashing is the last warning that one more burst does it. */
+.ehp.is-low .ehp-fill {
+  background: linear-gradient(90deg, #ffb02e, #fff0c2);
+  box-shadow: 0 0 12px rgba(255, 176, 46, 0.9);
+}
 .popups {
   position: absolute;
   left: 50%;
