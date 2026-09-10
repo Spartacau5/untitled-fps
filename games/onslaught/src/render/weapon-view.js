@@ -135,7 +135,11 @@ export class WeaponView {
   onEvent(ev, sim) {
     if (ev.type === EV_SHOT) {
       const n = ev.def,
-        p = 1 - ev.ads * 0.4;
+        // Aiming steadies the gun, but it used to take 40% of the kick away -
+        // enough that firing down the sights, which is most of the shooting,
+        // barely moved the model at all. A quarter still reads as steadier
+        // without erasing the recoil.
+        p = 1 - ev.ads * 0.25;
       ((this.kickPos.z += n.kickBack * p),
         (this.kickPos.y += n.kickUp * p),
         (this.kickRot.x += n.kickPitch * p * rand(0.8, 1.2)),
@@ -272,19 +276,22 @@ export class WeaponView {
       f = 2 * Math.sqrt(p) * 0.7;
     (this._spring(this.swayRot, this.swayRotV, g, v, t, 0.16),
       this._spring(this.swayPos, this.swayPosV, p, f, t, 0.07),
+      // Softer and less damped than it was (330 at 0.55), so the muzzle
+      // climbs and settles on an arc you can watch instead of snapping back
+      // before the eye catches it. That snap is what read as stiff.
       this._spring(
         this.kickRot,
         this.kickRotV,
-        330,
-        2 * Math.sqrt(330) * 0.55,
+        250,
+        2 * Math.sqrt(250) * 0.46,
         t,
         0.5,
       ),
       this._spring(
         this.kickPos,
         this.kickPosV,
-        330,
-        2 * Math.sqrt(330) * 0.6,
+        275,
+        2 * Math.sqrt(275) * 0.52,
         t,
         0.25,
       ));

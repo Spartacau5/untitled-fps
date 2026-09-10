@@ -87,7 +87,8 @@ test("moving parts declare the rest and travel the animation needs", () => {
     }
     // The magazine animation reads magRest unconditionally, so a gun with a
     // mag must have one.
-    if (parts.mag) assert.ok(parts.magRest, `${w.key} has a mag but no magRest`);
+    if (parts.mag)
+      assert.ok(parts.magRest, `${w.key} has a mag but no magRest`);
   }
 });
 
@@ -150,4 +151,46 @@ test("nothing is clipped through the camera inside the view", () => {
       `${w.key} clips ${offenders.length} part(s) through the camera inside the view at ADS: ${offenders.join(", ")}`,
     );
   }
+});
+
+test("every iron-sighted gun aims through its own sights", () => {
+  // The ADS pose puts the rig at adsOffset, so a sight at local (0, y, z)
+  // lands at camera y = adsOffset.y + y. For the sights to be on the
+  // crosshair that has to come out at zero. The pistol shipped without any
+  // sights at all - a flat slide with a rib - which is what made it the
+  // hardest gun in the game to aim.
+  for (const key of WEAPONS.filter((w) => hasWeaponModel(w.key)).map(
+    (w) => w.key,
+  )) {
+    const m = buildWeaponModel(key, makeRedDotMaterial());
+    const p = m.parts;
+    if (!p.sight || p.lens) continue; // red dots align through the optic
+    assert.ok(
+      Math.abs(p.adsOffset.y + p.sight.position.y) < 1e-6,
+      `${key}: sight at ${p.sight.position.y} against adsOffset ${p.adsOffset.y} - aims off the crosshair`,
+    );
+    assert.ok(
+      Math.abs(p.adsOffset.x + p.sight.position.x) < 1e-6,
+      `${key}: sights are off the centreline`,
+    );
+  }
+});
+
+test("the pistol has something to actually aim with", () => {
+  const m = buildWeaponModel("pistol", makeRedDotMaterial());
+  // Count the geometry standing proud of the slide top. A flat slide has
+  // none, which was the bug: aiming meant staring along a featureless wall.
+  const slide = m.parts.bolt;
+  let posts = 0;
+  slide.traverse((o) => {
+    if (!o.isMesh || !o.geometry.boundingBox)
+      o.geometry?.computeBoundingBox?.();
+    if (!o.isMesh) return;
+    const b = o.geometry.boundingBox;
+    if (b && o.position.y + b.max.y > 0.05) posts++;
+  });
+  assert.ok(
+    posts >= 3,
+    `only ${posts} pieces above the slide - needs a notch and a blade`,
+  );
 });

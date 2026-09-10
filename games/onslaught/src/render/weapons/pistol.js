@@ -36,7 +36,9 @@ export function buildPistolModel() {
   slide.add(box(0.026, 0.012, 0.19, M.metalDark, 0, 0.04, -0.04));
   slide.add(box(0.008, 0.004, 0.16, M.metalDark, 0, 0.046, -0.045));
   for (let i = 0; i < 7; i++)
-    slide.add(box(0.036, 0.028, 0.005, M.metalDark, 0, 0.019, 0.028 - i * 0.01));
+    slide.add(
+      box(0.036, 0.028, 0.005, M.metalDark, 0, 0.019, 0.028 - i * 0.01),
+    );
   for (let i = 0; i < 5; i++)
     slide.add(
       box(0.036, 0.022, 0.005, M.metalDark, 0, 0.019, -0.096 - i * 0.01),
@@ -46,6 +48,34 @@ export function buildPistolModel() {
   slide.add(box(0.007, 0.008, 0.006, M.metalLight, 0.015, 0.012, 0.01));
   // Extractor claw.
   slide.add(box(0.006, 0.009, 0.022, M.metalLight, 0.016, 0.026, 0.004, 0.002));
+
+  // Iron sights. There were none: the slide was flat from breech to muzzle
+  // with a rib down the middle, so aiming meant staring along a featureless
+  // wall of metal with nothing to line up. These ride on the slide so they
+  // move with it when it cycles.
+  //
+  // The sight line sits 10 mm above the slide top rather than level with it.
+  // Level, the top face is exactly edge-on and fills the view, which is what
+  // made this the hardest gun in the game to aim.
+  const REAR_Z = 0.03,
+    FRONT_Z = -0.128,
+    POST_TOP = 0.062;
+  const post = (w, h, x, z) =>
+    box(w, h, 0.008, M.metalDark, x, POST_TOP - h / 2, z, 0.001);
+  // Rear notch: two blades with a gap you look through.
+  (slide.add(post(0.008, 0.015, -0.0085, REAR_Z)),
+    slide.add(post(0.008, 0.015, 0.0085, REAR_Z)),
+    // Front blade, a shade taller so its tip is what you put on the target.
+    slide.add(post(0.006, 0.017, 0, FRONT_Z)));
+  // Three-dot, the way almost every pistol marks its sights: two either side
+  // of the notch and one on the front blade. Line the three up and you are
+  // on target - readable in a fraction of the time an unmarked notch takes.
+  for (const [x, z, r] of [
+    [-0.0085, REAR_Z - 0.004, 0.0016],
+    [0.0085, REAR_Z - 0.004, 0.0016],
+    [0, FRONT_Z - 0.003, 0.0019],
+  ])
+    slide.add(sphere(r, M.accent, x, POST_TOP - 0.005, z));
   g.add(slide);
   p.bolt = slide;
   p.boltRest = 0;
@@ -103,10 +133,17 @@ export function buildPistolModel() {
   p.eject.position.set(0.026, 0.028, -0.02);
   g.add(p.eject);
 
+  // Where the eye goes when aiming: through the rear notch, on the sight
+  // line, not on the slide. adsOffset is its mirror, which is what puts that
+  // point dead centre of the screen.
+  // On the post tops (POST_TOP), not partway down the blades: the tips are
+  // what you put on a target, so the tips are what belongs at screen centre.
   p.sight = new Object3D();
-  p.sight.position.set(0, 0.05, 0.032);
+  p.sight.position.set(0, POST_TOP, REAR_Z);
   g.add(p.sight);
-  p.adsOffset = new Vector3(0, -0.05, -0.34);
+  // Held a little further out than it was, too. A pistol at arm's length
+  // leaves room to see past the sights; at 0.34 the slide filled the frame.
+  p.adsOffset = new Vector3(0, -0.062, -0.38);
   p.hipOffset = new Vector3(0.12, -0.105, -0.5);
   p.hipRot = new Euler(0, 0.05, 0.03);
 
